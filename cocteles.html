@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+
+    <title>Cocteles | Entre Copas & Notas</title>
+    <meta name="description"
+        content="Galería de cocteles y reseñas de eventos. Filtrá por fecha y descubrí experiencias." />
+
+    <!-- Shared styles (para maridajes + cocteles) -->
+    <link rel="stylesheet" href="./css/gallery.css" />
+</head>
+
+<body class="page page--light">
+
+    <!-- Toasts (reutilizable) -->
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+
+    <!-- Header -->
+    <header class="topbar topbar--light">
+        <div class="container">
+            <nav class="nav">
+                <a class="brand" href="./index.html" aria-label="Ir a portada">
+                    <img src="./assets/img/logocuadradoBN-entrecopasynotas.png" alt="Entre Copas & Notas" />
+                    <span>Entre Copas &amp; Notas</span>
+                </a>
+
+                <div class="navlinks">
+                    <a href="./home.html#home">Home</a>
+                    <a href="./home.html#proximos">Próximos</a>
+                    <a href="./home.html#info">General</a>
+                </div>
+
+                <div class="navright">
+                    <a class="btn btn--light" href="./home.html#proximos">Próximos eventos</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero simple -->
+    <section class="heroLite" aria-label="Cocteles">
+        <div class="container">
+            <div class="heroLite__inner">
+                <div class="kicker">Galería</div>
+                <h1 class="h1">Cocteles</h1>
+                <p class="lead">
+                    Cada cóctel es una creación diseñada para sorprender. Combinamos destilados de distintas regiones,
+                    ingredientes frescos y técnicas contemporáneas para dar vida a sabores equilibrados, expresivos y
+                    memorables.
+
+                    Desde recetas clásicas reinterpretadas hasta mezclas innovadoras, cada preparación busca resaltar
+                    aromas, texturas y matices que evolucionan en cada sorbo. Frutas, hierbas, especias y notas cítricas
+                    se integran con precisión para crear experiencias que van más allá del trago.
+                </p>
+                <br>
+                <p class="lead"> Nuestras catas de cócteles invitan a descubrir el arte de la mixología de forma cercana
+                    y sensorial, explorando el origen de cada ingrediente y la intención detrás de cada combinación. Un
+                    recorrido pensado para disfrutar, aprender y compartir, donde cada copa marca el ritmo del momento.
+                </p>
+                <p class="lead">
+                    Porque un gran cóctel no solo se mezcla…
+                    se experimenta.</p>
+                <div class="heroLite__actions">
+                    <a class="btn primary btn--light" href="#galeria">Ver galería</a>
+                    <a class="btn btn--light" href="#reseñas">Leer reseñas</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Galería -->
+    <main>
+        <section class="section section--light" id="galeria">
+            <div class="container">
+                <div class="sectionHead sectionHead--left">
+                    <div>
+                        <h2 class="h2 h2--dark">Galería de Cocteles</h2>
+                        <p class="sub sub--dark">Filtrá por fecha (evento) y encontrá contenido rápido.</p>
+                    </div>
+                </div>
+
+                <!-- Filtros (placeholder, luego lo conectamos al JS) -->
+                <div class="filters">
+                    <div class="field">
+                        <label for="filterDate" class="label">Fecha</label>
+                        <select id="filterDate" class="select" aria-label="Filtrar por fecha">
+                            <option value="">Todas</option>
+                            <!-- JS: llena opciones -->
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="filterSearch" class="label">Buscar</label>
+                        <input id="filterSearch" class="input" type="search" placeholder="Ej: mojito, gin, cítricos…" />
+                    </div>
+                </div>
+
+                <!-- Grid tipo galería -->
+                <div class="galleryGrid" id="galleryGrid" aria-label="Galería">
+                    <!-- JS: pinta items -->
+                    <article class="gItem gItem--skeleton" aria-hidden="true"></article>
+                    <article class="gItem gItem--skeleton" aria-hidden="true"></article>
+                    <article class="gItem gItem--skeleton" aria-hidden="true"></article>
+                    <article class="gItem gItem--skeleton" aria-hidden="true"></article>
+                    <article class="gItem gItem--skeleton" aria-hidden="true"></article>
+                    <article class="gItem gItem--skeleton" aria-hidden="true"></article>
+                    <article class="gItem gItem--skeleton" aria-hidden="true"></article>
+                    <article class="gItem gItem--skeleton" aria-hidden="true"></article>
+                </div>
+            </div>
+        </section>
+
+        <!-- Reseñas -->
+        <section class="section section--light section--reviews" id="reseñas">
+            <div class="container">
+                <div class="sectionHead sectionHead--left">
+                    <div>
+                        <h2 class="h2 h2--dark">Reseñas de eventos</h2>
+                        <p class="sub sub--dark">Elegí el evento y dejá tu reseña. Se verán en tiempo real.</p>
+                    </div>
+                </div>
+
+                <div class="reviewsWrap">
+                    <!-- Form -->
+                    <form class="reviewForm" id="reviewForm" autocomplete="off">
+                        <div class="row">
+                            <div class="field">
+                                <label class="label" for="reviewEvent">Evento</label>
+                                <select id="reviewEvent" class="select" required>
+                                    <option value="" disabled selected>Seleccioná un evento</option>
+                                    <!-- JS: llena opciones -->
+                                </select>
+                            </div>
+
+                            <div class="field">
+                                <label class="label" for="reviewName">Tu nombre</label>
+                                <input id="reviewName" class="input" type="text" placeholder="Opcional"
+                                    maxlength="40" />
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label class="label" for="reviewText">Tu reseña</label>
+                            <textarea id="reviewText" class="textarea" rows="4"
+                                placeholder="Contanos cómo estuvo la experiencia…" required maxlength="420"></textarea>
+                            <div class="hint"><span id="reviewCount">0</span>/420</div>
+                        </div>
+                        <div class="formActions">
+                            <button class="btn primary btn--light" type="submit">Publicar reseña</button>
+                            <p class="miniNote">Al publicar aceptás que tu comentario sea visible para otros.</p>
+                        </div>
+                    </form>
+
+                    <!-- List -->
+                    <div class="reviewList" id="reviewList" aria-label="Listado de reseñas">
+                        <!-- JS: pinta reseñas -->
+                        <div class="reviewEmpty" id="reviewEmpty">
+                            Aún no hay reseñas. Sé la primera persona en comentar 🙌
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer footer--light">
+        <div class="container">
+            <div class="footerRow footerRow--light">
+                <div>Entre Copas &amp; Notas · Experiencias</div>
+                <div class="social">
+                    <a class="icon-btn icon-btn--light"
+                        href="https://wa.me/5068845123?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
+                        target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
+                    <a class="icon-btn icon-btn--light" href="https://instagram.com/entrecopasynotas" target="_blank"
+                        rel="noopener" aria-label="Instagram">IG</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Shared script (para maridajes + cocteles) -->
+    <script src="./js/data.js" defer></script>
+    <script src="./js/gallery.js" defer></script>
+
+    <!-- Config de página -->
+    <script>
+        window.ECN_PAGE = { type: "cocteles" };
+    </script>
+
+</body>
+
+</html>

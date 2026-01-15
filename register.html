@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#000000" />
+  <title>Inscripción | Entre Copas & Notas</title>
+  <meta name="description" content="Formulario de inscripción para eventos de catas y coctelería." />
+
+  <link rel="stylesheet" href="./css/register.css" />
+</head>
+
+<body>
+  <!-- Toasts -->
+  <div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
+
+  <!-- Header -->
+  <header class="topbar">
+    <div class="container">
+      <div class="nav">
+        <a class="brand" id="backBtn" href="./event.html" aria-label="Volver">
+          <span class="backIcon" aria-hidden="true">←</span>
+          <span class="backText">Volver</span>
+        </a>
+
+        <a class="brandRight" href="./home.html" aria-label="Ir a home">
+          <img src="./assets/img/logocuadrado-entrecopasynotas.png" alt="Logo" />
+          <span>Entre Copas &amp; Notas</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="page">
+    <div class="container">
+      <section class="card">
+        <div class="cardTop">
+
+          <!-- ✅ Row superior: Inscripción + cupos disponibles -->
+          <div class="cardTopRow">
+            <p class="kicker">Inscripción</p>
+
+            <!-- ✅ Cupos disponibles (no totales). register.js puede setear el texto -->
+            <span class="cuposBadge" id="availableSeats">CUPOS: —</span>
+          </div>
+
+          <div>
+            <h1 class="title" id="eventTitle">Evento</h1>
+            <p class="sub" id="eventDesc">Completá tus datos para reservar tu cupo.</p>
+          </div>
+
+          <!-- ✅ MetaBox full width (tipo, fechas disponibles, duración, horarios) -->
+          <div class="metaBox" id="metaBox"></div>
+        </div>
+
+        <!-- ✅ Padding interno del formulario -->
+        <div class="formWrap">
+          <form id="regForm" novalidate>
+            <div class="grid">
+              <div class="field">
+                <label for="firstName">Nombre</label>
+                <input id="firstName" name="firstName" type="text" autocomplete="given-name" placeholder="Ej. Ana"
+                  required />
+                <p class="err" data-err-for="firstName"></p>
+              </div>
+
+              <div class="field">
+                <label for="lastName">Apellidos</label>
+                <input id="lastName" name="lastName" type="text" autocomplete="family-name" placeholder="Ej. Pérez Soto"
+                  required />
+                <p class="err" data-err-for="lastName"></p>
+              </div>
+
+              <div class="field">
+                <label for="birthDate">Fecha de nacimiento</label>
+                <input id="birthDate" name="birthDate" type="date" required />
+                <p class="err" data-err-for="birthDate"></p>
+              </div>
+
+              <div class="field">
+                <label for="email">Correo electrónico</label>
+                <input id="email" name="email" type="email" autocomplete="email" placeholder="ejemplo@correo.com"
+                  required />
+                <p class="err" data-err-for="email"></p>
+              </div>
+
+              <div class="field">
+                <label for="phone">Teléfono (WhatsApp)</label>
+                <input id="phone" name="phone" type="tel" inputmode="numeric" placeholder="5068845123" required />
+                <p class="hint">Acepta 8 dígitos CR o con 506. Sin espacios.</p>
+                <p class="err" data-err-for="phone"></p>
+              </div>
+
+              <div class="field">
+                <label for="eventDate">Fecha del evento</label>
+                <select id="eventDate" name="eventDate" required></select>
+                <p class="err" data-err-for="eventDate"></p>
+              </div>
+
+              <div class="field full">
+                <label for="allergies">Alergias (máx. 120 caracteres)</label>
+                <textarea id="allergies" name="allergies" rows="3" maxlength="120"
+                  placeholder="Ej. No mariscos / intolerancia a lactosa / etc."></textarea>
+                <div class="counter">
+                  <span id="count">0</span>/120
+                </div>
+                <p class="err" data-err-for="allergies"></p>
+              </div>
+            </div>
+
+            <div class="btnsub">
+              <button class="btn primary" id="submitBtn" type="submit">Inscribirme</button>
+            </div>
+                <div class="field full">
+                <label class="check">
+                  <input id="marketingOptIn" name="marketingOptIn" type="checkbox" />
+                  <span>Quiero recibir información de próximos eventos por correo o WhatsApp.</span>
+                </label>
+              </div>
+
+            <p class="fine">
+              Tus datos se usan solo para gestionar la reserva y enviarte la confirmación.
+            </p>
+          </form>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footerRow">
+        <div>Entre Copas &amp; Notas · Experiencias</div>
+        <div class="social">
+          <a class="icon-btn"
+             href="https://wa.me/5068845123?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
+             target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
+          <a class="icon-btn"
+             href="https://instagram.com/entrecopasynotas"
+             target="_blank" rel="noopener" aria-label="Instagram">IG</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="./js/data.js"></script>
+  <script src="./js/register.js"></script>
+
+</body>
+
+</html>

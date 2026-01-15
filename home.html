@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#000000" />
+
+  <title>Entre Copas & Notas | Experiencias en vino y coctelería</title>
+  <meta name="description" content="Catas de vino y experiencias de coctelería. Descubrí próximos eventos, fechas y cupos disponibles." />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="./css/home.css" />
+</head>
+
+<body>
+
+  <!-- Toasts -->
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+
+  <!-- Modal evento (se mantiene para eventos) -->
+  <div class="modal" id="eventModal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Detalle del evento">
+    <div class="modalCard">
+      <div class="modalTop">
+        <div>
+          <h3 id="mTitle">Evento</h3>
+          <p id="mDesc"></p>
+        </div>
+        <button class="icon-btn" id="mClose" type="button" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="modalBody">
+        <div class="modalMedia" id="mMedia"></div>
+
+        <div class="modalBox">
+          <div class="kv" id="mKv"></div>
+
+          <div class="modalActions">
+            <a class="btn" id="mMore" href="./event.html">Ver más</a>
+            <a class="btn primary" id="mRegister" href="./register.html">Inscribirme</a>
+          </div>
+
+          <p class="modalNote">
+            * Si los cupos llegan a 0, el evento se marca como “Agotado”.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ PROMO MODAL (Publicidad) -->
+  <div class="pmodal" id="promoModal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Promoción">
+    <div class="pmodalCard" role="document">
+      <button class="pmodalClose" id="promoClose" type="button" aria-label="Cerrar">✕</button>
+
+      <div class="pmodalMedia" id="promoMedia" aria-hidden="true"></div>
+
+      <div class="pmodalBody">
+        <div class="pmodalTop">
+          <span class="pbadge" id="promoBadge" hidden>NUEVO</span>
+          <h3 class="pmodalTitle" id="promoTitle">Promo</h3>
+          <p class="pmodalDesc" id="promoDesc"></p>
+        </div>
+
+        <div class="pmodalActions">
+          <a class="btn primary" id="promoCta" href="#">Conocer</a>
+          <button class="btn" id="promoLater" type="button">Más tarde</button>
+        </div>
+
+        <p class="pmodalNote" id="promoNote"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="topbar">
+    <div class="container">
+      <nav class="nav">
+        <a class="brand" href="./index.html" aria-label="Ir a portada">
+          <img src="./assets/img/logocuadrado-entrecopasynotas.png" alt="Entre Copas & Notas" />
+          <span>Entre Copas &amp; Notas</span>
+        </a>
+
+        <div class="navlinks">
+          <a href="#home">Home</a>
+          <a href="#proximos">Próximos</a>
+          <a href="#info">General</a>
+        </div>
+
+        <div class="navright">
+          <a class="btn" href="#proximos">Próximos eventos</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ✅ PROMO BANNER MOUNT -->
+  <div id="promoBannerMount" aria-live="polite"></div>
+
+  <!-- HERO / CARRUSEL -->
+  <section class="hero" id="home" aria-label="Carrusel de próximos eventos">
+    <div class="heroInner">
+      <div class="slides" id="slides"></div>
+
+      <div class="heroControls">
+        <div class="container">
+          <div class="controlsRow">
+            <div class="dots" id="dots" aria-label="Navegación del carrusel"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRÓXIMOS EVENTOS -->
+  <section class="section" id="proximos">
+    <div class="container">
+      <div class="sectionHead">
+        <div>
+          <h2 class="h2">Próximos eventos</h2>
+          <p class="sub">Seleccioná un mes y descubrí las experiencias disponibles.</p>
+        </div>
+      </div>
+
+      <div class="months" id="monthAnchors" aria-label="Meses"></div>
+      <div class="grid" id="monthGrid" aria-label="Eventos por mes"></div>
+    </div>
+  </section>
+
+  <!-- INFO DESTACADA -->
+  <section class="section section--highlight" id="info">
+    <div class="container">
+      <div class="sectionHead sectionHead--center">
+        <div>
+          <h2 class="h2">Dos experiencias. Un mismo mood.</h2>
+          <p class="sub">Elegí tu estilo y viví una experiencia guiada, social y memorable.</p>
+        </div>
+      </div>
+
+      <div class="duoCards">
+
+        <article class="duoCard">
+          <div class="duoMedia" style="--img:url('/assets/img/features/feature-wine.png');"></div>
+          <div class="duoBody">
+            <h3>Catas de vino</h3>
+            <p>Explorá aromas, notas y maridajes en un formato fácil de seguir.</p>
+            <ul class="duoList">
+              <li>Guía paso a paso</li>
+              <li>Maridajes y tips</li>
+              <li>Ambiente relajado</li>
+            </ul>
+            <div class="duoActions">
+              <a class="btn primary" href="./maridajes.html">Leer más</a>
+            </div>
+          </div>
+        </article>
+
+        <article class="duoCard">
+          <div class="duoMedia" style="--img:url('/assets/img/features/feature-cocktail.png');"></div>
+          <div class="duoBody">
+            <h3>Coctelería</h3>
+            <p>Técnica, balance y presentación para cócteles con estilo.</p>
+            <ul class="duoList">
+              <li>Clásicos y autor</li>
+              <li>Métodos e ingredientes</li>
+              <li>Degustación guiada</li>
+            </ul>
+            <div class="duoActions">
+              <a class="btn primary" href="./cocteles.html">Leer más</a>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footerRow">
+        <div>Entre Copas &amp; Notas · Experiencias</div>
+        <div class="social">
+          <a class="icon-btn"
+             href="https://wa.me/5068845123?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
+             target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
+          <a class="icon-btn"
+             href="https://instagram.com/entrecopasynotas"
+             target="_blank" rel="noopener" aria-label="Instagram">IG</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="./js/data.js" defer></script>
+  <script src="./js/home.js" defer></script>
+
+  <script src="./js/home-promos.js"></script>
+
+</body>
+</html>

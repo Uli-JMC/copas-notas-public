@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#000000" />
+  <title>Evento | Entre Copas & Notas</title>
+  <meta name="description" content="Detalle del evento: fechas, cupos y descripción." />
+
+  <!-- ✅ Ruta relativa consistente -->
+  <link rel="stylesheet" href="./css/event.css" />
+</head>
+
+<body>
+  <!-- Toasts -->
+  <div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
+
+  <!-- Header -->
+  <header class="topbar">
+    <div class="container">
+      <div class="nav">
+        <a class="brand" href="./home.html#proximos" aria-label="Volver a próximos eventos">
+          <span class="backIcon" aria-hidden="true">←</span>
+          <span class="backText">Volver</span>
+        </a>
+
+        <a class="brandRight" href="./home.html" aria-label="Ir a home">
+          <img src="./assets/img/logocuadrado-entrecopasynotas.png" alt="Entre Copas &amp; Notas" />
+          <span>Entre Copas &amp; Notas</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero" aria-label="Detalle del evento">
+    <!-- Tu event.js puede setear: heroBg.style.setProperty('--bgimg', `url(...)`) -->
+    <div class="heroBg" id="heroBg"></div>
+
+    <div class="container heroWrap">
+      <div class="heroCard" id="heroCard">
+        <div class="heroMeta" id="metaRow"></div>
+
+        <h1 class="title" id="evTitle">Evento</h1>
+        <p class="desc" id="evDesc">Descripción del evento.</p>
+
+        <div class="grid">
+          <div class="panel">
+            <h2 class="h2">Fechas disponibles</h2>
+            <p class="sub">Seleccioná una fecha para tu inscripción (si hay más de una).</p>
+
+            <div class="dates" id="dateList"></div>
+
+            <div class="notice" id="soldNotice" hidden>
+              <span class="badge danger">Agotado</span>
+              <span>Este evento no tiene cupos disponibles.</span>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2 class="h2">Detalles</h2>
+
+            <div class="kv" id="kv"></div>
+
+            <div class="actions">
+              <a class="btn" id="btnHome" href="./home.html#proximos">Ver otros eventos</a>
+              <a class="btn primary" id="btnRegister" href="./register.html">Inscribirme</a>
+            </div>
+
+            <p class="fine">
+              Al inscribirte, te llega confirmación al correo. Si seleccionás “recibir info”, también por WhatsApp.
+            </p>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Extra: 2 cards informativas -->
+        <div class="miniCards">
+          <div class="miniCard">
+            <p class="miniTitle">¿Qué incluye?</p>
+            <ul class="miniList">
+              <li>Guía durante la experiencia</li>
+              <li>Degustación según el formato del evento</li>
+              <li>Dinámica y recomendaciones prácticas</li>
+            </ul>
+          </div>
+
+          <div class="miniCard">
+            <p class="miniTitle">Recomendaciones</p>
+            <ul class="miniList">
+              <li>Llegá 10–15 min antes</li>
+              <li>Traé buena vibra y curiosidad</li>
+              <li>Indicá alergias al inscribirte</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footerRow">
+        <div>Entre Copas &amp; Notas · Experiencias</div>
+        <div class="social">
+          <!-- ✅ wa.me correcto: código país + número, sin "+" -->
+          <a class="icon-btn"
+            href="https://wa.me/5068845123?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
+            target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
+
+          <a class="icon-btn" href="https://instagram.com/entrecopasynotas"
+            target="_blank" rel="noopener" aria-label="Instagram">IG</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ✅ ORDEN CORRECTO: primero data.js, luego event.js (rutas relativas) -->
+  <script src="./js/data.js"></script>
+  <script src="./js/event.js"></script>
+</body>
+
+</html>
