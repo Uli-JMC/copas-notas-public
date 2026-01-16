@@ -1,19 +1,24 @@
 "use strict";
 
 /* ============================================================
-   register.js (Supabase)
+   register.js (Supabase) ✅ ALINEADO
    - Lee event + fechas desde Supabase
    - Permite seleccionar fecha (event_dates)
    - Muestra cupos disponibles reales (seats_available)
    - Inserta inscripción + decrementa cupo en UNA operación vía RPC
-   - RPC args validados:
+
+   ✅ RPC FIRMA CANÓNICA (dejá SOLO esta en DB):
      p_event_id uuid,
      p_event_date_id uuid,
      p_name text,
      p_email text,
      p_phone text,
-     p_marketing_opt_in boolean
-   - (Opcional) p_allergies text si ya lo agregaste en el RPC
+     p_marketing_opt_in boolean,
+     p_allergies text   -- opcional (podés mandar null o "")
+
+   Nota:
+   - Este JS SIEMPRE manda p_allergies (string o null) para evitar que
+     Supabase “escoja” otra firma por accidente.
 ============================================================ */
 
 // ============================================================
@@ -93,7 +98,8 @@ function clearFieldError(fieldId) {
 }
 
 function setHiddenDateId(value) {
-  const el = $("#dateId"); // (opcional) si existe en el HTML
+  // (opcional) si existe en el HTML
+  const el = $("#dateId");
   if (el) el.value = String(value || "");
 }
 
@@ -106,22 +112,11 @@ function getSb() {
 }
 
 // ============================================================
-// RPC capabilities (evita duplicar funciones)
-// ============================================================
-async function rpcSupportsAllergies(sb) {
-  // Si ya existe la función con p_allergies, no hacemos nada especial.
-  // En JS no hay un "introspect" directo fácil, así que lo manejamos:
-  // - Intentamos llamar con p_allergies solo si hay texto
-  // - Si falla por "function ... does not exist", reintentamos sin p_allergies
-  return true;
-}
-
-// ============================================================
 // State
 // ============================================================
 let EVENT_ID = "";
 let EVENT = null; // {id,title,desc,type,month_key,location,time_range,duration_hours, img}
-let DATES = [];   // [{id,label,seats_available,seats_total}]
+let DATES = []; // [{id,label,seats_available,seats_total}]
 let SELECTED_DATE_ID = "";
 let SELECTED_DATE_LABEL = "";
 
@@ -198,6 +193,7 @@ function renderHeader() {
 
   renderMetaBox();
 
+  // Badge: si hay fecha seleccionada => cupos de esa fecha, si no => total disponibles
   if (SELECTED_DATE_ID) {
     const d = getDateById(SELECTED_DATE_ID);
     const s = d ? Math.max(0, Number(d.seats_available) || 0) : 0;
@@ -235,7 +231,7 @@ function renderDatesSelect(preselectDateId = "", preselectLabel = "") {
     select.appendChild(opt);
   });
 
-  // Preselect por ID
+  // ✅ Preselect por ID (preferido)
   if (preselectDateId) {
     const match = DATES.find((x) => String(x.id) === String(preselectDateId));
     if (match && (Number(match.seats_available) || 0) > 0) {
@@ -247,7 +243,7 @@ function renderDatesSelect(preselectDateId = "", preselectLabel = "") {
     }
   }
 
-  // Fallback por label
+  // ✅ Fallback por label (compat)
   if (preselectLabel) {
     const match = getDateByLabel(preselectLabel);
     if (match && (Number(match.seats_available) || 0) > 0) {
@@ -297,6 +293,7 @@ async function fetchEventAndDates(eventId) {
   if (evErr) throw evErr;
   if (!ev) return { event: null, dates: [] };
 
+  // ✅ Orden por created_at si existe, si no por label
   let ds = null;
   let dErr = null;
 
@@ -324,11 +321,11 @@ async function fetchEventAndDates(eventId) {
 
   const dates = Array.isArray(ds)
     ? ds.map((x) => ({
-        id: x.id,
-        label: safeTrim(x.label),
-        seats_total: Math.max(0, Number(x.seats_total) || 0),
-        seats_available: Math.max(0, Number(x.seats_available) || 0),
-      }))
+      id: x.id,
+      label: safeTrim(x.label),
+      seats_total: Math.max(0, Number(x.seats_total) || 0),
+      seats_available: Math.max(0, Number(x.seats_available) || 0),
+    }))
     : [];
 
   return { event: ev, dates };
@@ -421,24 +418,20 @@ async function submitRegistration() {
 
   const firstName = ($("#firstName")?.value || "").trim();
   const lastName = ($("#lastName")?.value || "").trim();
-  const fullName = `${firstName} ${lastName}`.trim();
+  const fullName = `${firstName} ${lastName}`.replace(/\s+/g, " ").trim();
 
   const allergiesText = ($("#allergies")?.value || "").trim();
+  const allergiesSafe = allergiesText ? allergiesText.slice(0, 120) : null;
 
-  // ✅ Payload alineado al RPC VALIDADO
-  const payloadBase = {
+  // ✅ Payload 100% alineado con la FIRMA CANÓNICA (7 params)
+  const payload = {
     p_event_id: String(EVENT_ID),
     p_event_date_id: String(dateId),
     p_name: fullName,
     p_email: ($("#email")?.value || "").trim().toLowerCase(),
     p_phone: normalizedPhone,
     p_marketing_opt_in: !!$("#marketingOptIn")?.checked,
-  };
-
-  // Opcional: solo mandamos p_allergies si hay texto (y si tu RPC lo soporta)
-  const payloadWithAllergies = {
-    ...payloadBase,
-    p_allergies: allergiesText,
+    p_allergies: allergiesSafe, // mandamos null si viene vacío
   };
 
   const submitBtn = $("#submitBtn");
@@ -450,32 +443,8 @@ async function submitRegistration() {
   }
 
   try {
-    // Intento #1: con alergias (si hay texto)
-    let rpcErr = null;
-
-    if (allergiesText) {
-      const { error } = await sb.rpc("register_for_event", payloadWithAllergies);
-      rpcErr = error;
-    } else {
-      const { error } = await sb.rpc("register_for_event", payloadBase);
-      rpcErr = error;
-    }
-
-    // Si falló porque el RPC NO tiene p_allergies, reintentamos SIN p_allergies
-    if (rpcErr && allergiesText) {
-      const m = String(rpcErr.message || "").toLowerCase();
-      const looksLikeSignatureMismatch =
-        m.includes("function") && m.includes("does not exist") && m.includes("register_for_event");
-
-      if (looksLikeSignatureMismatch) {
-        const { error: retryErr } = await sb.rpc("register_for_event", payloadBase);
-        if (retryErr) throw retryErr;
-      } else {
-        throw rpcErr;
-      }
-    } else if (rpcErr) {
-      throw rpcErr;
-    }
+    const { error } = await sb.rpc("register_for_event", payload);
+    if (error) throw error;
 
     // Re-cargar cupos actualizados
     const fresh = await fetchEventAndDates(EVENT_ID);
@@ -501,7 +470,6 @@ async function submitRegistration() {
     setTimeout(() => {
       window.location.href = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
     }, 1100);
-
   } catch (err) {
     console.error(err);
 
@@ -509,21 +477,62 @@ async function submitRegistration() {
     const msg = rawMsg.toLowerCase();
 
     if (msg.includes("does not exist") && msg.includes("register_for_event")) {
-      toast("Falta configurar", "No existe la función register_for_event (RPC) en Supabase.");
-    } else if (msg.includes("permission") || msg.includes("rls") || msg.includes("not allowed") || msg.includes("42501")) {
-      toast("Permisos", "RLS está bloqueando la inscripción. Revisemos policies/función SECURITY DEFINER.");
-    } else if (msg.includes("no seats") || msg.includes("agotado") || msg.includes("sold")) {
-      toast("Agotado", "Esa fecha se quedó sin cupos. Elegí otra.");
-    } else if (msg.includes("duplicate") || msg.includes("already") || msg.includes("exists") || msg.includes("unique")) {
-      toast("Ya estás inscrito", "Encontramos una inscripción previa para ese correo en esta fecha.");
-      setFieldError("email", "Este correo ya está inscrito para esta fecha.");
-    } else if (msg.includes("invalid date") || msg.includes("invalid") || msg.includes("fecha")) {
-      toast("Fecha inválida", "Esa fecha no pertenece a este evento. Elegí otra.");
-      setFieldError("eventDate", "Fecha inválida. Elegí otra.");
-    } else {
-      toast("Error", "No se pudo enviar. Probá de nuevo.");
-    }
+      toast(
+        "RPC no alineado",
+        "La función register_for_event no coincide con la firma esperada (7 parámetros incluyendo p_allergies)."
+      );
 
+    } else if (
+      msg.includes("permission") ||
+      msg.includes("rls") ||
+      msg.includes("not allowed") ||
+      msg.includes("42501")
+    ) {
+      toast(
+        "Permisos",
+        "La base de datos bloqueó la inscripción. Revisemos RLS o SECURITY DEFINER."
+      );
+
+    } else if (
+      msg.includes("no seats") ||
+      msg.includes("agotado") ||
+      msg.includes("sold")
+    ) {
+      toast(
+        "Agotado",
+        "Esa fecha ya no tiene cupos disponibles. Elegí otra."
+      );
+
+    } else if (msg.includes("duplicate registration")) {
+      toast(
+        "Ya estás inscrito",
+        "Ese correo ya está inscrito para esta fecha."
+      );
+      setFieldError(
+        "email",
+        "Este correo ya está inscrito para la fecha seleccionada."
+      );
+
+    } else if (
+      msg.includes("invalid date") ||
+      msg.includes("fecha no existe") ||
+      msg.includes("invalid")
+    ) {
+      toast(
+        "Fecha inválida",
+        "La fecha seleccionada no pertenece a este evento."
+      );
+      setFieldError(
+        "eventDate",
+        "Fecha inválida. Elegí otra."
+      );
+
+    } else {
+      toast(
+        "Error",
+        "No se pudo completar la inscripción. Intentá nuevamente."
+      );
+    }
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.textContent = oldLabel || "Inscribirme";
@@ -536,7 +545,7 @@ async function submitRegistration() {
       DATES = fresh.dates;
       renderHeader();
       syncSubmitAvailability();
-    } catch (_) {}
+    } catch (_) { }
   }
 }
 
@@ -602,7 +611,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (sumAvailableSeatsFromDates(DATES) <= 0) {
       toast("Evento agotado", "Este evento no tiene cupos disponibles.");
     }
-
   } catch (err) {
     console.error(err);
     toast("Error", "No se pudo cargar el evento. Probá recargar.");
