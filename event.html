@@ -8,7 +8,6 @@
   <title>Evento | Entre Copas & Notas</title>
   <meta name="description" content="Detalle del evento: fechas, cupos y descripción." />
 
-  <!-- ✅ Ruta relativa consistente -->
   <link rel="stylesheet" href="./css/event.css" />
 </head>
 
@@ -26,7 +25,7 @@
         </a>
 
         <a class="brandRight" href="./home.html" aria-label="Ir a home">
-          <img src="./assets/img/logocuadrado-entrecopasynotas.png" alt="Entre Copas &amp; Notas" />
+          <img id="brandLogo" src="./assets/img/logocuadrado-entrecopasynotas.png" alt="Entre Copas &amp; Notas" />
           <span>Entre Copas &amp; Notas</span>
         </a>
       </div>
@@ -35,7 +34,6 @@
 
   <!-- Hero -->
   <section class="hero" aria-label="Detalle del evento">
-    <!-- Tu event.js puede setear: heroBg.style.setProperty('--bgimg', `url(...)`) -->
     <div class="heroBg" id="heroBg"></div>
 
     <div class="container heroWrap">
@@ -65,6 +63,7 @@
 
             <div class="actions">
               <a class="btn" id="btnHome" href="./home.html#proximos">Ver otros eventos</a>
+              <!-- event.js actualizará este href con ?event=...&date=... -->
               <a class="btn primary" id="btnRegister" href="./register.html">Inscribirme</a>
             </div>
 
@@ -76,7 +75,6 @@
 
         <div class="divider"></div>
 
-        <!-- Extra: 2 cards informativas -->
         <div class="miniCards">
           <div class="miniCard">
             <p class="miniTitle">¿Qué incluye?</p>
@@ -107,7 +105,6 @@
       <div class="footerRow">
         <div>Entre Copas &amp; Notas · Experiencias</div>
         <div class="social">
-          <!-- ✅ wa.me correcto: código país + número, sin "+" -->
           <a class="icon-btn"
             href="https://wa.me/5068845123?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
             target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
@@ -119,8 +116,11 @@
     </div>
   </footer>
 
-  <!-- ✅ ORDEN CORRECTO: primero data.js, luego event.js (rutas relativas) -->
-  <script src="./js/data.js"></script>
+  <!-- ✅ Supabase (mismo patrón que home.html) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./js/supabaseClient.js"></script>
+
+  <!-- ✅ Lógica de página -->
   <script src="./js/event.js"></script>
 </body>
 

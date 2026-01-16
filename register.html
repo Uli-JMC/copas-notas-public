@@ -42,8 +42,8 @@
           <div class="cardTopRow">
             <p class="kicker">Inscripción</p>
 
-            <!-- ✅ Cupos disponibles (no totales). register.js puede setear el texto -->
-            <span class="cuposBadge" id="availableSeats">CUPOS: —</span>
+            <!-- ✅ Cupos disponibles (no totales). register.js setea el texto -->
+            <span class="cuposBadge" id="availableSeats">CUPOS DISP.: —</span>
           </div>
 
           <div>
@@ -51,25 +51,27 @@
             <p class="sub" id="eventDesc">Completá tus datos para reservar tu cupo.</p>
           </div>
 
-          <!-- ✅ MetaBox full width (tipo, fechas disponibles, duración, horarios) -->
+          <!-- ✅ MetaBox full width -->
           <div class="metaBox" id="metaBox"></div>
         </div>
 
         <!-- ✅ Padding interno del formulario -->
         <div class="formWrap">
           <form id="regForm" novalidate>
+
+            <!-- ✅ opcional (no visible): útil para date_id si lo ocupás en Supabase RPC -->
+            <input type="hidden" id="dateId" name="dateId" value="" />
+
             <div class="grid">
               <div class="field">
                 <label for="firstName">Nombre</label>
-                <input id="firstName" name="firstName" type="text" autocomplete="given-name" placeholder="Ej. Ana"
-                  required />
+                <input id="firstName" name="firstName" type="text" autocomplete="given-name" placeholder="Ej. Ana" required />
                 <p class="err" data-err-for="firstName"></p>
               </div>
 
               <div class="field">
                 <label for="lastName">Apellidos</label>
-                <input id="lastName" name="lastName" type="text" autocomplete="family-name" placeholder="Ej. Pérez Soto"
-                  required />
+                <input id="lastName" name="lastName" type="text" autocomplete="family-name" placeholder="Ej. Pérez Soto" required />
                 <p class="err" data-err-for="lastName"></p>
               </div>
 
@@ -81,8 +83,7 @@
 
               <div class="field">
                 <label for="email">Correo electrónico</label>
-                <input id="email" name="email" type="email" autocomplete="email" placeholder="ejemplo@correo.com"
-                  required />
+                <input id="email" name="email" type="email" autocomplete="email" placeholder="ejemplo@correo.com" required />
                 <p class="err" data-err-for="email"></p>
               </div>
 
@@ -108,17 +109,18 @@
                 </div>
                 <p class="err" data-err-for="allergies"></p>
               </div>
-            </div>
 
-            <div class="btnsub">
-              <button class="btn primary" id="submitBtn" type="submit">Inscribirme</button>
-            </div>
-                <div class="field full">
+              <div class="field full">
                 <label class="check">
                   <input id="marketingOptIn" name="marketingOptIn" type="checkbox" />
                   <span>Quiero recibir información de próximos eventos por correo o WhatsApp.</span>
                 </label>
               </div>
+            </div>
+
+            <div class="btnsub">
+              <button class="btn primary" id="submitBtn" type="submit">Inscribirme</button>
+            </div>
 
             <p class="fine">
               Tus datos se usan solo para gestionar la reserva y enviarte la confirmación.
@@ -146,7 +148,11 @@
     </div>
   </footer>
 
-  <script src="./js/data.js"></script>
+  <!-- ✅ Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./js/supabaseClient.js"></script>
+
+  <!-- ✅ Lógica -->
   <script src="./js/register.js"></script>
 
 </body>

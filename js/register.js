@@ -1,5 +1,13 @@
 "use strict";
 
+/* ============================================================
+   register.js (Supabase)
+   - Lee event + fechas desde Supabase
+   - Permite seleccionar fecha (event_dates)
+   - Muestra cupos disponibles reales (seats_available)
+   - Inserta inscripción + decrementa cupo en UNA operación vía RPC
+============================================================ */
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -29,20 +37,23 @@ function toast(title, msg, timeoutMs = 3800) {
   `;
   toastsEl.appendChild(el);
 
-  const closeBtn = el.querySelector(".close");
   const kill = () => {
     el.style.opacity = "0";
     el.style.transform = "translateY(-6px)";
     setTimeout(() => el.remove(), 180);
   };
 
-  closeBtn?.addEventListener("click", kill, { once: true });
+  el.querySelector(".close")?.addEventListener("click", kill, { once: true });
   setTimeout(kill, timeoutMs);
 }
 
 function getParam(name) {
   const url = new URL(window.location.href);
   return url.searchParams.get(name);
+}
+
+function safeTrim(v) {
+  return String(v || "").trim();
 }
 
 function normalizePhone(raw) {
@@ -73,262 +84,66 @@ function clearFieldError(fieldId) {
   if (err) err.textContent = "";
 }
 
-function safeTrim(v) {
-  return String(v || "").trim();
-}
-
-function sumSeatsFromDates(ev) {
-  return (ev?.dates || []).reduce((a, d) => a + (Number(d?.seats) || 0), 0);
-}
-
-// ✅ Cupos DISPONIBLES (no totales): suma solo fechas con seats > 0
-function sumAvailableSeats(ev) {
-  return (ev?.dates || []).reduce((a, d) => {
-    const s = Number(d?.seats) || 0;
-    return a + (s > 0 ? s : 0);
-  }, 0);
+function setHiddenDateId(value) {
+  const el = $("#dateId");
+  if (el) el.value = String(value || "");
 }
 
 // ============================================================
-// ECN helpers (regs + seats) - Local-first
+// Supabase guard
 // ============================================================
-function getRegsLocal() {
-  try {
-    if (window.ECN && typeof ECN.getRegistrations === "function") {
-      const list = ECN.getRegistrations();
-      return Array.isArray(list) ? list : [];
-    }
-  } catch (_) {}
-
-  try {
-    const key = window.ECN?.LS?.REGS || "ecn_regs";
-    const raw = localStorage.getItem(key);
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch (_) {
-    return [];
-  }
-}
-
-function regExists(email, eventId, eventDate) {
-  const e = String(email || "").trim().toLowerCase();
-  const id = String(eventId || "");
-  const d = String(eventDate || "");
-  if (!e || !id || !d) return false;
-
-  const regs = getRegsLocal();
-  return regs.some((r) => {
-    const re = String(r?.email || "").trim().toLowerCase();
-    const rid = String(r?.event_id || r?.eventId || "");
-    const rd = String(r?.event_date || r?.eventDate || "");
-    return re === e && rid === id && rd === d;
-  });
-}
-
-function decrementSeatLocal(eventId, dateLabel) {
-  // 1) Hook oficial si existe
-  try {
-    if (window.ECN && typeof ECN.decrementSeat === "function") {
-      return !!ECN.decrementSeat(eventId, dateLabel);
-    }
-  } catch (_) {}
-
-  // 2) Fallback: actualizar localStorage de EVENTS (si tu data.js lo usa)
-  try {
-    const key = window.ECN?.LS?.EVENTS || "ecn_events";
-    const raw = localStorage.getItem(key);
-    const list = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(list)) return false;
-
-    const i = list.findIndex((x) => String(x?.id || "") === String(eventId || ""));
-    if (i < 0) return false;
-
-    const ev = list[i];
-    if (!Array.isArray(ev?.dates)) return false;
-
-    const j = ev.dates.findIndex((d) => String(d?.label || "") === String(dateLabel || ""));
-    if (j < 0) return false;
-
-    const cur = Math.max(0, Number(ev.dates[j].seats) || 0);
-    if (cur <= 0) return false;
-
-    ev.dates[j].seats = cur - 1;
-    list[i] = ev;
-    localStorage.setItem(key, JSON.stringify(list));
-    return true;
-  } catch (_) {
-    return false;
-  }
+function getSb() {
+  if (!window.APP || !APP.supabase) return null;
+  return APP.supabase;
 }
 
 // ============================================================
-// Data mapping (✅ soporta RAW y FLATTENED)
-// RAW:  {dates:[{label,seats}]}
-// FLAT: {dates:[string], _dates:[{label,seats}]}
+// State
 // ============================================================
-function toUiEvent(ev) {
-  const raw = ev || {};
-
-  const srcDates =
-    Array.isArray(raw._dates)
-      ? raw._dates
-      : Array.isArray(raw.dates) && raw.dates.length && typeof raw.dates[0] === "object"
-        ? raw.dates
-        : [];
-
-  const dates = srcDates
-    .map((d) => ({
-      label: safeTrim(d?.label),
-      seats: Math.max(0, Number(d?.seats) || 0),
-    }))
-    .filter((d) => d.label);
-
-  // Si NO hay objetos, pero dates viene como string[]
-  if (!dates.length && Array.isArray(raw.dates) && raw.dates.length && typeof raw.dates[0] !== "object") {
-    raw.dates.forEach((label) => {
-      const t = safeTrim(label);
-      if (t) dates.push({ label: t, seats: 0 });
-    });
-  }
-
-  const totalSeats =
-    window.ECN && typeof ECN.totalSeats === "function"
-      ? ECN.totalSeats(raw)
-      : dates.reduce((a, d) => a + (Number(d.seats) || 0), 0);
-
-  // ✅ NUEVO: campos oficiales (según tu data.js actualizado)
-  const location = safeTrim(raw.location);
-  const timeRange = safeTrim(raw.timeRange);
-  const durationHours = safeTrim(raw.durationHours);
-
-  // ✅ Compat (por si algo viejo los usaba)
-  const legacyDuration =
-    safeTrim(raw.duration) ||
-    safeTrim(raw.duracion) ||
-    safeTrim(raw.durationText) ||
-    safeTrim(raw.duracionText) ||
-    "";
-
-  const legacyHours =
-    safeTrim(raw.hours) ||
-    safeTrim(raw.horarios) ||
-    safeTrim(raw.schedule) ||
-    safeTrim(raw.horario) ||
-    safeTrim(raw.time) ||
-    "";
-
-  const legacyAddress =
-    safeTrim(raw.address) ||
-    safeTrim(raw.direccion) ||
-    safeTrim(raw.ubicacion) ||
-    "";
-
-  return {
-    id: raw.id,
-    type: raw.type,
-    monthKey: raw.monthKey,
-    title: raw.title,
-    desc: raw.desc,
-    dates,
-    seats: totalSeats,
-
-    // ✅ Canon
-    location: location || legacyAddress || "",
-    timeRange: timeRange || legacyHours || "",
-    durationHours: durationHours || legacyDuration || "",
-  };
-}
-
-function pickEvent() {
-  const eventId = getParam("event");
-  const dateFromUrl = getParam("date");
-
-  if (!window.ECN) {
-    return { ev: null, dateFromUrl };
-  }
-
-  let ev = null;
-
-  if (eventId) {
-    // ✅ preferí el RAW para tener dates[{label,seats}]
-    const raw =
-      typeof ECN.getEventById === "function" ? ECN.getEventById(eventId)
-      : typeof ECN.getEventRawById === "function" ? ECN.getEventRawById(eventId)
-      : null;
-
-    ev = raw ? toUiEvent(raw) : null;
-  }
-
-  if (!ev) {
-    const up =
-      typeof ECN.getUpcomingEvents === "function" ? ECN.getUpcomingEvents()
-      : typeof ECN.getEventsRaw === "function" ? ECN.getEventsRaw()
-      : typeof ECN.getEvents === "function" ? ECN.getEvents()
-      : [];
-
-    if (up && up.length) ev = toUiEvent(up[0]);
-  }
-
-  return { ev, dateFromUrl };
-}
+let EVENT_ID = "";
+let EVENT = null; // {id,title,desc,type,month_key,location,time_range,duration_hours, img}
+let DATES = [];   // [{id,label,seats_available,seats_total}]
+let SELECTED_DATE_ID = "";
+let SELECTED_DATE_LABEL = "";
 
 // ============================================================
-// UI helpers (meta dinámico)
+// UI: counters + badges
 // ============================================================
-function getSelectedDateSeats(ev, selectedLabel) {
-  if (!selectedLabel) return null;
-  const d = (ev?.dates || []).find((x) => x.label === selectedLabel);
-  return d ? Number(d.seats) || 0 : null;
-}
-
-// ✅ Badge superior: cupos disponibles (por fecha si hay selección, si no total disponible)
-function renderAvailableSeatsBadge(ev, selectedDateLabel = "") {
+function setAvailableBadge(text) {
   const badge = $("#availableSeats");
-  if (!badge) return;
-
-  const selected = String(selectedDateLabel || "").trim();
-  const seatsForSelected = selected ? getSelectedDateSeats(ev, selected) : null;
-
-  // Si hay fecha seleccionada, mostramos cupos de esa fecha
-  if (selected && seatsForSelected !== null) {
-    badge.textContent = `CUPOS DISP.: ${Math.max(0, seatsForSelected)}`;
-    return;
-  }
-
-  // Si no, mostramos cupos disponibles totales (solo >0)
-  const availableTotal = sumAvailableSeats(ev);
-  badge.textContent = `CUPOS DISP.: ${Math.max(0, availableTotal)}`;
+  if (badge) badge.textContent = text;
 }
 
-// ✅ MetaBox: ESTRUCTURA EXACTA para desktop:
-// Header: Tipo
-// Body en 2 columnas (con 4 filas en orden):
-// 1) Fechas disponibles  2) Ubicación
-// 3) Duración (hrs)      4) Hora (rango)
-// NOTA: tus IDs pedían "Dirección/Duración/Horarios"; ahora se alinea con data.js
-function renderEventHeader(ev, selectedDateLabel = "") {
-  const titleEl = $("#eventTitle");
-  const descEl = $("#eventDesc");
-  const metaBox = $("#metaBox");
+function sumAvailableSeatsFromDates(dates) {
+  return (dates || []).reduce((a, d) => a + Math.max(0, Number(d?.seats_available) || 0), 0);
+}
 
-  if (titleEl) titleEl.textContent = ev?.title || "Evento";
-  if (descEl) descEl.textContent = ev?.desc || "Completá tus datos para reservar tu cupo.";
+function getDateById(dateId) {
+  const id = String(dateId || "");
+  return (DATES || []).find((d) => String(d.id) === id) || null;
+}
+
+function getDateByLabel(label) {
+  const l = safeTrim(label);
+  if (!l) return null;
+  return (DATES || []).find((d) => safeTrim(d.label) === l) || null;
+}
+
+function renderMetaBox() {
+  const metaBox = $("#metaBox");
   if (!metaBox) return;
 
-  // Consistencia interna (no rompe nada)
-  const totalNow = sumSeatsFromDates(ev);
-  ev.seats = totalNow;
+  const datesText = (DATES || []).map((d) => d.label).filter(Boolean).join(" • ");
 
-  const datesText = (ev?.dates || []).map((d) => d.label).join(" • ");
-
-  const locationText = safeTrim(ev?.location) || "Por confirmar";
-  const durationText = safeTrim(ev?.durationHours) || "Por confirmar";
-  const timeRangeText = safeTrim(ev?.timeRange) || "Por confirmar";
+  const type = safeTrim(EVENT?.type) || "—";
+  const location = safeTrim(EVENT?.location) || "Por confirmar";
+  const duration = safeTrim(EVENT?.duration_hours) || "Por confirmar";
+  const timeRange = safeTrim(EVENT?.time_range) || "Por confirmar";
 
   metaBox.innerHTML = `
     <div class="mHead">
       <div class="mLabel">Tipo</div>
-      <div class="mValue">${escapeHtml(ev?.type || "—")}</div>
+      <div class="mValue">${escapeHtml(type)}</div>
     </div>
 
     <div class="mBody">
@@ -339,33 +154,49 @@ function renderEventHeader(ev, selectedDateLabel = "") {
 
       <div class="mRow">
         <div class="mLabel">Ubicación</div>
-        <div class="mValue">${escapeHtml(locationText)}</div>
+        <div class="mValue">${escapeHtml(location)}</div>
       </div>
 
       <div class="mRow">
         <div class="mLabel">Duración</div>
-        <div class="mValue">${escapeHtml(durationText)}</div>
+        <div class="mValue">${escapeHtml(duration)}</div>
       </div>
 
       <div class="mRow">
         <div class="mLabel">Hora</div>
-        <div class="mValue">${escapeHtml(timeRangeText)}</div>
+        <div class="mValue">${escapeHtml(timeRange)}</div>
       </div>
     </div>
   `;
-
-  // ✅ Badge superior
-  renderAvailableSeatsBadge(ev, selectedDateLabel);
 }
 
-function renderDates(ev, preselect) {
+function renderHeader() {
+  const titleEl = $("#eventTitle");
+  const descEl = $("#eventDesc");
+
+  if (titleEl) titleEl.textContent = EVENT?.title || "Evento";
+  if (descEl) descEl.textContent = EVENT?.desc || "Completá tus datos para reservar tu cupo.";
+
+  renderMetaBox();
+
+  // Badge (si hay fecha seleccionada => cupos de esa fecha, si no => total disponibles)
+  if (SELECTED_DATE_ID) {
+    const d = getDateById(SELECTED_DATE_ID);
+    const s = d ? Math.max(0, Number(d.seats_available) || 0) : 0;
+    setAvailableBadge(`CUPOS DISP.: ${s}`);
+  } else {
+    const total = sumAvailableSeatsFromDates(DATES);
+    setAvailableBadge(`CUPOS DISP.: ${Math.max(0, total)}`);
+  }
+}
+
+function renderDatesSelect(preselectDateId = "", preselectLabel = "") {
   const select = $("#eventDate");
   if (!select) return;
 
   select.innerHTML = "";
 
-  const dates = ev?.dates || [];
-  if (!dates.length) {
+  if (!Array.isArray(DATES) || !DATES.length) {
     const opt = document.createElement("option");
     opt.value = "";
     opt.textContent = "Sin fechas disponibles";
@@ -378,58 +209,121 @@ function renderDates(ev, preselect) {
   ph.textContent = "Seleccioná una fecha";
   select.appendChild(ph);
 
-  dates.forEach((d) => {
+  DATES.forEach((d) => {
     const opt = document.createElement("option");
-    opt.value = d.label;
-
-    // ✅ Solo fecha (NO cupos)
-    opt.textContent = `${d.label}`;
-
-    // Si está agotada, se deshabilita (pero sin mostrar cupos)
-    if ((Number(d.seats) || 0) <= 0) opt.disabled = true;
-
+    opt.value = String(d.id);
+    opt.textContent = String(d.label || "Por definir");
+    if ((Number(d.seats_available) || 0) <= 0) opt.disabled = true;
     select.appendChild(opt);
   });
 
-  if (preselect) {
-    const match = dates.find((x) => x.label === preselect);
-    if (match && (Number(match.seats) || 0) > 0) {
-      select.value = preselect;
+  // ✅ Preselect por ID (preferido)
+  if (preselectDateId) {
+    const match = DATES.find((x) => String(x.id) === String(preselectDateId));
+    if (match && (Number(match.seats_available) || 0) > 0) {
+      select.value = String(preselectDateId);
+      SELECTED_DATE_ID = String(preselectDateId);
+      SELECTED_DATE_LABEL = String(match.label || "");
+      setHiddenDateId(SELECTED_DATE_ID);
+      return;
+    }
+  }
+
+  // ✅ Fallback por label (compat si venía de links viejos)
+  if (preselectLabel) {
+    const match = getDateByLabel(preselectLabel);
+    if (match && (Number(match.seats_available) || 0) > 0) {
+      select.value = String(match.id);
+      SELECTED_DATE_ID = String(match.id);
+      SELECTED_DATE_LABEL = String(match.label || "");
+      setHiddenDateId(SELECTED_DATE_ID);
     }
   }
 }
 
-function syncSubmitAvailability(ev) {
+function syncSubmitAvailability() {
   const submitBtn = $("#submitBtn");
-  const dateSel = $("#eventDate");
-  if (!submitBtn || !dateSel) return;
+  const select = $("#eventDate");
+  if (!submitBtn || !select) return;
 
-  const selected = dateSel.value || "";
-  const soldOutTotal = (sumAvailableSeats(ev) || 0) <= 0; // ✅ disponible real
-
-  if (soldOutTotal) {
+  const totalAvail = sumAvailableSeatsFromDates(DATES);
+  if (totalAvail <= 0) {
     submitBtn.disabled = true;
     return;
   }
 
-  if (!selected) {
+  const picked = select.value || "";
+  if (!picked) {
     submitBtn.disabled = true;
     return;
   }
 
-  const seatsForDate = getSelectedDateSeats(ev, selected);
-  if (seatsForDate !== null && seatsForDate <= 0) {
-    submitBtn.disabled = true;
-    return;
+  const d = getDateById(picked);
+  const seats = d ? (Number(d.seats_available) || 0) : 0;
+  submitBtn.disabled = seats <= 0;
+}
+
+// ============================================================
+// Data loaders (Supabase)
+// ============================================================
+async function fetchEventAndDates(eventId) {
+  const sb = getSb();
+  if (!sb) throw new Error("APP.supabase no existe. Revisá el orden de scripts.");
+
+  // 1) Event
+  const { data: ev, error: evErr } = await sb
+    .from("events")
+    .select("id, title, desc, type, month_key, img, location, time_range, duration_hours")
+    .eq("id", eventId)
+    .maybeSingle();
+
+  if (evErr) throw evErr;
+  if (!ev) return { event: null, dates: [] };
+
+  // 2) Dates
+  // ✅ Orden preferido por created_at (si existe). Si no, fallback a label.
+  let ds = null;
+  let dErr = null;
+
+  const tryCreatedAt = await sb
+    .from("event_dates")
+    .select("id, event_id, label, seats_total, seats_available, created_at")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: true });
+
+  if (tryCreatedAt.error) {
+    const fallback = await sb
+      .from("event_dates")
+      .select("id, event_id, label, seats_total, seats_available")
+      .eq("event_id", eventId)
+      .order("label", { ascending: true });
+
+    ds = fallback.data;
+    dErr = fallback.error;
+  } else {
+    ds = tryCreatedAt.data;
+    dErr = null;
   }
 
-  submitBtn.disabled = false;
+  if (dErr) throw dErr;
+
+  // Normaliza
+  const dates = Array.isArray(ds)
+    ? ds.map((x) => ({
+        id: x.id,
+        label: safeTrim(x.label),
+        seats_total: Math.max(0, Number(x.seats_total) || 0),
+        seats_available: Math.max(0, Number(x.seats_available) || 0),
+      }))
+    : [];
+
+  return { event: ev, dates };
 }
 
 // ============================================================
 // Validation
 // ============================================================
-function validateForm(ev) {
+function validateForm() {
   let ok = true;
 
   const firstName = ($("#firstName")?.value || "").trim();
@@ -437,7 +331,7 @@ function validateForm(ev) {
   const birthDate = $("#birthDate")?.value || "";
   const email = ($("#email")?.value || "").trim();
   const phone = ($("#phone")?.value || "").trim();
-  const eventDate = $("#eventDate")?.value || "";
+  const eventDateId = $("#eventDate")?.value || "";
 
   ["firstName", "lastName", "birthDate", "email", "phone", "eventDate", "allergies"].forEach(clearFieldError);
 
@@ -473,12 +367,15 @@ function validateForm(ev) {
     setFieldError("phone", "Ingresá un teléfono válido (8 dígitos o 506 + 8).");
   }
 
-  if (!eventDate) {
+  if (!eventDateId) {
     ok = false;
     setFieldError("eventDate", "Seleccioná una fecha del evento.");
   } else {
-    const seatsForDate = getSelectedDateSeats(ev, eventDate);
-    if (seatsForDate !== null && seatsForDate <= 0) {
+    const d = getDateById(eventDateId);
+    if (!d) {
+      ok = false;
+      setFieldError("eventDate", "Fecha inválida. Elegí otra.");
+    } else if ((Number(d.seats_available) || 0) <= 0) {
       ok = false;
       setFieldError("eventDate", "Esa fecha está agotada. Elegí otra.");
     }
@@ -498,34 +395,139 @@ function validateForm(ev) {
 }
 
 // ============================================================
+// Submit (RPC seguro)
+// ============================================================
+async function submitRegistration() {
+  const sb = getSb();
+  if (!sb) throw new Error("APP.supabase no existe.");
+
+  const { ok, normalizedPhone } = validateForm();
+  if (!ok) {
+    toast("Revisá el formulario", "Hay campos pendientes o inválidos.");
+    return;
+  }
+
+  const dateId = $("#eventDate")?.value || "";
+  const d = getDateById(dateId);
+  if (!d || (Number(d.seats_available) || 0) <= 0) {
+    toast("Agotado", "Esa fecha ya no tiene cupos.");
+    syncSubmitAvailability();
+    renderHeader();
+    return;
+  }
+
+  setHiddenDateId(dateId);
+
+  const payload = {
+    p_event_id: String(EVENT_ID),
+    p_event_date_id: String(dateId),
+
+    p_first_name: ($("#firstName")?.value || "").trim(),
+    p_last_name: ($("#lastName")?.value || "").trim(),
+    p_birth_date: $("#birthDate")?.value || "",
+    p_email: ($("#email")?.value || "").trim().toLowerCase(),
+    p_phone: normalizedPhone,
+    p_allergies: ($("#allergies")?.value || "").trim(),
+    p_marketing_opt_in: !!$("#marketingOptIn")?.checked,
+  };
+
+  const submitBtn = $("#submitBtn");
+  const oldLabel = submitBtn ? submitBtn.textContent : "";
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Enviando…";
+  }
+
+  try {
+    const { error } = await sb.rpc("register_for_event", payload);
+    if (error) throw error;
+
+    // Re-cargar cupos actualizados
+    const fresh = await fetchEventAndDates(EVENT_ID);
+    EVENT = fresh.event;
+    DATES = fresh.dates;
+
+    // Reset selección (para que el user vea el total actualizado)
+    SELECTED_DATE_ID = "";
+    SELECTED_DATE_LABEL = "";
+    setHiddenDateId("");
+
+    // UI
+    $("#regForm")?.reset();
+    const countEl = $("#count");
+    if (countEl) countEl.textContent = "0";
+
+    renderDatesSelect("");
+    renderHeader();
+    syncSubmitAvailability();
+
+    toast("Inscripción completada", "Tu cupo quedó reservado.");
+
+    // Redirect suave al evento
+    setTimeout(() => {
+      window.location.href = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
+    }, 1100);
+
+  } catch (err) {
+    console.error(err);
+
+    const rawMsg = String(err?.message || "");
+    const msg = rawMsg.toLowerCase();
+
+    if (msg.includes("does not exist") && msg.includes("register_for_event")) {
+      toast("Falta configurar", "No existe la función register_for_event (RPC) en Supabase.");
+    } else if (msg.includes("permission") || msg.includes("rls") || msg.includes("not allowed") || msg.includes("42501")) {
+      toast("Permisos", "RLS está bloqueando la inscripción. Revisemos policies/función SECURITY DEFINER.");
+    } else if (msg.includes("no seats") || msg.includes("agotado") || msg.includes("sold")) {
+      toast("Agotado", "Esa fecha se quedó sin cupos. Elegí otra.");
+    } else if (msg.includes("duplicate") || msg.includes("already") || msg.includes("exists") || msg.includes("unique")) {
+      toast("Ya estás inscrito", "Encontramos una inscripción previa para ese correo en esta fecha.");
+      setFieldError("email", "Este correo ya está inscrito para esta fecha.");
+    } else {
+      toast("Error", "No se pudo enviar. Probá de nuevo.");
+    }
+
+    // Rehabilita botón
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = oldLabel || "Inscribirme";
+    }
+
+    // Refresca cupos (por si cambió)
+    try {
+      const fresh = await fetchEventAndDates(EVENT_ID);
+      EVENT = fresh.event;
+      DATES = fresh.dates;
+      renderHeader();
+      syncSubmitAvailability();
+    } catch (_) {}
+  }
+}
+
+// ============================================================
 // Init
 // ============================================================
-document.addEventListener("DOMContentLoaded", () => {
-  const picked = pickEvent();
-  const ev = picked.ev;
-  const dateFromUrl = picked.dateFromUrl;
+document.addEventListener("DOMContentLoaded", async () => {
+  const sb = getSb();
+  if (!sb) {
+    toast("Error", "Supabase no está cargado. Revisá scripts.");
+    return;
+  }
 
-  if (!ev) {
-    toast("Sin datos", "No encontramos el evento. Volviendo a Home…");
+  EVENT_ID = getParam("event") || "";
+  const dateIdFromUrl = getParam("date_id") || "";
+  const dateLabelFromUrl = getParam("date_label") || "";
+
+  if (!EVENT_ID) {
+    toast("Falta evento", "Volviendo a Home…");
     setTimeout(() => (window.location.href = "./home.html#proximos"), 900);
     return;
   }
 
-  // Buttons: volver + ver más
+  // Back button
   const backBtn = $("#backBtn");
-  const moreBtn = $("#moreBtn");
-  if (backBtn) backBtn.href = `./event.html?event=${encodeURIComponent(ev.id)}`;
-  if (moreBtn) moreBtn.href = `./event.html?event=${encodeURIComponent(ev.id)}`;
-
-  // Render header + dates
-  renderDates(ev, dateFromUrl);
-  const initialSelected = $("#eventDate")?.value || "";
-  renderEventHeader(ev, initialSelected);
-
-  // Sold out total (disponible real)
-  if ((sumAvailableSeats(ev) || 0) <= 0) {
-    toast("Evento agotado", "Este evento no tiene cupos disponibles.");
-  }
+  if (backBtn) backBtn.href = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
 
   // Counter allergies
   const allergiesEl = $("#allergies");
@@ -534,10 +536,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!countEl || !allergiesEl) return;
     countEl.textContent = String(allergiesEl.value.length);
   };
-  if (allergiesEl) allergiesEl.addEventListener("input", syncCount);
+  allergiesEl?.addEventListener("input", syncCount);
   syncCount();
 
-  // Live validation clear on input
+  // Live clear on input
   ["firstName", "lastName", "birthDate", "email", "phone", "eventDate", "allergies"].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -545,173 +547,65 @@ document.addEventListener("DOMContentLoaded", () => {
     el.addEventListener("change", () => clearFieldError(id));
   });
 
-  // Gate submit until date picked + cupos + meta live
-  const dateSel = $("#eventDate");
-  if (dateSel) {
-    dateSel.addEventListener("change", () => {
-      const selected = dateSel.value || "";
+  // Load data
+  try {
+    const { event, dates } = await fetchEventAndDates(EVENT_ID);
 
-      // Update header + badge
-      renderEventHeader(ev, selected);
+    if (!event) {
+      toast("No encontrado", "Ese evento no existe. Volviendo a Home…");
+      setTimeout(() => (window.location.href = "./home.html#proximos"), 900);
+      return;
+    }
 
-      // Gate
-      syncSubmitAvailability(ev);
+    EVENT = event;
+    DATES = dates;
 
-      // Toast si está agotada
-      if (selected) {
-        const seatsForDate = getSelectedDateSeats(ev, selected);
-        if (seatsForDate !== null && seatsForDate <= 0) {
-          toast("Agotado", "Esa fecha está agotada. Elegí otra.");
-          setFieldError("eventDate", "Esa fecha está agotada. Elegí otra.");
-        }
-      }
-    });
+    // Preselect date (id preferido; label fallback)
+    renderDatesSelect(dateIdFromUrl, dateLabelFromUrl);
+    renderHeader();
+    syncSubmitAvailability();
+
+    // Total agotado
+    if (sumAvailableSeatsFromDates(DATES) <= 0) {
+      toast("Evento agotado", "Este evento no tiene cupos disponibles.");
+    }
+
+  } catch (err) {
+    console.error(err);
+    toast("Error", "No se pudo cargar el evento. Probá recargar.");
+    return;
   }
-  syncSubmitAvailability(ev);
+
+  // Date change: update badge/meta + gate
+  const dateSel = $("#eventDate");
+  dateSel?.addEventListener("change", () => {
+    const picked = dateSel.value || "";
+    SELECTED_DATE_ID = picked;
+
+    const d = getDateById(picked);
+    SELECTED_DATE_LABEL = d ? String(d.label || "") : "";
+
+    setHiddenDateId(SELECTED_DATE_ID);
+
+    renderHeader();
+    syncSubmitAvailability();
+
+    if (picked && d && (Number(d.seats_available) || 0) <= 0) {
+      toast("Agotado", "Esa fecha está agotada. Elegí otra.");
+      setFieldError("eventDate", "Esa fecha está agotada. Elegí otra.");
+    }
+  });
 
   // Submit
   const form = $("#regForm");
-  if (!form) return;
-
-  form.addEventListener("submit", async (e) => {
+  form?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    if ((sumAvailableSeats(ev) || 0) <= 0) {
+    if (sumAvailableSeatsFromDates(DATES) <= 0) {
       toast("Agotado", "No hay cupos para este evento.");
       return;
     }
 
-    const { ok, normalizedPhone } = validateForm(ev);
-    if (!ok) {
-      toast("Revisá el formulario", "Hay campos pendientes o inválidos.");
-      return;
-    }
-
-    const selectedDate = $("#eventDate")?.value || "";
-    const dateSeats = getSelectedDateSeats(ev, selectedDate);
-
-    if (dateSeats !== null && dateSeats <= 0) {
-      toast("Agotado", "Esa fecha ya no tiene cupos.");
-      syncSubmitAvailability(ev);
-      renderEventHeader(ev, selectedDate);
-      return;
-    }
-
-    const emailLower = ($("#email")?.value || "").trim().toLowerCase();
-
-    // ✅ anti-duplicado (mismo email + evento + fecha)
-    if (regExists(emailLower, ev.id, selectedDate)) {
-      toast("Ya estás inscrito", "Encontramos un registro con ese correo para este evento y fecha.");
-      setFieldError("email", "Este correo ya está inscrito en esta fecha.");
-      return;
-    }
-
-    // Payload (luego se inserta en Supabase)
-    const payload = {
-      event_id: ev.id,
-      event_title: ev.title,
-      event_date: selectedDate,
-
-      // ✅ NUEVO: persistimos los nuevos campos en el registro (para admin + CSV)
-      event_location: safeTrim(ev.location) || "Por confirmar",
-      event_time_range: safeTrim(ev.timeRange) || "Por confirmar",
-      event_duration_hours: safeTrim(ev.durationHours) || "Por confirmar",
-
-      first_name: ($("#firstName")?.value || "").trim(),
-      last_name: ($("#lastName")?.value || "").trim(),
-      birth_date: $("#birthDate")?.value || "",
-      email: emailLower,
-      phone: normalizedPhone,
-      allergies: ($("#allergies")?.value || "").trim(),
-      marketing_opt_in: !!$("#marketingOptIn")?.checked,
-      created_at: new Date().toISOString(),
-    };
-
-    // UI submit
-    const submitBtn = $("#submitBtn");
-    const oldLabel = submitBtn ? submitBtn.textContent : "";
-
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Enviando…";
-    }
-
-    try {
-      // Simula request (luego se reemplaza por supabase.insert)
-      await new Promise((r) => setTimeout(r, 650));
-
-      // ✅ Descontar cupo local ANTES de guardar registro (evita sobrecupo)
-      const seatOk = decrementSeatLocal(ev.id, selectedDate);
-      if (!seatOk) {
-        toast("Agotado", "Esa fecha se quedó sin cupos justo ahora. Elegí otra.");
-
-        // refresca UI
-        const refreshedPick = pickEvent();
-        if (refreshedPick?.ev && refreshedPick.ev.id === ev.id) {
-          ev.dates = refreshedPick.ev.dates;
-          ev.seats = refreshedPick.ev.seats;
-          renderDates(ev, selectedDate);
-          renderEventHeader(ev, selectedDate);
-        }
-
-        syncSubmitAvailability(ev);
-
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = oldLabel || "Inscribirme";
-        }
-        return;
-      }
-
-      // ✅ Guarda en registros (localStorage) para el admin
-      if (window.ECN && typeof ECN.saveRegistration === "function") {
-        ECN.saveRegistration(payload);
-      } else {
-        const key = window.ECN?.LS?.REGS || "ecn_regs";
-        const regs = getRegsLocal();
-        regs.unshift(payload);
-        localStorage.setItem(key, JSON.stringify(regs));
-      }
-
-      // Compat
-      localStorage.setItem("last_registration", JSON.stringify(payload));
-
-      toast("Inscripción completada", "Te llegará por correo la confirmación.");
-
-      form.reset();
-      if (countEl) countEl.textContent = "0";
-
-      // Re-render fechas + header (refleja cupos nuevos)
-      const refreshed = pickEvent().ev;
-      if (refreshed && refreshed.id === ev.id) {
-        ev.dates = refreshed.dates;
-        ev.seats = refreshed.seats;
-
-        // importante: mantener meta en pantalla (location/time/duration)
-        ev.location = refreshed.location || ev.location;
-        ev.timeRange = refreshed.timeRange || ev.timeRange;
-        ev.durationHours = refreshed.durationHours || ev.durationHours;
-
-        renderDates(ev, "");
-        renderEventHeader(ev, "");
-      } else {
-        renderEventHeader(ev, "");
-      }
-
-      syncSubmitAvailability(ev);
-
-      // Redirección suave a “ver más”
-      setTimeout(() => {
-        window.location.href = `./event.html?event=${encodeURIComponent(ev.id)}`;
-      }, 1100);
-    } catch (err) {
-      console.error(err);
-      toast("Error", "No se pudo enviar. Probá de nuevo.");
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = oldLabel || "Inscribirme";
-      }
-      return;
-    }
+    await submitRegistration();
   });
 });

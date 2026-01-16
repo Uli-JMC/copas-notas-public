@@ -18,12 +18,14 @@ const qs = (sel) => document.querySelector(sel);
 // Imagen helpers
 // ============================================================
 function normalizeImgPath(input) {
-  const fallback = "/assets/img/hero-1.jpg"; // ✅ FIX: antes .png
+  const fallback = "/assets/img/hero-1.jpg";
   const raw = String(input ?? "").trim();
   if (!raw) return fallback;
 
+  // URL absoluta
   if (/^https?:\/\//i.test(raw)) return raw;
 
+  // conserva query/hash
   const [pathPart, rest] = raw.split(/(?=[?#])/);
   let p = pathPart.replaceAll("\\", "/");
 
@@ -41,40 +43,6 @@ function safeCssUrl(url) {
     .replaceAll('"', "%22")
     .replaceAll(")", "%29")
     .trim();
-}
-
-// ============================================================
-// Data mapping
-// ============================================================
-function toUiEvent(ev) {
-  const dates = (ev?.dates || []).map((d) => d?.label).filter(Boolean);
-  const seats =
-    window.ECN && typeof ECN.totalSeats === "function" ? ECN.totalSeats(ev) : 0;
-
-  return {
-    id: ev?.id || "",
-    type: ev?.type || "Experiencia",
-    monthKey: String(ev?.monthKey || "—").toUpperCase(),
-    dates,
-    title: ev?.title || "Evento",
-    desc: ev?.desc || "",
-    seats,
-    img: normalizeImgPath(ev?.img),
-  };
-}
-
-function getEvents() {
-  if (window.ECN?.getEvents) {
-    const list = ECN.getEvents();
-    return Array.isArray(list) ? list.map(toUiEvent) : [];
-  }
-
-  if (window.ECN?.getUpcomingEvents) {
-    const list = ECN.getUpcomingEvents();
-    return Array.isArray(list) ? list.map(toUiEvent) : [];
-  }
-
-  return [];
 }
 
 // ============================================================
@@ -122,6 +90,91 @@ function goRegister(id, soldOut) {
 }
 
 // ============================================================
+// Supabase helpers
+// ============================================================
+function hardFail(msg) {
+  try {
+    console.error(msg);
+  } catch (_) {}
+}
+
+function hasSupabase() {
+  return !!(window.APP && APP.supabase);
+}
+
+async function fetchEventsFromSupabase() {
+  if (!hasSupabase()) {
+    hardFail("APP.supabase no está listo. Revisá el orden: supabase-js CDN -> supabaseClient.js -> home.js");
+    return [];
+  }
+
+  // 1) Traer eventos
+  const evRes = await APP.supabase
+    .from("events")
+    .select('id,title,type,month_key,"desc",img,location,time_range,duration_hours,created_at,updated_at')
+    .order("created_at", { ascending: false });
+
+  if (evRes.error) {
+    console.error(evRes.error);
+    toast("Error", "No se pudieron cargar los eventos.");
+    return [];
+  }
+
+  const events = Array.isArray(evRes.data) ? evRes.data : [];
+  if (!events.length) return [];
+
+  // 2) Traer fechas (todas) y agregarlas por event_id
+  const datesRes = await APP.supabase
+    .from("event_dates")
+    .select("id,event_id,label,seats_total,seats_available,created_at")
+    .order("created_at", { ascending: true });
+
+  if (datesRes.error) {
+    console.error(datesRes.error);
+    toast("Aviso", "Eventos cargados, pero no se pudieron cargar las fechas.");
+  }
+
+  const dates = Array.isArray(datesRes.data) ? datesRes.data : [];
+  const byEvent = new Map();
+
+  dates.forEach((d) => {
+    const eid = d?.event_id;
+    if (!eid) return;
+    if (!byEvent.has(eid)) byEvent.set(eid, []);
+    byEvent.get(eid).push({
+      id: d?.id,
+      label: d?.label,
+      seats_available: Number(d?.seats_available ?? 0),
+      seats_total: Number(d?.seats_total ?? 0),
+    });
+  });
+
+  // 3) Mapear a UI (tu estructura actual)
+  return events.map((ev) => {
+    const evDates = byEvent.get(ev.id) || [];
+    const labels = evDates.map((x) => x.label).filter(Boolean);
+
+    // seats = suma de seats_available de todas las fechas
+    const seats = evDates.reduce((acc, x) => acc + (Number(x.seats_available) || 0), 0);
+
+    return {
+      id: ev?.id || "",
+      type: ev?.type || "Experiencia",
+      monthKey: String(ev?.month_key || "—").toUpperCase(),
+      dates: labels,
+      title: ev?.title || "Evento",
+      desc: ev?.desc || "",
+      seats,
+      img: normalizeImgPath(ev?.img),
+      // extras por si luego los ocupás en event.html
+      location: ev?.location || "",
+      timeRange: ev?.time_range || "",
+      durationHours: ev?.duration_hours || "",
+    };
+  });
+}
+
+// ============================================================
 // Carousel
 // ============================================================
 const slidesEl = qs("#slides");
@@ -135,9 +188,9 @@ let EVENTS = [];
 function getDefaultHero() {
   try {
     const media = window.ECN?.getMedia?.();
-    return normalizeImgPath(media?.defaultHero || "/assets/img/hero-1.jpg"); // ✅ FIX
+    return normalizeImgPath(media?.defaultHero || "/assets/img/hero-1.jpg");
   } catch {
-    return "/assets/img/hero-1.jpg"; // ✅ FIX
+    return "/assets/img/hero-1.jpg";
   }
 }
 
@@ -179,14 +232,8 @@ function renderSlides() {
 
     const slide = document.createElement("article");
     slide.className = "slide";
-    slide.style.setProperty(
-      "--bgimg",
-      `url('${safeCssUrl(ev.img || getDefaultHero())}')`
-    );
+    slide.style.setProperty("--bgimg", `url('${safeCssUrl(ev.img || getDefaultHero())}')`);
 
-    // ✅ SOLO 1 pill:
-    // - si agotado: AGOTADO
-    // - si no: tipo (Cata de vino / Coctelería / etc.)
     const pillText = soldOut ? "AGOTADO" : (ev.type || "Experiencia");
 
     slide.innerHTML = `
@@ -199,7 +246,6 @@ function renderSlides() {
           <h1 class="heroTitle">${escapeHtml(ev.title)}</h1>
           <p class="heroDesc">${escapeHtml(ev.desc)}</p>
 
-          <!-- ✅ SOLO botón Inscribirme -->
           <div class="heroActions">
             <button class="btn primary" data-action="register" data-id="${ev.id}"
               ${soldOut ? "disabled style='opacity:.55'" : ""}>
@@ -223,11 +269,13 @@ function renderSlides() {
 }
 
 function updateTransform() {
+  if (!slidesEl || !dotsEl) return;
   slidesEl.style.transform = `translateX(-${idx * 100}%)`;
   [...dotsEl.children].forEach((d, i) => d.setAttribute("aria-current", i === idx));
 }
 
 function goTo(next, user) {
+  if (!EVENTS.length) return;
   idx = (next + EVENTS.length) % EVENTS.length;
   updateTransform();
   if (user) restartAuto();
@@ -247,6 +295,7 @@ const monthGrid = qs("#monthGrid");
 let activeMonth = null;
 
 function getThreeMonthWindow() {
+  // Si ECN existe, usamos el helper; si no, fallback fijo
   return window.ECN?.getMonths3 ? ECN.getMonths3(new Date()) : ["ENERO", "FEBRERO", "MARZO"];
 }
 
@@ -277,11 +326,13 @@ function renderMonths() {
 }
 
 function renderMonthGrid() {
+  if (!monthGrid) return;
+
   monthGrid.innerHTML = "";
   const list = EVENTS.filter((e) => e.monthKey === activeMonth);
 
   if (!list.length) {
-    monthGrid.innerHTML = `<div class="emptyMonth">No hay eventos para <b>${activeMonth}</b>.</div>`;
+    monthGrid.innerHTML = `<div class="emptyMonth">No hay eventos para <b>${escapeHtml(activeMonth)}</b>.</div>`;
     return;
   }
 
@@ -303,7 +354,6 @@ function renderMonthGrid() {
         <h3 class="eventName">${escapeHtml(ev.title)}</h3>
 
         <div class="eventActions">
-          <!-- ✅ MÁS INFO -> DIRECTO A event.html -->
           <button class="btn" data-action="info" data-id="${ev.id}">Más info</button>
 
           <button class="btn primary" data-action="register" data-id="${ev.id}"
@@ -332,7 +382,6 @@ document.addEventListener("click", (e) => {
   const soldOut = ev.seats <= 0;
 
   if (btn.dataset.action === "info") {
-    // ✅ DIRECTO a event
     goEvent(ev.id);
     return;
   }
@@ -344,43 +393,34 @@ document.addEventListener("click", (e) => {
 });
 
 // ============================================================
-// ✅ Live refresh when seats/events change
+// Refresh (Supabase)
 // ============================================================
-function refreshFromStore(opts = { keepToast: true }) {
-  EVENTS = getEvents();
+async function refreshFromSupabase(opts = { keepToast: true }) {
+  EVENTS = await fetchEventsFromSupabase();
 
   renderSlides();
   restartAuto();
   renderMonths();
 
-  if (opts?.keepToast) {
-    // opcional
-    // toast("Actualizado", "Se actualizaron los cupos.");
-  }
+  // Si querés activar un toast suave:
+  // if (opts?.keepToast) toast("Actualizado", "Eventos sincronizados.");
 }
 
-window.addEventListener("storage", (e) => {
-  const key = e?.key || "";
-  const eventsKey = window.ECN?.LS?.EVENTS || "ecn_events";
-  if (key !== eventsKey) return;
-  refreshFromStore({ keepToast: false });
-});
-
+// Hook opcional (si en el futuro disparás eventos custom)
 window.addEventListener("ecn:events-updated", () => {
-  refreshFromStore({ keepToast: false });
+  refreshFromSupabase({ keepToast: false });
 });
 
 // ============================================================
 // Init
 // ============================================================
-(function init() {
-  if (!window.ECN) {
-    console.warn("ECN no cargado: home en modo vacío.");
-  }
-
-  EVENTS = getEvents();
+(async function init() {
+  // UI base (vacía) primero
   renderSlides();
-  restartAuto();
   renderMonths();
+
+  // Cargar datos reales
+  await refreshFromSupabase({ keepToast: false });
+
   setTimeout(() => toast("Bienvenido", "Revisá los próximos eventos."), 800);
 })();
