@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#000000" />
+  <title>Confirmación | Entre Copas & Notas</title>
+  <meta name="description" content="Confirmación de inscripción al evento." />
+
+  <link rel="stylesheet" href="./css/register.css" />
+</head>
+
+<body>
+  <!-- Toasts -->
+  <div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
+
+  <!-- Header -->
+  <header class="topbar">
+    <div class="container">
+      <div class="nav">
+        <a class="brand" id="backBtn" href="./home.html" aria-label="Volver a Home">
+          <span class="backIcon" aria-hidden="true">←</span>
+          <span class="backText">Home</span>
+        </a>
+
+        <a class="brandRight" href="./home.html" aria-label="Ir a home">
+          <img src="./assets/img/logocuadrado-entrecopasynotas.png" alt="Logo" />
+          <span>Entre Copas &amp; Notas</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="page">
+    <div class="container">
+      <section class="card">
+        <div class="cardTop">
+          <div class="cardTopRow">
+            <p class="kicker">Confirmación</p>
+            <span class="cuposBadge" id="statusBadge">LISTO ✅</span>
+          </div>
+
+          <div>
+            <h1 class="title" id="eventTitle">¡Inscripción confirmada!</h1>
+            <p class="sub" id="eventDesc">Te esperamos. Guardá estos detalles.</p>
+          </div>
+
+          <div class="metaBox" id="metaBox"></div>
+        </div>
+
+        <div class="formWrap">
+          <div class="grid">
+            <div class="field full">
+              <label>¿Qué sigue?</label>
+              <div class="hint" style="margin-top:6px">
+                • Si marcaste “recibir info”, te contactamos por WhatsApp o correo.<br/>
+                • Llegá con 10–15 min de anticipación.<br/>
+                • Si tenés alergias, avisá al staff al llegar.
+              </div>
+            </div>
+
+            <div class="btnsub" style="display:flex; gap:10px; flex-wrap:wrap;">
+              <a class="btn" id="btnBackEvent" href="./event.html">Ver evento</a>
+              <a class="btn primary" href="./home.html#proximos">Ver próximos eventos</a>
+              <a class="btn" id="btnWA"
+                 href="https://wa.me/5068845123?text=Hola%20👋%20me%20inscribí%20a%20un%20evento%20y%20quiero%20confirmar%20detalles."
+                 target="_blank" rel="noopener">WhatsApp</a>
+            </div>
+
+            <p class="fine" style="margin-top:10px">
+              Si ocupás ayuda con tu reserva, escribinos por WhatsApp.
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footerRow">
+        <div>Entre Copas &amp; Notas · Experiencias</div>
+        <div class="social">
+          <a class="icon-btn"
+             href="https://wa.me/5068845123?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
+             target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
+          <a class="icon-btn"
+             href="https://instagram.com/entrecopasynotas"
+             target="_blank" rel="noopener" aria-label="Instagram">IG</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ✅ Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./js/supabaseClient.js"></script>
+
+  <!-- ✅ Lógica -->
+  <script src="./js/confirm.js"></script>
+</body>
+</html>
