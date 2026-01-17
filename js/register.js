@@ -1,12 +1,11 @@
 "use strict";
 
 /* ============================================================
-   register.js (Supabase) ✅ ALINEADO + CONFIRM
+   register.js (Supabase) ✅ ALINEADO
    - Lee event + fechas desde Supabase
    - Permite seleccionar fecha (event_dates)
    - Muestra cupos disponibles reales (seats_available)
    - Inserta inscripción + decrementa cupo en UNA operación vía RPC
-   - Redirect final a confirm.html (en vez de volver a event.html)
 
    ✅ RPC FIRMA CANÓNICA (dejá SOLO esta en DB):
      p_event_id uuid,
@@ -116,7 +115,7 @@ function getSb() {
 // State
 // ============================================================
 let EVENT_ID = "";
-let EVENT = null; // {id,title,desc,type,month_key,location,time_range,duration_hours,img}
+let EVENT = null; // {id,title,desc,type,month_key,location,time_range,duration_hours, img}
 let DATES = []; // [{id,label,seats_available,seats_total}]
 let SELECTED_DATE_ID = "";
 let SELECTED_DATE_LABEL = "";
@@ -444,7 +443,7 @@ async function submitRegistration() {
   }
 
   try {
-    const { data: regId, error } = await sb.rpc("register_for_event", payload);
+    const { error } = await sb.rpc("register_for_event", payload);
     if (error) throw error;
 
     // Re-cargar cupos actualizados
@@ -468,51 +467,67 @@ async function submitRegistration() {
 
     toast("Inscripción completada", "Tu cupo quedó reservado.");
 
-    // ✅ Redirect a confirm.html
     setTimeout(() => {
-      const qs = new URLSearchParams({
-        event: String(EVENT_ID),
-        date_id: String(dateId),
-        reg: "ok",
-      });
-      if (regId) qs.set("rid", String(regId));
-      window.location.href = `./confirm.html?${qs.toString()}`;
-    }, 650);
+      window.location.href = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
+    }, 1100);
   } catch (err) {
     console.error(err);
 
-    const rawMsg = String(err?.message || "");
+    // Supabase suele traer message en error.message
+    const rawMsg = String(err?.message || err?.details || "");
     const msg = rawMsg.toLowerCase();
 
+    // 1) RPC / firma
     if (msg.includes("does not exist") && msg.includes("register_for_event")) {
       toast(
         "RPC no alineado",
         "La función register_for_event no coincide con la firma esperada (7 parámetros incluyendo p_allergies)."
       );
+
+    // 2) Permisos / RLS
     } else if (
       msg.includes("permission") ||
       msg.includes("rls") ||
       msg.includes("not allowed") ||
       msg.includes("42501")
     ) {
-      toast("Permisos", "La base de datos bloqueó la inscripción. Revisemos RLS o SECURITY DEFINER.");
-    } else if (msg.includes("no seats") || msg.includes("agotado") || msg.includes("sold")) {
-      toast("Agotado", "Esa fecha ya no tiene cupos disponibles. Elegí otra.");
+      toast(
+        "Permisos",
+        "La base de datos bloqueó la inscripción. Revisemos RLS o SECURITY DEFINER."
+      );
+
+    // 3) Cupos agotados (tu RPC usa 'No seats available' / 'Evento agotado')
     } else if (
-      msg.includes("duplicate registration") ||
-      msg.includes("already registered") ||
-      msg.includes("unique") ||
-      msg.includes("duplicate")
+      msg.includes("no seats") ||
+      msg.includes("agotado") ||
+      msg.includes("sold out") ||
+      msg.includes("sold")
+    ) {
+      toast("Agotado", "Esa fecha ya no tiene cupos disponibles. Elegí otra.");
+
+    // 4) Duplicados (tu caso real + casos por UNIQUE constraint)
+    } else if (
+      msg.includes("duplicate registration") ||                 // tu RAISE
+      msg.includes("registrations_unique_eventdate_email") ||   // nombre del constraint
+      msg.includes("duplicate key value") ||                    // postgres
+      msg.includes("unique constraint") ||                      // postgres
+      msg.includes("already exists") ||
+      msg.includes("already registered")
     ) {
       toast("Ya estás inscrito", "Ese correo ya está inscrito para esta fecha.");
       setFieldError("email", "Este correo ya está inscrito para la fecha seleccionada.");
+
+    // 5) Fecha inválida
     } else if (
       msg.includes("invalid date") ||
       msg.includes("fecha no existe") ||
-      msg.includes("invalid")
+      msg.includes("invalid") ||
+      msg.includes("fecha")
     ) {
       toast("Fecha inválida", "La fecha seleccionada no pertenece a este evento.");
       setFieldError("eventDate", "Fecha inválida. Elegí otra.");
+
+    // 6) Fallback
     } else {
       toast("Error", "No se pudo completar la inscripción. Intentá nuevamente.");
     }
@@ -522,7 +537,7 @@ async function submitRegistration() {
       submitBtn.textContent = oldLabel || "Inscribirme";
     }
 
-    // Refresca cupos
+    // Refresca cupos (por si otro usuario tomó el último cupo)
     try {
       const fresh = await fetchEventAndDates(EVENT_ID);
       EVENT = fresh.event;
