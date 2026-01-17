@@ -1,12 +1,12 @@
 /* ============================================================
-   gallery.js ✅ PRO (Maridajes + Cocteles) - 2026
+   gallery.js ✅ PRO (Maridajes + Cocteles) - 2026 (Supabase)
    - 1 solo JS para ambas páginas
    - Lee window.ECN_PAGE.type: "cocteles" | "maridajes"
+   - Galería: Supabase (public) -> gallery_items (preferido) o promos (fallback)
    - Filtros: fecha + búsqueda (debounce)
    - Grid IG: render limpio y quita skeletons
-   - Hover: lo maneja el CSS (oscurecer + tags)
-   - Reviews: form arriba + comments abajo (header "Comentarios" + reacciones)
-   - ✅ Select de eventos: carga desde data.js (ECN.getEventsRaw) SOLO para el form
+   - Reviews: LocalStorage (por ahora), pero:
+     ✅ Select de eventos: Supabase events + event_dates
 ============================================================ */
 
 (function () {
@@ -77,7 +77,36 @@
     return v.length > max ? v.slice(0, max) : v;
   }
 
-  // Toasts opcional (si existe en tu proyecto)
+  function safeStr(x) {
+    return String(x ?? "");
+  }
+
+  function cleanSpaces(s) {
+    return safeStr(s).replace(/\s+/g, " ").trim();
+  }
+
+  function isMissingTable(err) {
+    const m = safeStr(err?.message || "").toLowerCase();
+    return (m.includes("does not exist") || (m.includes("relation") && m.includes("does not exist")));
+  }
+
+  function isRLSError(err) {
+    const m = safeStr(err?.message || "").toLowerCase();
+    return (
+      m.includes("rls") ||
+      m.includes("permission") ||
+      m.includes("not allowed") ||
+      m.includes("row level security") ||
+      m.includes("violates row-level security")
+    );
+  }
+
+  function prettyErr(err) {
+    const msg = safeStr(err?.message || err || "");
+    return msg || "Ocurrió un error.";
+  }
+
+  // Toasts (si existe un sistema global, lo usa; si no, fallback simple)
   function toast(msg) {
     try {
       if (window.APP && typeof APP.notify === "function") return APP.notify(msg);
@@ -128,107 +157,332 @@
   const reviewEmptyEl = $("#reviewEmpty");
 
   // ------------------------------------------------------------
-  // Demo data (galería) — se queda así por ahora (NO usa eventos admin)
+  // Supabase availability (PUBLIC client)
   // ------------------------------------------------------------
-  const DEMO = {
-    cocteles: [
-      { id: "c-1", eventName: "Presentación y garnish", dateISO: "2026-02-02", img: "./assets/img/gallery/cocteles-1.jpg", tags: ["#coctel", "#presentacion", "#autor"] },
-      { id: "c-2", eventName: "Bar vibes", dateISO: "2026-02-02", img: "./assets/img/gallery/cocteles-2.jpg", tags: ["#bar", "#vibes"] },
-      { id: "c-3", eventName: "Cítricos & frescura", dateISO: "2026-02-14", img: "./assets/img/gallery/cocteles-3.jpg", tags: ["#gin", "#citricos", "#fresh"] },
-      { id: "c-4", eventName: "Clásicos con flow", dateISO: "2026-03-01", img: "./assets/img/gallery/cocteles-4.jpg", tags: ["#clasicos", "#mixologia"] },
-      { id: "c-5", eventName: "Colores del trópico", dateISO: "2026-03-02", img: "./assets/img/gallery/cocteles-5.jpg", tags: ["#coctel", "#color", "#tropical"] },
-      { id: "c-6", eventName: "Tónicos y especies", dateISO: "2026-03-02", img: "./assets/img/gallery/cocteles-6.jpg", tags: ["#bar", "#vibes"] },
-      { id: "c-7", eventName: "Amaretto mood", dateISO: "2026-03-08", img: "./assets/img/gallery/cocteles-7.jpg", tags: ["#sweet", "#night"] },
-      { id: "c-8", eventName: "Frescura de verano", dateISO: "2026-03-15", img: "./assets/img/gallery/cocteles-8.jpg", tags: ["#clasicos", "#mixologia"] }
-    ],
-    maridajes: [
-      { id: "m-1", eventName: "Notas & maridajes", dateISO: "2026-01-10", img: "./assets/img/gallery/maridaje-1.jpg", tags: ["#vino", "#maridaje", "#notas"] },
-      { id: "m-2", eventName: "Quesos & blancos", dateISO: "2026-01-18", img: "./assets/img/gallery/maridaje-2.jpg", tags: ["#queso", "#vinoblanco"] },
-      { id: "m-3", eventName: "Pasta night", dateISO: "2026-01-05", img: "./assets/img/gallery/maridaje-3.jpg", tags: ["#pasta", "#tinto", "#pairing"] },
-      { id: "m-4", eventName: "Dulces & espumante", dateISO: "2026-02-21", img: "./assets/img/gallery/maridaje-4.jpg", tags: ["#postre", "#espumante"] },
-      { id: "m-5", eventName: "Notas y tintes", dateISO: "2026-02-22", img: "./assets/img/gallery/maridaje-5.jpg", tags: ["#vino", "#maridaje", "#notas"] },
-      { id: "m-6", eventName: "Fiambres que mezclan", dateISO: "2026-02-26", img: "./assets/img/gallery/maridaje-6.jpg", tags: ["#tabla", "#vino"] },
-      { id: "m-7", eventName: "Italia en la mesa", dateISO: "2026-03-01", img: "./assets/img/gallery/maridaje-7.jpg", tags: ["#pasta", "#tinto", "#pairing"] },
-      { id: "m-8", eventName: "Argentina en un sorbo", dateISO: "2026-03-12", img: "./assets/img/gallery/maridaje-8.jpg", tags: ["#asado", "#malbec"] }
-    ]
-  };
-
-  // ------------------------------------------------------------
-  // Source: ECN.getGalleryItems(type) si existe, si no DEMO
-  // ------------------------------------------------------------
-  function getItems() {
-    try {
-      if (window.ECN && typeof ECN.getGalleryItems === "function") {
-        const items = ECN.getGalleryItems(pageKey);
-        if (Array.isArray(items)) return items;
-      }
-    } catch (_) {}
-    return (DEMO[pageKey] || []).slice();
+  function hasSupabase() {
+    return !!(window.APP && (APP.supabase || APP.sb));
+  }
+  function sb() {
+    return (window.APP && (APP.supabase || APP.sb)) || null;
   }
 
-  let allItems = getItems();
-
-  // ------------------------------------------------------------
-  // ✅ Events para el SELECT (desde data.js)
-  // - NO toca la galería
-  // ------------------------------------------------------------
-  function getEventsForSelect() {
+  async function ensureSessionOptional() {
+    // Public pages normalmente NO requieren sesión; esto es por si tu RLS pide auth.
     try {
-      if (!window.ECN || typeof ECN.getEventsRaw !== "function") return [];
-      const raw = ECN.getEventsRaw();
-      if (!Array.isArray(raw)) return [];
-
-      const wantCoct = pageKey === "cocteles";
-
-      return raw
-        .filter((ev) => {
-          const t = norm(ev?.type || "");
-          if (wantCoct) return t.includes("coct"); // "coctelería"
-          return t.includes("vino") || t.includes("cata"); // maridajes (vino/cata)
-        })
-        .map((ev) => {
-          const title = String(ev?.title || "Evento").trim();
-          const monthKey = String(ev?.monthKey || "").trim().toUpperCase();
-          // label de fechas viene así: "18-19 enero", "09 febrero"
-          const dates = Array.isArray(ev?.dates) ? ev.dates : [];
-          const dateLabels = dates
-            .map((d) => String(d?.label || "").trim())
-            .filter(Boolean);
-
-          // el select necesita "evento" y opcionalmente la(s) fechas
-          return {
-            id: String(ev?.id || ""),
-            title,
-            monthKey,
-            dates: dateLabels,
-          };
-        })
-        .filter((x) => x.id && x.title);
+      const client = sb();
+      if (!client?.auth?.getSession) return null;
+      const res = await client.auth.getSession();
+      return res?.data?.session || null;
     } catch (_) {
+      return null;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // GALERÍA: fuente Supabase (gallery_items preferido, promos fallback)
+  // ------------------------------------------------------------
+  const DB = {
+    GALLERY_PRIMARY: "gallery_items",
+    GALLERY_FALLBACK: "promos",
+    EVENTS: "events",
+    EVENT_DATES: "event_dates",
+    STORAGE_BUCKET: "gallery", // si usás image_path y bucket
+  };
+
+  const SELECT_GALLERY_A = `
+    id,
+    type,
+    name,
+    title,
+    tags,
+    image_url,
+    image_path,
+    created_at,
+    event_id,
+    event_date_id,
+    target,
+    events ( title ),
+    event_dates ( label, date, start_at )
+  `;
+
+  const SELECT_GALLERY_B = `
+    id,
+    type,
+    name,
+    title,
+    tags,
+    image_url,
+    image_path,
+    created_at,
+    event_id,
+    event_date_id,
+    target,
+    events:events!event_id ( title ),
+    event_dates:event_dates!event_date_id ( label, date, start_at )
+  `;
+
+  // promos suele variar mucho, lo leemos flexible
+  const SELECT_PROMOS = `
+    id,
+    type,
+    title,
+    name,
+    tags,
+    image_url,
+    image_path,
+    created_at,
+    event_id,
+    event_date_id,
+    target,
+    events ( title ),
+    event_dates ( label, date, start_at )
+  `;
+
+  function publicUrlFromPath(path) {
+    const p = safeStr(path).trim();
+    if (!p) return "";
+    try {
+      const client = sb();
+      const res = client.storage.from(DB.STORAGE_BUCKET).getPublicUrl(p);
+      return res?.data?.publicUrl || "";
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function normalizeTags(x) {
+    if (Array.isArray(x)) return x.map((t) => safeStr(t)).filter(Boolean).slice(0, 12);
+    if (typeof x === "string" && x.trim()) {
+      // por si en promos viene como "tag1, tag2"
+      return x.split(/[,;]+/g).map((t) => t.trim()).filter(Boolean).slice(0, 12);
+    }
+    return [];
+  }
+
+  function normalizeGalleryRow(r) {
+    const row = r || {};
+
+    // type esperado: cocteles|maridajes
+    const t = String(row.type || "").toLowerCase();
+    const type =
+      t.includes("coct") ? "cocteles" :
+      t.includes("marid") ? "maridajes" :
+      pageKey;
+
+    const evTitle = row?.events?.title || row?.event?.title || "";
+    const dateLabel = row?.event_dates?.label || row?.date?.label || "";
+
+    const title = safeStr(row.name || row.title || evTitle || "Evento");
+    const createdAt = safeStr(row.created_at || "");
+    const dateISO =
+      safeStr(row?.event_dates?.date || row?.event_dates?.start_at || "") ||
+      createdAt ||
+      "";
+
+    const img =
+      safeStr(row.image_url || "") ||
+      publicUrlFromPath(row.image_path) ||
+      "";
+
+    return {
+      id: safeStr(row.id || ""),
+      type,
+      eventName: title || "Evento",
+      dateISO,
+      dateLabel: dateLabel || "",
+      img,
+      tags: normalizeTags(row.tags),
+      eventId: safeStr(row.event_id || ""),
+      eventDateId: safeStr(row.event_date_id || ""),
+      createdAt
+    };
+  }
+
+  async function fetchGalleryUsing(selectStr, table) {
+    const client = sb();
+    const { data, error } = await client
+      .from(table)
+      .select(selectStr)
+      .order("created_at", { ascending: false })
+      .limit(1000);
+
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  }
+
+  async function fetchGallery() {
+    if (!hasSupabase()) {
+      toast("Falta Supabase en esta página (revisá scripts).");
+      return [];
+    }
+
+    // Public pages: sesión opcional (solo por si RLS lo exige)
+    await ensureSessionOptional();
+
+    // 1) gallery_items (A->B)
+    try {
+      const rowsA = await fetchGalleryUsing(SELECT_GALLERY_A, DB.GALLERY_PRIMARY);
+      return rowsA.map(normalizeGalleryRow).filter((x) => x.type === pageKey && x.img);
+    } catch (eA) {
+      if (isMissingTable(eA)) {
+        // cae a promos
+      } else {
+        const m = safeStr(eA?.message || "").toLowerCase();
+        const looksLikeJoin =
+          m.includes("could not find") ||
+          m.includes("relationship") ||
+          m.includes("embedded") ||
+          m.includes("schema cache") ||
+          m.includes("foreign key");
+
+        if (!looksLikeJoin) {
+          // si es RLS, avisamos
+          if (isRLSError(eA)) toast("Acceso bloqueado (RLS) leyendo galería.");
+          else console.warn("[gallery] gallery_items A error:", eA);
+        }
+
+        // intentamos join B
+        try {
+          const rowsB = await fetchGalleryUsing(SELECT_GALLERY_B, DB.GALLERY_PRIMARY);
+          return rowsB.map(normalizeGalleryRow).filter((x) => x.type === pageKey && x.img);
+        } catch (eB) {
+          if (isRLSError(eB)) toast("Acceso bloqueado (RLS) leyendo galería.");
+          else console.warn("[gallery] gallery_items B error:", eB);
+        }
+      }
+    }
+
+    // 2) Fallback: promos
+    try {
+      const rowsP = await fetchGalleryUsing(SELECT_PROMOS, DB.GALLERY_FALLBACK);
+      // regla flexible: si promos.type coincide, lo usamos
+      return rowsP.map(normalizeGalleryRow).filter((x) => x.type === pageKey && x.img);
+    } catch (eP) {
+      if (isMissingTable(eP)) {
+        toast("No hay tabla para galería (gallery_items/promos).");
+      } else if (isRLSError(eP)) {
+        toast("Acceso bloqueado (RLS) leyendo promos.");
+      } else {
+        toast("No pude cargar la galería.");
+        console.warn("[gallery] promos error:", eP);
+      }
       return [];
     }
   }
 
-  function mountReviewEventSelect() {
-    if (!reviewEventSel) return;
+  // ------------------------------------------------------------
+  // ✅ Events para el SELECT (desde Supabase)
+  // ------------------------------------------------------------
+  const SELECT_EVENTS_A = `
+    id,
+    title,
+    type,
+    created_at,
+    event_dates ( id, label, date, start_at )
+  `;
 
-    const events = getEventsForSelect();
+  const SELECT_EVENTS_B = `
+    id,
+    title,
+    type,
+    created_at,
+    dates:event_dates!event_dates_event_id_fkey ( id, label, date, start_at )
+  `;
+
+  function normalizeEventForSelect(ev) {
+    const title = cleanSpaces(ev?.title || "Evento");
+    const id = safeStr(ev?.id || "");
+    const t = norm(ev?.type || "");
+
+    // para cocteles: type contiene coct
+    // para maridajes: type contiene vino/cata (flexible)
+    const wantCoct = pageKey === "cocteles";
+    const ok =
+      wantCoct ? t.includes("coct") :
+      (t.includes("vino") || t.includes("cata") || t.includes("marid"));
+
+    const datesArr = Array.isArray(ev?.event_dates) ? ev.event_dates :
+      Array.isArray(ev?.dates) ? ev.dates :
+      [];
+
+    const dateLabels = datesArr
+      .map((d) => cleanSpaces(d?.label || fmtShortDate(d?.date || d?.start_at || "")))
+      .filter(Boolean);
+
+    return {
+      id,
+      title,
+      ok,
+      dates: dateLabels
+    };
+  }
+
+  async function fetchEventsForSelect() {
+    if (!hasSupabase()) return [];
+
+    await ensureSessionOptional();
+
+    const client = sb();
+
+    // intento A
+    try {
+      const { data, error } = await client
+        .from(DB.EVENTS)
+        .select(SELECT_EVENTS_A)
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+      const list = Array.isArray(data) ? data.map(normalizeEventForSelect).filter((x) => x.id && x.title && x.ok) : [];
+      return list;
+    } catch (eA) {
+      const m = safeStr(eA?.message || "").toLowerCase();
+      const looksLikeJoin =
+        m.includes("could not find") ||
+        m.includes("relationship") ||
+        m.includes("embedded") ||
+        m.includes("schema cache") ||
+        m.includes("foreign key");
+
+      if (!looksLikeJoin) {
+        if (isRLSError(eA)) toast("Acceso bloqueado (RLS) leyendo eventos.");
+        else console.warn("[gallery] events A error:", eA);
+      }
+
+      // intento B (alias de relación)
+      try {
+        const { data, error } = await client
+          .from(DB.EVENTS)
+          .select(SELECT_EVENTS_B)
+          .order("created_at", { ascending: false })
+          .limit(200);
+
+        if (error) throw error;
+        const list = Array.isArray(data) ? data.map(normalizeEventForSelect).filter((x) => x.id && x.title && x.ok) : [];
+        return list;
+      } catch (eB) {
+        if (isRLSError(eB)) toast("Acceso bloqueado (RLS) leyendo eventos.");
+        else console.warn("[gallery] events B error:", eB);
+        return [];
+      }
+    }
+  }
+
+  async function mountReviewEventSelect() {
+    if (!reviewEventSel) return;
 
     const placeholder = `<option value="" disabled selected>Seleccioná un evento</option>`;
 
-    // Si no hay eventos aún, dejamos solo placeholder + deshabilitamos
+    const events = await fetchEventsForSelect();
+
     if (!events.length) {
-      reviewEventSel.innerHTML =
-        placeholder + `<option value="" disabled>(Aún no hay eventos creados)</option>`;
+      reviewEventSel.innerHTML = placeholder + `<option value="" disabled>(Aún no hay eventos disponibles)</option>`;
       reviewEventSel.disabled = true;
       return;
     }
 
     reviewEventSel.disabled = false;
 
-    // Render options:
-    // value = eventId
-    // label = "Título · (fechas…)" si hay
     const options = events
       .map((ev) => {
         const dates = ev.dates && ev.dates.length ? ` · ${ev.dates.join(" / ")}` : "";
@@ -275,12 +529,21 @@
   function renderGallery(items) {
     clearSkeletons();
 
+    if (!items || !items.length) {
+      gridEl.innerHTML = `
+        <div style="opacity:.8; padding:16px;">
+          Aún no hay contenido en la galería.
+        </div>
+      `;
+      return;
+    }
+
     const frag = document.createDocumentFragment();
 
     items.forEach((it) => {
       const tags = Array.isArray(it.tags) ? it.tags : [];
       const title = it.eventName ? String(it.eventName) : "Evento";
-      const dateLabel = it.dateISO ? fmtShortDate(it.dateISO) : "";
+      const dateLabel = it.dateLabel ? String(it.dateLabel) : (it.dateISO ? fmtShortDate(it.dateISO) : "");
 
       const tile = document.createElement("article");
       tile.className = "gItem";
@@ -318,9 +581,12 @@
   // ------------------------------------------------------------
   // GALERÍA: filtros
   // ------------------------------------------------------------
+  let allItems = [];
+
   function mountDateFilter() {
     if (!selDate) return;
 
+    // usamos dateISO si existe, si no, no aparece en selector
     const dates = uniq(allItems.map((x) => x.dateISO).filter(Boolean)).sort();
     const base = `<option value="">Todas</option>`;
     const opts = dates
@@ -432,8 +698,8 @@
     setReviewMeta(sorted.length);
 
     const reactionState = loadReactionState();
-
     const frag = document.createDocumentFragment();
+
     for (const r of sorted) {
       const card = document.createElement("div");
       card.className = "reviewCard";
@@ -567,7 +833,6 @@
     }
 
     reviews[idx].reactions = rx;
-
     saveReactionState(st);
     saveReviews(reviews);
     renderReviews(reviews);
@@ -590,21 +855,48 @@
   // ------------------------------------------------------------
   // INIT
   // ------------------------------------------------------------
-  function initGallery() {
-    mountDateFilter();
-    renderGallery(allItems);
+  async function initGallery() {
+    // 1) cargar items desde Supabase
+    try {
+      // skeletons ya vienen en HTML, aquí los quitamos cuando haya respuesta
+      allItems = await fetchGallery();
 
-    if (selDate) selDate.addEventListener("change", applyGalleryFilters);
-    if (inpSearch) inpSearch.addEventListener("input", debounce(applyGalleryFilters, 130));
+      // 2) montar filtro por fecha y render inicial
+      mountDateFilter();
+      renderGallery(allItems);
+
+      // 3) listeners filtros
+      if (selDate) selDate.addEventListener("change", applyGalleryFilters);
+      if (inpSearch) inpSearch.addEventListener("input", debounce(applyGalleryFilters, 130));
+
+      // si no hay items, dejamos mensaje
+      if (!allItems.length) {
+        // renderGallery ya pinta "Aún no hay contenido"
+      }
+    } catch (e) {
+      console.warn("[gallery] initGallery fail:", e);
+      clearSkeletons();
+      gridEl.innerHTML = `<div style="opacity:.8; padding:16px;">No se pudo cargar la galería.</div>`;
+    }
   }
 
-  function initReviews() {
+  async function initReviews() {
     if (!reviewListEl) return;
 
     ensureReviewStructure();
 
-    // ✅ cargar eventos desde data.js para el select
-    mountReviewEventSelect();
+    // ✅ cargar eventos desde Supabase para el select
+    try {
+      await mountReviewEventSelect();
+    } catch (e) {
+      console.warn("[gallery] mountReviewEventSelect fail:", e);
+      if (reviewEventSel) {
+        reviewEventSel.innerHTML =
+          `<option value="" disabled selected>Seleccioná un evento</option>` +
+          `<option value="" disabled>(No pude cargar eventos)</option>`;
+        reviewEventSel.disabled = true;
+      }
+    }
 
     if (reviewTextTa) {
       updateCountUI();
@@ -616,22 +908,18 @@
 
     renderReviews(loadReviews());
 
-    // refrescar si admin cambia eventos o si otra pestaña cambia reseñas
+    // refrescar si otra pestaña cambia reseñas/reacciones
     window.addEventListener("storage", (ev) => {
       if (!ev || !ev.key) return;
-
-      // si admin cambia eventos
-      if (window.ECN && ECN.LS && ev.key === ECN.LS.EVENTS) {
-        mountReviewEventSelect();
-      }
-
-      // reseñas / reacciones
       if (ev.key === LS.REVIEWS || ev.key === LS.REACTIONS) {
         renderReviews(loadReviews());
       }
     });
   }
 
-  initGallery();
-  initReviews();
+  // Boot
+  (async function boot() {
+    await initGallery();
+    await initReviews();
+  })();
 })();
