@@ -6,7 +6,7 @@
    - Filtros: fecha + búsqueda (debounce)
    - Grid IG: render limpio y quita skeletons
    - Reviews: LocalStorage (por ahora), pero:
-     ✅ Select de eventos: Supabase events + event_dates
+     ✅ Select de eventos: Supabase events + event_dates (con fallbacks de joins)
 ============================================================ */
 
 (function () {
@@ -87,7 +87,7 @@
 
   function isMissingTable(err) {
     const m = safeStr(err?.message || "").toLowerCase();
-    return (m.includes("does not exist") || (m.includes("relation") && m.includes("does not exist")));
+    return m.includes("does not exist") || (m.includes("relation") && m.includes("does not exist"));
   }
 
   function isRLSError(err) {
@@ -125,10 +125,7 @@
   // Page key desde tu config
   // ------------------------------------------------------------
   function getPageKey() {
-    const t =
-      window.ECN_PAGE && window.ECN_PAGE.type
-        ? String(window.ECN_PAGE.type).toLowerCase()
-        : "";
+    const t = window.ECN_PAGE && window.ECN_PAGE.type ? String(window.ECN_PAGE.type).toLowerCase() : "";
     if (t.includes("coct")) return "cocteles";
     if (t.includes("marid")) return "maridajes";
     return "gallery";
@@ -159,11 +156,13 @@
   // ------------------------------------------------------------
   // Supabase availability (PUBLIC client)
   // ------------------------------------------------------------
-  function hasSupabase() {
-    return !!(window.APP && (APP.supabase || APP.sb));
-  }
   function sb() {
     return (window.APP && (APP.supabase || APP.sb)) || null;
+  }
+
+  function hasSupabase() {
+    const client = sb();
+    return !!(client && typeof client.from === "function");
   }
 
   async function ensureSessionOptional() {
@@ -179,49 +178,46 @@
   }
 
   // ------------------------------------------------------------
-  // GALERÍA: fuente Supabase (gallery_items preferido, promos fallback)
+  // DB config
   // ------------------------------------------------------------
   const DB = {
     GALLERY_PRIMARY: "gallery_items",
     GALLERY_FALLBACK: "promos",
     EVENTS: "events",
-    EVENT_DATES: "event_dates",
-    STORAGE_BUCKET: "gallery", // si usás image_path y bucket
+    STORAGE_BUCKET: "gallery",
   };
 
+  // ⚠️ Opción A: relaciones normales (events, event_dates)
   const SELECT_GALLERY_A = `
     id,
     type,
     name,
-    title,
     tags,
     image_url,
     image_path,
     created_at,
-    event_id,
-    event_date_id,
     target,
     events ( title ),
     event_dates ( label, date, start_at )
   `;
 
+  // ⚠️ Opción B: relaciones nombradas por FK (fallback)
+  // Nota: los nombres exactos pueden variar en tu proyecto.
+  // Aun así dejamos fallback robusto para no romper.
   const SELECT_GALLERY_B = `
     id,
     type,
     name,
-    title,
     tags,
     image_url,
     image_path,
     created_at,
-    event_id,
-    event_date_id,
     target,
-    events:events!event_id ( title ),
-    event_dates:event_dates!event_date_id ( label, date, start_at )
+    events:events!gallery_items_event_id_fkey ( title ),
+    event_dates:event_dates!gallery_items_event_date_id_fkey ( label, date, start_at )
   `;
 
-  // promos suele variar mucho, lo leemos flexible
+  // promos: lectura flexible
   const SELECT_PROMOS = `
     id,
     type,
@@ -231,8 +227,6 @@
     image_url,
     image_path,
     created_at,
-    event_id,
-    event_date_id,
     target,
     events ( title ),
     event_dates ( label, date, start_at )
@@ -253,59 +247,59 @@
   function normalizeTags(x) {
     if (Array.isArray(x)) return x.map((t) => safeStr(t)).filter(Boolean).slice(0, 12);
     if (typeof x === "string" && x.trim()) {
-      // por si en promos viene como "tag1, tag2"
-      return x.split(/[,;]+/g).map((t) => t.trim()).filter(Boolean).slice(0, 12);
+      return x
+        .split(/[,;]+/g)
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .slice(0, 12);
     }
     return [];
   }
 
+  function pickDateISO(row) {
+    // Preferimos fecha "real" del event_date si existe
+    const d = safeStr(row?.event_dates?.date || row?.event_dates?.start_at || "");
+    if (d) return d;
+
+    // Si no hay join, usamos created_at para no romper filtro
+    const c = safeStr(row?.created_at || "");
+    return c || "";
+  }
+
   function normalizeGalleryRow(r) {
     const row = r || {};
-
-    // type esperado: cocteles|maridajes
     const t = String(row.type || "").toLowerCase();
+
     const type =
       t.includes("coct") ? "cocteles" :
       t.includes("marid") ? "maridajes" :
       pageKey;
 
-    const evTitle = row?.events?.title || row?.event?.title || "";
-    const dateLabel = row?.event_dates?.label || row?.date?.label || "";
+    const evTitle = cleanSpaces(row?.events?.title || "") || "";
+    const dateLabel = cleanSpaces(row?.event_dates?.label || "") || "";
 
-    const title = safeStr(row.name || row.title || evTitle || "Evento");
+    const title = cleanSpaces(row.name || row.title || evTitle || "Evento") || "Evento";
+
     const createdAt = safeStr(row.created_at || "");
-    const dateISO =
-      safeStr(row?.event_dates?.date || row?.event_dates?.start_at || "") ||
-      createdAt ||
-      "";
+    const dateISO = pickDateISO(row);
 
-    const img =
-      safeStr(row.image_url || "") ||
-      publicUrlFromPath(row.image_path) ||
-      "";
+    const img = safeStr(row.image_url || "") || publicUrlFromPath(row.image_path) || "";
 
     return {
       id: safeStr(row.id || ""),
       type,
-      eventName: title || "Evento",
+      eventName: title,
       dateISO,
-      dateLabel: dateLabel || "",
+      dateLabel,
       img,
       tags: normalizeTags(row.tags),
-      eventId: safeStr(row.event_id || ""),
-      eventDateId: safeStr(row.event_date_id || ""),
-      createdAt
+      createdAt,
     };
   }
 
-  async function fetchGalleryUsing(selectStr, table) {
+  async function fetchUsing(table, selectStr) {
     const client = sb();
-    const { data, error } = await client
-      .from(table)
-      .select(selectStr)
-      .order("created_at", { ascending: false })
-      .limit(1000);
-
+    const { data, error } = await client.from(table).select(selectStr).order("created_at", { ascending: false }).limit(1000);
     if (error) throw error;
     return Array.isArray(data) ? data : [];
   }
@@ -316,50 +310,51 @@
       return [];
     }
 
-    // Public pages: sesión opcional (solo por si RLS lo exige)
     await ensureSessionOptional();
 
-    // 1) gallery_items (A->B)
+    // 1) gallery_items A
     try {
-      const rowsA = await fetchGalleryUsing(SELECT_GALLERY_A, DB.GALLERY_PRIMARY);
-      return rowsA.map(normalizeGalleryRow).filter((x) => x.type === pageKey && x.img);
+      const rowsA = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_A);
+      return rowsA
+        .map(normalizeGalleryRow)
+        .filter((x) => x.type === pageKey && x.img && (!x.target || x.target === "home"));
     } catch (eA) {
-      if (isMissingTable(eA)) {
-        // cae a promos
-      } else {
-        const m = safeStr(eA?.message || "").toLowerCase();
-        const looksLikeJoin =
-          m.includes("could not find") ||
-          m.includes("relationship") ||
-          m.includes("embedded") ||
-          m.includes("schema cache") ||
-          m.includes("foreign key");
+      const msg = safeStr(eA?.message || "").toLowerCase();
+      const looksLikeJoin =
+        msg.includes("could not find") ||
+        msg.includes("relationship") ||
+        msg.includes("embedded") ||
+        msg.includes("schema cache") ||
+        msg.includes("foreign key");
 
-        if (!looksLikeJoin) {
-          // si es RLS, avisamos
-          if (isRLSError(eA)) toast("Acceso bloqueado (RLS) leyendo galería.");
-          else console.warn("[gallery] gallery_items A error:", eA);
-        }
+      if (!looksLikeJoin && !isMissingTable(eA)) {
+        if (isRLSError(eA)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
+        else console.warn("[gallery] gallery_items A error:", eA);
+      }
 
-        // intentamos join B
-        try {
-          const rowsB = await fetchGalleryUsing(SELECT_GALLERY_B, DB.GALLERY_PRIMARY);
-          return rowsB.map(normalizeGalleryRow).filter((x) => x.type === pageKey && x.img);
-        } catch (eB) {
-          if (isRLSError(eB)) toast("Acceso bloqueado (RLS) leyendo galería.");
+      // 1b) gallery_items B (si el join fue el problema)
+      try {
+        const rowsB = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_B);
+        return rowsB
+          .map(normalizeGalleryRow)
+          .filter((x) => x.type === pageKey && x.img && (!x.target || x.target === "home"));
+      } catch (eB) {
+        if (!isMissingTable(eB)) {
+          if (isRLSError(eB)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
           else console.warn("[gallery] gallery_items B error:", eB);
         }
       }
     }
 
-    // 2) Fallback: promos
+    // 2) fallback promos
     try {
-      const rowsP = await fetchGalleryUsing(SELECT_PROMOS, DB.GALLERY_FALLBACK);
-      // regla flexible: si promos.type coincide, lo usamos
-      return rowsP.map(normalizeGalleryRow).filter((x) => x.type === pageKey && x.img);
+      const rowsP = await fetchUsing(DB.GALLERY_FALLBACK, SELECT_PROMOS);
+      return rowsP
+        .map(normalizeGalleryRow)
+        .filter((x) => x.type === pageKey && x.img && (!x.target || x.target === "home"));
     } catch (eP) {
       if (isMissingTable(eP)) {
-        toast("No hay tabla para galería (gallery_items/promos).");
+        toast("No existe tabla gallery_items ni promos.");
       } else if (isRLSError(eP)) {
         toast("Acceso bloqueado (RLS) leyendo promos.");
       } else {
@@ -371,98 +366,127 @@
   }
 
   // ------------------------------------------------------------
-  // ✅ Events para el SELECT (desde Supabase)
+  // ✅ Events para el SELECT (Supabase) — robusto y simple
   // ------------------------------------------------------------
-  const SELECT_EVENTS_A = `
-    id,
-    title,
-    type,
-    created_at,
-    event_dates ( id, label, date, start_at )
-  `;
+  // Preferimos: events + event_dates por separado (sin join)
+  // porque tu schema real no garantiza event_dates.event_id en lo que pegaste.
+  async function fetchEventDatesIndex() {
+    const client = sb();
+    // Seleccionamos columnas típicas; si alguna no existe, PostgREST lo dirá (y caemos a label-only)
+    try {
+      const { data, error } = await client
+        .from("event_dates")
+        .select("id,label,date,start_at,event_id")
+        .order("date", { ascending: true })
+        .limit(500);
 
-  const SELECT_EVENTS_B = `
-    id,
-    title,
-    type,
-    created_at,
-    dates:event_dates!event_dates_event_id_fkey ( id, label, date, start_at )
-  `;
+      if (error) throw error;
 
-  function normalizeEventForSelect(ev) {
-    const title = cleanSpaces(ev?.title || "Evento");
-    const id = safeStr(ev?.id || "");
-    const t = norm(ev?.type || "");
+      const map = new Map();
+      (Array.isArray(data) ? data : []).forEach((d) => {
+        const id = safeStr(d?.id || "");
+        if (!id) return;
+        map.set(id, {
+          id,
+          label: cleanSpaces(d?.label || "") || "",
+          date: safeStr(d?.date || d?.start_at || ""),
+          event_id: safeStr(d?.event_id || ""),
+        });
+      });
+      return map;
+    } catch (e) {
+      // fallback sin event_id/date si tu tabla no los tiene
+      try {
+        const { data, error } = await client
+          .from("event_dates")
+          .select("id,label")
+          .order("label", { ascending: true })
+          .limit(500);
 
-    // para cocteles: type contiene coct
-    // para maridajes: type contiene vino/cata (flexible)
-    const wantCoct = pageKey === "cocteles";
-    const ok =
-      wantCoct ? t.includes("coct") :
-      (t.includes("vino") || t.includes("cata") || t.includes("marid"));
+        if (error) throw error;
 
-    const datesArr = Array.isArray(ev?.event_dates) ? ev.event_dates :
-      Array.isArray(ev?.dates) ? ev.dates :
-      [];
+        const map = new Map();
+        (Array.isArray(data) ? data : []).forEach((d) => {
+          const id = safeStr(d?.id || "");
+          if (!id) return;
+          map.set(id, { id, label: cleanSpaces(d?.label || "") || "", date: "", event_id: "" });
+        });
+        return map;
+      } catch (e2) {
+        console.warn("[events] event_dates fetch fail:", e2);
+        return new Map();
+      }
+    }
+  }
 
-    const dateLabels = datesArr
-      .map((d) => cleanSpaces(d?.label || fmtShortDate(d?.date || d?.start_at || "")))
-      .filter(Boolean);
-
-    return {
-      id,
-      title,
-      ok,
-      dates: dateLabels
-    };
+  function eventTypeMatches(pageKey, typeText) {
+    const t = norm(typeText || "");
+    if (pageKey === "cocteles") return t.includes("coct");
+    // maridajes: vino / cata / marid
+    return t.includes("vino") || t.includes("cata") || t.includes("marid");
   }
 
   async function fetchEventsForSelect() {
     if (!hasSupabase()) return [];
-
     await ensureSessionOptional();
 
     const client = sb();
+    const datesById = await fetchEventDatesIndex();
 
-    // intento A
+    // Intento principal: events + columnas mínimas
     try {
       const { data, error } = await client
         .from(DB.EVENTS)
-        .select(SELECT_EVENTS_A)
+        .select("id,title,type,created_at,event_date_id")
         .order("created_at", { ascending: false })
         .limit(200);
 
       if (error) throw error;
-      const list = Array.isArray(data) ? data.map(normalizeEventForSelect).filter((x) => x.id && x.title && x.ok) : [];
+
+      const list = (Array.isArray(data) ? data : [])
+        .map((ev) => {
+          const id = safeStr(ev?.id || "");
+          const title = cleanSpaces(ev?.title || "Evento") || "Evento";
+          const type = safeStr(ev?.type || "");
+          const ok = !!(id && title && eventTypeMatches(pageKey, type));
+
+          const dateId = safeStr(ev?.event_date_id || "");
+          const dateRow = dateId ? datesById.get(dateId) : null;
+
+          const dateLabels = [];
+          if (dateRow?.label) dateLabels.push(dateRow.label);
+          else if (dateRow?.date) dateLabels.push(fmtShortDate(dateRow.date));
+
+          return { id, title, ok, dates: dateLabels };
+        })
+        .filter((x) => x.ok);
+
       return list;
     } catch (eA) {
-      const m = safeStr(eA?.message || "").toLowerCase();
-      const looksLikeJoin =
-        m.includes("could not find") ||
-        m.includes("relationship") ||
-        m.includes("embedded") ||
-        m.includes("schema cache") ||
-        m.includes("foreign key");
-
-      if (!looksLikeJoin) {
-        if (isRLSError(eA)) toast("Acceso bloqueado (RLS) leyendo eventos.");
-        else console.warn("[gallery] events A error:", eA);
-      }
-
-      // intento B (alias de relación)
+      // Fallback: events sin event_date_id (por si tu tabla no lo tiene)
       try {
         const { data, error } = await client
           .from(DB.EVENTS)
-          .select(SELECT_EVENTS_B)
+          .select("id,title,type,created_at")
           .order("created_at", { ascending: false })
           .limit(200);
 
         if (error) throw error;
-        const list = Array.isArray(data) ? data.map(normalizeEventForSelect).filter((x) => x.id && x.title && x.ok) : [];
+
+        const list = (Array.isArray(data) ? data : [])
+          .map((ev) => {
+            const id = safeStr(ev?.id || "");
+            const title = cleanSpaces(ev?.title || "Evento") || "Evento";
+            const type = safeStr(ev?.type || "");
+            const ok = !!(id && title && eventTypeMatches(pageKey, type));
+            return { id, title, ok, dates: [] };
+          })
+          .filter((x) => x.ok);
+
         return list;
       } catch (eB) {
-        if (isRLSError(eB)) toast("Acceso bloqueado (RLS) leyendo eventos.");
-        else console.warn("[gallery] events B error:", eB);
+        if (isRLSError(eB) || isRLSError(eA)) toast("Acceso bloqueado (RLS) leyendo eventos.");
+        else console.warn("[events] fetch fail:", eA, eB);
         return [];
       }
     }
@@ -476,7 +500,8 @@
     const events = await fetchEventsForSelect();
 
     if (!events.length) {
-      reviewEventSel.innerHTML = placeholder + `<option value="" disabled>(Aún no hay eventos disponibles)</option>`;
+      reviewEventSel.innerHTML =
+        placeholder + `<option value="" disabled>(Aún no hay eventos disponibles)</option>`;
       reviewEventSel.disabled = true;
       return;
     }
@@ -554,7 +579,7 @@
         <div class="gOverlay" aria-hidden="true">
           <p class="gTitle">${esc(title)}${dateLabel ? ` · ${esc(dateLabel)}` : ""}</p>
           <div class="gTags">
-            ${tags.slice(0, 8).map(t => `<span class="gTag">${esc(t)}</span>`).join("")}
+            ${tags.slice(0, 8).map((t) => `<span class="gTag">${esc(t)}</span>`).join("")}
           </div>
         </div>
       `;
@@ -586,7 +611,6 @@
   function mountDateFilter() {
     if (!selDate) return;
 
-    // usamos dateISO si existe, si no, no aparece en selector
     const dates = uniq(allItems.map((x) => x.dateISO).filter(Boolean)).sort();
     const base = `<option value="">Todas</option>`;
     const opts = dates
@@ -603,9 +627,7 @@
       const okDate = !fDate || String(x.dateISO || "") === fDate;
       if (!q) return okDate;
 
-      const hay = norm(
-        (x.eventName || "") + " " + (Array.isArray(x.tags) ? x.tags.join(" ") : "")
-      );
+      const hay = norm((x.eventName || "") + " " + (Array.isArray(x.tags) ? x.tags.join(" ") : ""));
       const okSearch = hay.includes(q);
 
       return okDate && okSearch;
@@ -833,6 +855,7 @@
     }
 
     reviews[idx].reactions = rx;
+
     saveReactionState(st);
     saveReviews(reviews);
     renderReviews(reviews);
@@ -856,27 +879,19 @@
   // INIT
   // ------------------------------------------------------------
   async function initGallery() {
-    // 1) cargar items desde Supabase
     try {
-      // skeletons ya vienen en HTML, aquí los quitamos cuando haya respuesta
+      // Quitamos skeletons cuando llegue la respuesta
       allItems = await fetchGallery();
 
-      // 2) montar filtro por fecha y render inicial
       mountDateFilter();
       renderGallery(allItems);
 
-      // 3) listeners filtros
       if (selDate) selDate.addEventListener("change", applyGalleryFilters);
       if (inpSearch) inpSearch.addEventListener("input", debounce(applyGalleryFilters, 130));
-
-      // si no hay items, dejamos mensaje
-      if (!allItems.length) {
-        // renderGallery ya pinta "Aún no hay contenido"
-      }
     } catch (e) {
       console.warn("[gallery] initGallery fail:", e);
       clearSkeletons();
-      gridEl.innerHTML = `<div style="opacity:.8; padding:16px;">No se pudo cargar la galería.</div>`;
+      gridEl.innerHTML = `<div style="opacity:.8; padding:16px;">${esc(prettyErr(e))}</div>`;
     }
   }
 
@@ -885,7 +900,6 @@
 
     ensureReviewStructure();
 
-    // ✅ cargar eventos desde Supabase para el select
     try {
       await mountReviewEventSelect();
     } catch (e) {
@@ -908,7 +922,6 @@
 
     renderReviews(loadReviews());
 
-    // refrescar si otra pestaña cambia reseñas/reacciones
     window.addEventListener("storage", (ev) => {
       if (!ev || !ev.key) return;
       if (ev.key === LS.REVIEWS || ev.key === LS.REACTIONS) {
