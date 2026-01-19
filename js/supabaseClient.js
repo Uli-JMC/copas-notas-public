@@ -1,8 +1,9 @@
 /* js/supabaseClient.js
-   Cliente Supabase (PUBLIC) ✅ PRO
+   Cliente Supabase (PUBLIC) ✅ PRO (depurado)
    - Usa publishable key (segura SOLO con RLS + policies)
    - Storage separado del ADMIN (evita choques de sesión)
    - Helpers mínimos (sin lógica de negocio)
+   - ✅ Incluye APP.isAdmin() (gate) requerido por admin-auth.js
 */
 (function () {
   "use strict";
@@ -15,8 +16,7 @@
   // ✅ Publishable key (frontend + RLS)
   var SUPABASE_KEY = "sb_publishable_rYM5ObkmS_YZNkaWGu9HOw_Gr2TN1mu";
 
-  // ✅ Para NO mezclar sesión con el admin:
-  // (Admin usa "ecn_admin_sb_auth", acá usamos uno propio)
+  // ✅ Storage separado (evita conflictos con admin)
   var PUBLIC_STORAGE_KEY = "ecn_public_sb_auth";
 
   function hardFail(msg) {
@@ -25,37 +25,48 @@
     } catch (_) {}
   }
 
-  // Requiere que el CDN de supabase-js esté cargado antes:
-  // <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  // Requiere CDN supabase-js@2 antes
   if (!window.supabase || !window.supabase.createClient) {
     hardFail("Supabase CDN no cargado. Agregá supabase-js@2 antes de supabaseClient.js");
     return;
   }
 
-  // Evita doble inicialización si se incluye 2 veces
-  if (window.APP && window.APP.supabase) return;
-
+  // Namespace
   window.APP = window.APP || {};
 
   // ------------------------------------------------------------
-  // Client
+  // Evitar doble init (pero sin romper ADMIN)
+  // - Si ya existe un cliente, no lo sobreescribimos.
+  // - Creamos alias estable APP.sb / APP.publicSb
   // ------------------------------------------------------------
-  window.APP.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
+  function alreadyInitialized() {
+    try {
+      // si ya existe un cliente, asumimos que está OK
+      // (en admin, también se llama APP.supabase)
+      return !!(window.APP && (APP.supabase || APP.sb));
+    } catch (_) {
+      return false;
+    }
+  }
 
-      // PUBLIC normalmente puede procesar sesión si algún día usás magic links / OAuth.
-      // Si no lo usás, igual no molesta.
-      detectSessionInUrl: true,
+  if (!alreadyInitialized()) {
+    // Client PUBLIC
+    window.APP.supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storageKey: PUBLIC_STORAGE_KEY
+      }
+    });
 
-      // ✅ Storage separado (evita conflictos con admin)
-      storageKey: PUBLIC_STORAGE_KEY,
-    },
-  });
+    // Alias corto
+    window.APP.sb = window.APP.supabase;
+  }
 
-  // Alias corto opcional
-  window.APP.sb = window.APP.supabase;
+  // Alias explícito para no confundirte cuando haya admin/public juntos
+  // (si ya existe APP.supabase por el admin, esto apunta a ese mismo)
+  window.APP.publicSb = window.APP.sb || window.APP.supabase;
 
   // Debug mínimo
   window.APP.supabaseUrl = SUPABASE_URL;
@@ -65,7 +76,9 @@
   // ------------------------------------------------------------
   window.APP.getSession = async function () {
     try {
-      var res = await window.APP.supabase.auth.getSession();
+      var client = window.APP.publicSb;
+      if (!client || !client.auth || !client.auth.getSession) return null;
+      var res = await client.auth.getSession();
       return res && res.data ? res.data.session : null;
     } catch (_) {
       return null;
@@ -74,10 +87,58 @@
 
   window.APP.getUser = async function () {
     try {
-      var res = await window.APP.supabase.auth.getUser();
+      var client = window.APP.publicSb;
+      if (!client || !client.auth || !client.auth.getUser) return null;
+      var res = await client.auth.getUser();
       return res && res.data ? res.data.user : null;
     } catch (_) {
       return null;
+    }
+  };
+
+  // Útil para guards (admin-auth.js puede usarlo)
+  window.APP.requireSession = async function () {
+    var s = await window.APP.getSession();
+    return s || null;
+  };
+
+  // Logout helper
+  window.APP.signOut = async function () {
+    try {
+      var client = window.APP.publicSb;
+      if (!client || !client.auth || !client.auth.signOut) return;
+      await client.auth.signOut();
+    } catch (_) {}
+  };
+
+  // ------------------------------------------------------------
+  // ✅ Admin gate helper (requerido por admin-auth.js)
+  //   - Usa tabla public.admins (PK: user_id uuid)
+  //   - Requiere policy: admins can read own row
+  // ------------------------------------------------------------
+  window.APP.isAdmin = async function () {
+    try {
+      var client = window.APP.publicSb;
+      if (!client) return false;
+
+      var s = await client.auth.getSession();
+      var userId =
+        s && s.data && s.data.session && s.data.session.user
+          ? s.data.session.user.id
+          : "";
+
+      if (!userId) return false;
+
+      var res = await client
+        .from("admins")
+        .select("user_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (res && res.error) return false;
+      return !!(res && res.data && String(res.data.user_id) === String(userId));
+    } catch (_) {
+      return false;
     }
   };
 })();
