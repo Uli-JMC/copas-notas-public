@@ -5,6 +5,10 @@
    - Banner: muestra 1 promo kind=BANNER
    - Modal:  muestra 1 promo kind=MODAL
    - Dismiss (no molestar): localStorage (por usuario/navegador)
+
+   ✅ PATCH 2026-01-19:
+   - Fix: "No molestar" siempre usa la promo MODAL actual (no una vieja por cierre)
+   - Opcional: marcar dismiss_once al presionar "No molestar" (setOnceToo = true)
 ============================================================ */
 (function () {
   "use strict";
@@ -342,8 +346,11 @@
     if (setOnceToo && promoId) write(LS.DISMISS_ONCE, promoId);
   }
 
+  // ✅ PATCH: evitar usar "p" viejo por closure
   let modalWired = false;
-  function wireModal(modal, p) {
+  let currentModalPromo = null; // ✅ promo MODAL actual
+
+  function wireModal(modal) {
     if (modalWired) return;
     modalWired = true;
 
@@ -359,9 +366,11 @@
       if (e.key === "Escape" && modal.classList.contains("isOpen")) closeModal(modal);
     });
 
-    // No molestar
+    // No molestar (usa promo actual)
     $("#promoLater")?.addEventListener("click", () => {
-      dismissForDays(p.dismissDays || 7, p.id, false);
+      const p = currentModalPromo;
+      if (!p) return closeModal(modal);
+      dismissForDays(p.dismissDays || 7, p.id, true); // ✅ setOnceToo=true
       closeModal(modal);
     });
   }
@@ -399,7 +408,8 @@
     renderBanner(mount, bannerPromo);
 
     if (modalPromo && canShowModal(modalPromo.id)) {
-      wireModal(modal, modalPromo);
+      currentModalPromo = modalPromo; // ✅ set promo actual
+      wireModal(modal);               // ✅ ya no recibe p
       setTimeout(() => openModal(modal, modalPromo), 600);
     }
   }
