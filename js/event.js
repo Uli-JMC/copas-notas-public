@@ -1,10 +1,9 @@
 "use strict";
 
 /* ============================================================
-   event.js (Supabase-first)
-   - Carga evento + fechas desde Supabase
-   - Renderiza detalle + lista de fechas
-   - "Elegir" manda a register con date_id (UUID)
+   event.js (Supabase-first) ✅ FIX
+   - No marca "Agotado" si fechas aún no cargaron (evita falso sold-out)
+   - Loader suave para evitar “brinco” visual al refrescar
 ============================================================ */
 
 // ============================================================
@@ -87,12 +86,28 @@ function hasSupabase() {
 }
 
 function getDefaultHero() {
-  // Sin depender de ECN. Si tu data.js publica algo, se puede usar, si no fallback.
   try {
     const media = window.ECN && typeof ECN.getMedia === "function" ? ECN.getMedia() : null;
     return normalizeImgPath(media?.defaultHero || "./assets/img/hero-1.jpg");
   } catch (_) {
     return "./assets/img/hero-1.jpg";
+  }
+}
+
+// ============================================================
+// Loader
+// ============================================================
+function setLoading(on) {
+  const loader = $("#pageLoader");
+  const card = $("#heroCard");
+
+  if (loader) {
+    loader.style.opacity = on ? "1" : "0";
+    loader.style.pointerEvents = on ? "auto" : "none";
+  }
+  if (card) {
+    card.style.opacity = on ? "0" : "1";
+    card.style.transition = "opacity .2s ease";
   }
 }
 
@@ -121,9 +136,9 @@ async function fetchEventFromSupabase(eventId) {
   }
   if (!evRes.data) return null;
 
-  // 2) Fechas (tratamos de ordenar por date_at si existe, si no created_at, si no label)
-  // Nota: si "date_at" no existe en tu tabla, Supabase tiraría error si lo pedimos.
-  // Para evitar eso, pedimos columnas seguras y ordenamos en JS.
+  // 2) Fechas
+  let datesOk = true;
+
   const datesRes = await APP.supabase
     .from("event_dates")
     .select("id,event_id,label,seats_total,seats_available,created_at")
@@ -131,7 +146,8 @@ async function fetchEventFromSupabase(eventId) {
 
   if (datesRes.error) {
     console.error(datesRes.error);
-    toast("Aviso", "El evento cargó, pero no se pudieron cargar las fechas.");
+    datesOk = false;
+    toast("Aviso", "El evento cargó, pero aún no se pudieron cargar las fechas.");
   }
 
   const datesRaw = Array.isArray(datesRes.data) ? datesRes.data : [];
@@ -140,13 +156,16 @@ async function fetchEventFromSupabase(eventId) {
     .map((d) => ({
       id: String(d?.id || ""),
       label: String(d?.label || "").trim(),
-      seats: Math.max(0, Number(d?.seats_available ?? 0)), // ✅ DISPONIBLES
+      seats: Math.max(0, Number(d?.seats_available ?? 0)),
       seats_total: Math.max(0, Number(d?.seats_total ?? 0)),
       created_at: d?.created_at ? String(d.created_at) : "",
     }))
     .filter((d) => d.id);
 
-  // Orden estable (created_at asc, luego label)
+  // Si no hubo error pero vienen 0 fechas, lo tratamos como "pendiente"
+  if (!datesRes.error && dates.length === 0) datesOk = false;
+
+  // Orden estable
   dates.sort((a, b) => {
     const ta = a.created_at ? Date.parse(a.created_at) : 0;
     const tb = b.created_at ? Date.parse(b.created_at) : 0;
@@ -154,7 +173,6 @@ async function fetchEventFromSupabase(eventId) {
     return String(a.label).localeCompare(String(b.label), "es");
   });
 
-  // ✅ Seats del evento = suma de seats_available
   const seatsTotalAvailable = dates.reduce((acc, x) => acc + (Number(x.seats) || 0), 0);
 
   return {
@@ -162,20 +180,17 @@ async function fetchEventFromSupabase(eventId) {
     type: String(evRes.data.type || "Experiencia"),
     monthKey: String(evRes.data.month_key || "—").toUpperCase(),
     title: String(evRes.data.title || "Evento"),
-    desc: String(evRes.data.desc || ""),
+    // ✅ FIX: la columna se llama "desc"
+    desc: String(evRes.data["desc"] || ""),
     img: normalizeImgPath(evRes.data.img || getDefaultHero()),
 
-    // Fechas
-    dates, // [{id,label,seats,seats_total}]
-    seats: seatsTotalAvailable, // ✅ DISPONIBLES REALES
+    dates,
+    seats: seatsTotalAvailable, // suma seats_available (solo si datesOk)
+    datesOk,
 
-    // Detalles
     location: safeText(evRes.data.location, "Por confirmar"),
     timeRange: safeText(evRes.data.time_range, "Por confirmar"),
     durationHours: safeText(evRes.data.duration_hours, "Por confirmar"),
-
-    // Legacy compat
-    duration: safeText(evRes.data.duration_hours, "Por confirmar"),
   };
 }
 
@@ -188,7 +203,6 @@ function goRegisterWithDate(eventId, dateId, dateLabel) {
   const e = encodeURIComponent(String(eventId || ""));
   const d = encodeURIComponent(String(dateId || ""));
   const l = encodeURIComponent(String(dateLabel || ""));
-  // date_label es opcional (solo UI)
   window.location.href = `./register.html?event=${e}&date_id=${d}&date_label=${l}`;
 }
 
@@ -208,7 +222,7 @@ function ensurePickListener() {
     const label = dateObj ? String(dateObj.label || "") : "";
     const seats = dateObj ? (Number(dateObj.seats) || 0) : 0;
 
-    const soldOutTotal = (Number(CURRENT.seats) || 0) <= 0;
+    const soldOutTotal = CURRENT.datesOk && (Number(CURRENT.seats) || 0) <= 0;
     const dateSoldOut = seats <= 0;
 
     if (soldOutTotal || dateSoldOut || pickBtn.disabled) {
@@ -224,6 +238,16 @@ function ensurePickListener() {
 // ============================================================
 // Render
 // ============================================================
+function setNotices({ sold, available, pending }) {
+  const soldNotice = $("#soldNotice");
+  const availNotice = $("#availNotice");
+  const pendingNotice = $("#pendingNotice");
+
+  if (soldNotice) soldNotice.hidden = !sold;
+  if (availNotice) availNotice.hidden = !available;
+  if (pendingNotice) pendingNotice.hidden = !pending;
+}
+
 function renderEvent(ev) {
   CURRENT = ev;
 
@@ -233,7 +257,9 @@ function renderEvent(ev) {
     return;
   }
 
-  const soldOutTotal = (Number(ev.seats) || 0) <= 0;
+  // ✅ SOLO es agotado si fechas están OK y el total de seats es 0
+  const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
+  const hasDates = Array.isArray(ev.dates) && ev.dates.length > 0;
 
   // Background hero
   const heroBg = $("#heroBg");
@@ -250,13 +276,9 @@ function renderEvent(ev) {
   if (metaRow) {
     metaRow.innerHTML = `
       <span class="pill"><span class="dot"></span> ${escapeHtml(ev.type)}</span>
-      <span class="pill">${escapeHtml(datesText || "Por definir")}</span>
+      <span class="pill">${escapeHtml(datesText || (ev.datesOk ? "Por definir" : "Cupos por confirmar"))}</span>
       <span class="pill">${escapeHtml(ev.monthKey || "—")}</span>
-      ${
-        soldOutTotal
-          ? `<span class="pill" style="border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.10);">AGOTADO</span>`
-          : ``
-      }
+      ${soldOutTotal ? `<span class="pill" style="border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.10);">AGOTADO</span>` : ``}
     `;
   }
 
@@ -272,7 +294,10 @@ function renderEvent(ev) {
     dateList.innerHTML = "";
 
     const dates = Array.isArray(ev.dates) ? ev.dates : [];
-    if (!dates.length) {
+
+    if (!ev.datesOk) {
+      dateList.innerHTML = `<div class="emptyMonth">Fechas y cupos por confirmar.</div>`;
+    } else if (!dates.length) {
       dateList.innerHTML = `<div class="emptyMonth">Fechas por confirmar.</div>`;
     } else {
       dates.forEach((x) => {
@@ -284,7 +309,6 @@ function renderEvent(ev) {
         const row = document.createElement("div");
         row.className = "dateItem";
 
-        // Armamos DOM seguro (evita problemas con HTML escapado en data-pick)
         const left = document.createElement("div");
         left.className = "dateLeft";
 
@@ -326,7 +350,9 @@ function renderEvent(ev) {
     kv.innerHTML = `
       <div class="kvRow">
         <div class="kvLabel">Cupos disponibles</div>
-        <div class="kvValue">${soldOutTotal ? "0 (Agotado)" : escapeHtml(ev.seats)}</div>
+        <div class="kvValue">${
+          !ev.datesOk ? "Por confirmar" : (soldOutTotal ? "0 (Agotado)" : escapeHtml(ev.seats))
+        }</div>
       </div>
 
       <div class="kvRow">
@@ -346,10 +372,19 @@ function renderEvent(ev) {
     `;
   }
 
+  // Notices
+  if (!ev.datesOk) {
+    setNotices({ sold: false, available: false, pending: true });
+  } else if (soldOutTotal) {
+    setNotices({ sold: true, available: false, pending: false });
+  } else {
+    // si hay fechas ok y no está agotado => disponible
+    setNotices({ sold: false, available: true, pending: false });
+  }
+
   // Register button (sin fecha seleccionada)
   const btnRegister = $("#btnRegister");
   if (btnRegister) {
-    // ✅ Si hay una única fecha con cupo, mandamos directo con date_id (mejor UX)
     const firstAvailable = (ev.dates || []).find((x) => (Number(x?.seats) || 0) > 0);
 
     if (firstAvailable && String(firstAvailable.id || "")) {
@@ -359,6 +394,7 @@ function renderEvent(ev) {
       btnRegister.href = `./register.html?event=${encodeURIComponent(ev.id)}`;
     }
 
+    // Si cupos por confirmar, no bloqueamos (pero no prometemos cupos)
     if (soldOutTotal) {
       btnRegister.setAttribute("aria-disabled", "true");
       btnRegister.classList.remove("primary");
@@ -372,10 +408,6 @@ function renderEvent(ev) {
       btnRegister.style.pointerEvents = "auto";
     }
   }
-
-  // Sold-out UI
-  const soldNotice = $("#soldNotice");
-  if (soldNotice) soldNotice.hidden = !soldOutTotal;
 
   const heroCard = $("#heroCard");
   if (heroCard) heroCard.classList.toggle("isSoldOut", soldOutTotal);
@@ -398,6 +430,10 @@ function renderEvent(ev) {
     return;
   }
 
+  setLoading(true);
+
   const ev = await fetchEventFromSupabase(eventId);
   renderEvent(ev);
+
+  setLoading(false);
 })();
