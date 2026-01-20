@@ -243,11 +243,17 @@ function setNotices({ sold, available, pending }) {
   const availNotice = $("#availNotice");
   const pendingNotice = $("#pendingNotice");
 
-  if (soldNotice) soldNotice.hidden = !sold;
-  if (availNotice) availNotice.hidden = !available;
-  if (pendingNotice) pendingNotice.hidden = !pending;
-}
+  // ✅ primero ocultar todos (por si CSS raro)
+  [soldNotice, availNotice, pendingNotice].forEach((el) => {
+    if (!el) return;
+    el.setAttribute("hidden", "");
+  });
 
+  // ✅ luego mostrar SOLO el que corresponde
+  if (sold && soldNotice) soldNotice.removeAttribute("hidden");
+  else if (available && availNotice) availNotice.removeAttribute("hidden");
+  else if (pending && pendingNotice) pendingNotice.removeAttribute("hidden");
+}
 function renderEvent(ev) {
   CURRENT = ev;
 

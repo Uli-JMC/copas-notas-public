@@ -608,3 +608,8 @@ p,h1,h2,h3,span,a{ overflow-wrap: anywhere; }
     justify-content: center; /* ✅ centra los iconos */
   }
 }
+
+/* ✅ Hard rule: hidden siempre oculta (evita que se vean los 3 notices) */
+[hidden] { 
+  display: none !important; 
+}
