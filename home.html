@@ -14,7 +14,15 @@
   <link rel="stylesheet" href="./css/home.css" />
 </head>
 
-<body>
+<body class="is-loading">
+
+<!-- Loader anti-flash -->
+<div id="pageLoader" class="pageLoader" aria-hidden="false">
+  <div class="pageLoader__inner">
+    <div class="pageLoader__spinner" aria-hidden="true"></div>
+    <p class="pageLoader__text">Cargando experiencias…</p>
+  </div>
+</div>
 
   <!-- Toasts -->
   <div class="toasts" id="toasts" aria-live="polite"></div>

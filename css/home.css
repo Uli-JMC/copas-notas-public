@@ -1281,3 +1281,84 @@ a:focus-visible{ box-shadow: var(--focusRing); outline: none; border-radius: 10p
   .pbannerRow{ flex-direction: column; align-items:flex-start; }
   .pmodalMedia{ height: 170px; }
 }
+
+/* =========================================================
+   LOADING GATE (evita brinco del hero)
+========================================================= */
+
+/* Mientras carga, ocultamos el carrusel */
+.is-loading .hero {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Overlay loader */
+.pageLoader{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+  z-index: 9999;
+}
+
+.is-loading .pageLoader{
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* =========================================
+   Loader anti-flash (home)
+========================================= */
+.is-loading .hero,
+.is-loading #slides,
+.is-loading #dots {
+  visibility: hidden;
+}
+
+.pageLoader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.pageLoader[aria-hidden="true"] {
+  display: none;
+}
+
+.pageLoader__inner {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  padding: 18px 16px;
+  border-radius: 16px;
+  background: rgba(15, 16, 20, .75);
+  border: 1px solid rgba(255,255,255,.10);
+  box-shadow: 0 12px 30px rgba(0,0,0,.35);
+}
+
+.pageLoader__spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 3px solid rgba(255,255,255,.18);
+  border-top-color: rgba(255,255,255,.85);
+  animation: ecnSpin .9s linear infinite;
+}
+
+.pageLoader__text {
+  margin: 0;
+  font-size: 14px;
+  opacity: .9;
+}
+
+@keyframes ecnSpin {
+  to { transform: rotate(360deg); }
+}

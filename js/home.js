@@ -15,6 +15,17 @@ function escapeHtml(str) {
 const qs = (sel) => document.querySelector(sel);
 
 // ============================================================
+// Loading gate (evita flash)
+// ============================================================
+function setLoading(on) {
+  try {
+    document.body.classList.toggle("is-loading", !!on);
+    const loader = qs("#pageLoader");
+    if (loader) loader.setAttribute("aria-hidden", on ? "false" : "true");
+  } catch (_) {}
+}
+
+// ============================================================
 // Imagen helpers
 // ============================================================
 function normalizeImgPath(input) {
@@ -65,12 +76,14 @@ function toast(title, msg, timeout = 3800) {
   toastsEl.appendChild(el);
 
   const kill = () => {
-    el.style.opacity = "0";
-    el.style.transform = "translateY(-6px)";
-    setTimeout(() => el.remove(), 180);
+    try {
+      el.style.opacity = "0";
+      el.style.transform = "translateY(-6px)";
+      setTimeout(() => el.remove(), 180);
+    } catch (_) {}
   };
 
-  el.querySelector(".close")?.addEventListener("click", kill);
+  el.querySelector(".close")?.addEventListener("click", kill, { once: true });
   setTimeout(kill, timeout);
 }
 
@@ -93,9 +106,7 @@ function goRegister(id, soldOut) {
 // Supabase helpers
 // ============================================================
 function hardFail(msg) {
-  try {
-    console.error(msg);
-  } catch (_) {}
+  try { console.error(msg); } catch (_) {}
 }
 
 function hasSupabase() {
@@ -123,7 +134,7 @@ async function fetchEventsFromSupabase() {
   const events = Array.isArray(evRes.data) ? evRes.data : [];
   if (!events.length) return [];
 
-  // 2) Traer fechas (todas) y agregarlas por event_id
+  // 2) Traer fechas y agregarlas por event_id
   const datesRes = await APP.supabase
     .from("event_dates")
     .select("id,event_id,label,seats_total,seats_available,created_at")
@@ -166,7 +177,7 @@ async function fetchEventsFromSupabase() {
       desc: ev?.desc || "",
       seats,
       img: normalizeImgPath(ev?.img),
-      // extras por si luego los ocupás en event.html
+      // extras
       location: ev?.location || "",
       timeRange: ev?.time_range || "",
       durationHours: ev?.duration_hours || "",
@@ -283,7 +294,7 @@ function goTo(next, user) {
 
 function restartAuto() {
   clearInterval(autoTimer);
-  if (!EVENTS.length) return;
+  if (EVENTS.length <= 1) return; // ✅ si solo hay 1, no auto-rotación
   autoTimer = setInterval(() => goTo(idx + 1), AUTO_MS);
 }
 
@@ -295,7 +306,6 @@ const monthGrid = qs("#monthGrid");
 let activeMonth = null;
 
 function getThreeMonthWindow() {
-  // Si ECN existe, usamos el helper; si no, fallback fijo
   return window.ECN?.getMonths3 ? ECN.getMonths3(new Date()) : ["ENERO", "FEBRERO", "MARZO"];
 }
 
@@ -395,32 +405,34 @@ document.addEventListener("click", (e) => {
 // ============================================================
 // Refresh (Supabase)
 // ============================================================
-async function refreshFromSupabase(opts = { keepToast: true }) {
+async function refreshFromSupabase() {
   EVENTS = await fetchEventsFromSupabase();
 
+  // ✅ si no hay eventos, igual renderiza, pero SIN flash (porque seguimos en loading)
   renderSlides();
   restartAuto();
   renderMonths();
-
-  // Si querés activar un toast suave:
-  // if (opts?.keepToast) toast("Actualizado", "Eventos sincronizados.");
 }
 
-// Hook opcional (si en el futuro disparás eventos custom)
+// Hook opcional
 window.addEventListener("ecn:events-updated", () => {
-  refreshFromSupabase({ keepToast: false });
+  refreshFromSupabase().catch(() => {});
 });
 
 // ============================================================
-// Init
+// Init (SIN flash)
 // ============================================================
 (async function init() {
-  // UI base (vacía) primero
-  renderSlides();
-  renderMonths();
+  // ✅ Arrancamos en modo loading y NO pintamos empty state antes del fetch
+  setLoading(true);
 
-  // Cargar datos reales
-  await refreshFromSupabase({ keepToast: false });
+  try {
+    await refreshFromSupabase();
+  } finally {
+    // ✅ solo cuando ya está todo pintado, mostramos el hero
+    setLoading(false);
+  }
 
+  // Toast suave de bienvenida (opcional)
   setTimeout(() => toast("Bienvenido", "Revisá los próximos eventos."), 800);
 })();
