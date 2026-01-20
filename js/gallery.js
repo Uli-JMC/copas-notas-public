@@ -6,7 +6,8 @@
    - Filtros: fecha + búsqueda (debounce)
    - Grid IG: render limpio y quita skeletons
    - Reviews: LocalStorage (por ahora), pero:
-     ✅ Select de eventos: Supabase events + event_dates (con fallbacks de joins)
+     ✅ Select de eventos: Supabase events + event_dates
+     ✅ Reseñas SOLO si el evento YA TERMINÓ (ends_at < now)
 ============================================================ */
 
 (function () {
@@ -65,6 +66,17 @@
 
   function nowISO() {
     return new Date().toISOString();
+  }
+
+  function nowMs() {
+    return Date.now();
+  }
+
+  function toMs(v) {
+    const s = String(v || "").trim();
+    if (!s) return NaN;
+    const t = Date.parse(s);
+    return Number.isFinite(t) ? t : NaN;
   }
 
   function uid(prefix = "id") {
@@ -184,6 +196,7 @@
     GALLERY_PRIMARY: "gallery_items",
     GALLERY_FALLBACK: "promos",
     EVENTS: "events",
+    EVENT_DATES: "event_dates",
     STORAGE_BUCKET: "gallery",
   };
 
@@ -202,8 +215,6 @@
   `;
 
   // ⚠️ Opción B: relaciones nombradas por FK (fallback)
-  // Nota: los nombres exactos pueden variar en tu proyecto.
-  // Aun así dejamos fallback robusto para no romper.
   const SELECT_GALLERY_B = `
     id,
     type,
@@ -366,58 +377,10 @@
   }
 
   // ------------------------------------------------------------
-  // ✅ Events para el SELECT (Supabase) — robusto y simple
+  // ✅ Reseñas: gating por evento finalizado (ends_at)
   // ------------------------------------------------------------
-  // Preferimos: events + event_dates por separado (sin join)
-  // porque tu schema real no garantiza event_dates.event_id en lo que pegaste.
-  async function fetchEventDatesIndex() {
-    const client = sb();
-    // Seleccionamos columnas típicas; si alguna no existe, PostgREST lo dirá (y caemos a label-only)
-    try {
-      const { data, error } = await client
-        .from("event_dates")
-        .select("id,label,date,start_at,event_id")
-        .order("date", { ascending: true })
-        .limit(500);
-
-      if (error) throw error;
-
-      const map = new Map();
-      (Array.isArray(data) ? data : []).forEach((d) => {
-        const id = safeStr(d?.id || "");
-        if (!id) return;
-        map.set(id, {
-          id,
-          label: cleanSpaces(d?.label || "") || "",
-          date: safeStr(d?.date || d?.start_at || ""),
-          event_id: safeStr(d?.event_id || ""),
-        });
-      });
-      return map;
-    } catch (e) {
-      // fallback sin event_id/date si tu tabla no los tiene
-      try {
-        const { data, error } = await client
-          .from("event_dates")
-          .select("id,label")
-          .order("label", { ascending: true })
-          .limit(500);
-
-        if (error) throw error;
-
-        const map = new Map();
-        (Array.isArray(data) ? data : []).forEach((d) => {
-          const id = safeStr(d?.id || "");
-          if (!id) return;
-          map.set(id, { id, label: cleanSpaces(d?.label || "") || "", date: "", event_id: "" });
-        });
-        return map;
-      } catch (e2) {
-        console.warn("[events] event_dates fetch fail:", e2);
-        return new Map();
-      }
-    }
-  }
+  let REVIEW_EVENTS = [];                 // [{id,title,dates:[...], eligible:boolean, reason:string}]
+  let REVIEW_ELIGIBLE = new Map();        // eventId -> { eligible, reason, endedAtMs, nextEndMs }
 
   function eventTypeMatches(pageKey, typeText) {
     const t = norm(typeText || "");
@@ -426,20 +389,121 @@
     return t.includes("vino") || t.includes("cata") || t.includes("marid");
   }
 
+  async function fetchEventDatesByEvent() {
+    const client = sb();
+
+    // intentamos con start_at/ends_at (tu tabla ya lo tiene)
+    try {
+      const { data, error } = await client
+        .from(DB.EVENT_DATES)
+        .select("id,event_id,label,start_at,ends_at,created_at")
+        .order("start_at", { ascending: true })
+        .limit(800);
+
+      if (error) throw error;
+
+      const byEvent = new Map();
+      (Array.isArray(data) ? data : []).forEach((d) => {
+        const eventId = safeStr(d?.event_id || "");
+        const id = safeStr(d?.id || "");
+        if (!eventId || !id) return;
+
+        const label = cleanSpaces(d?.label || "") || "";
+        const startAt = safeStr(d?.start_at || "");
+        const endsAt = safeStr(d?.ends_at || "");
+        const createdAt = safeStr(d?.created_at || "");
+
+        if (!byEvent.has(eventId)) byEvent.set(eventId, []);
+        byEvent.get(eventId).push({ id, eventId, label, startAt, endsAt, createdAt });
+      });
+
+      // ordenar por startAt/createdAt para consistencia
+      byEvent.forEach((arr) => {
+        arr.sort((a, b) => {
+          const ta = Number.isFinite(toMs(a.startAt)) ? toMs(a.startAt) : toMs(a.createdAt);
+          const tb = Number.isFinite(toMs(b.startAt)) ? toMs(b.startAt) : toMs(b.createdAt);
+          if (ta !== tb) return ta - tb;
+          return String(a.label).localeCompare(String(b.label), "es");
+        });
+      });
+
+      return byEvent;
+    } catch (e) {
+      console.warn("[reviews] event_dates fetch fail:", e);
+      return new Map();
+    }
+  }
+
+  function computeEligibilityForEvent(dates) {
+    // Regla:
+    // - eligible SOLO si existe al menos una fecha con ends_at en el pasado
+    // - si hay fechas pero ninguna terminó -> no eligible (aún no ha pasado)
+    // - si no hay fechas -> no eligible (no hay base para reseña)
+    const now = nowMs();
+
+    const parsed = (Array.isArray(dates) ? dates : []).map((d) => {
+      const endMs = toMs(d.endsAt);
+      const startMs = toMs(d.startAt);
+      return {
+        ...d,
+        startMs,
+        endMs,
+      };
+    });
+
+    const ended = parsed.filter((d) => Number.isFinite(d.endMs) && d.endMs < now);
+    if (ended.length) {
+      // último finalizado
+      ended.sort((a, b) => a.endMs - b.endMs);
+      const last = ended[ended.length - 1];
+      return { eligible: true, reason: "", endedAtMs: last.endMs, nextEndMs: NaN };
+    }
+
+    // si hay fechas con endMs futuro, damos razón amigable
+    const futureEnds = parsed.filter((d) => Number.isFinite(d.endMs) && d.endMs >= now);
+    if (futureEnds.length) {
+      futureEnds.sort((a, b) => a.endMs - b.endMs);
+      const next = futureEnds[0];
+      return {
+        eligible: false,
+        reason: "Las reseñas se habilitan cuando el evento finaliza.",
+        endedAtMs: NaN,
+        nextEndMs: next.endMs,
+      };
+    }
+
+    // si no hay ends_at válidos
+    if (parsed.length) {
+      return {
+        eligible: false,
+        reason: "Este evento aún no tiene hora de finalización configurada. Las reseñas se habilitan al finalizar.",
+        endedAtMs: NaN,
+        nextEndMs: NaN,
+      };
+    }
+
+    return {
+      eligible: false,
+      reason: "Aún no hay fechas para este evento.",
+      endedAtMs: NaN,
+      nextEndMs: NaN,
+    };
+  }
+
   async function fetchEventsForSelect() {
     if (!hasSupabase()) return [];
     await ensureSessionOptional();
 
     const client = sb();
-    const datesById = await fetchEventDatesIndex();
+    const datesByEvent = await fetchEventDatesByEvent();
 
-    // Intento principal: events + columnas mínimas
+    // events
     try {
       const { data, error } = await client
         .from(DB.EVENTS)
-        .select("id,title,type,created_at,event_date_id")
+        .select("id,title,type,created_at")
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(250);
 
       if (error) throw error;
 
@@ -450,45 +514,36 @@
           const type = safeStr(ev?.type || "");
           const ok = !!(id && title && eventTypeMatches(pageKey, type));
 
-          const dateId = safeStr(ev?.event_date_id || "");
-          const dateRow = dateId ? datesById.get(dateId) : null;
+          const dates = datesByEvent.get(id) || [];
+          const labels = dates
+            .map((d) => d?.label)
+            .filter(Boolean)
+            .slice(0, 3);
 
-          const dateLabels = [];
-          if (dateRow?.label) dateLabels.push(dateRow.label);
-          else if (dateRow?.date) dateLabels.push(fmtShortDate(dateRow.date));
+          const eligibility = computeEligibilityForEvent(dates);
+          REVIEW_ELIGIBLE.set(id, eligibility);
 
-          return { id, title, ok, dates: dateLabels };
+          return {
+            id,
+            title,
+            ok,
+            dates: labels,
+            eligible: !!eligibility.eligible,
+            reason: eligibility.reason || "",
+            nextEndMs: eligibility.nextEndMs,
+          };
         })
         .filter((x) => x.ok);
 
+      // guardamos snapshot para validaciones
+      REVIEW_EVENTS = list;
       return list;
-    } catch (eA) {
-      // Fallback: events sin event_date_id (por si tu tabla no lo tiene)
-      try {
-        const { data, error } = await client
-          .from(DB.EVENTS)
-          .select("id,title,type,created_at")
-          .order("created_at", { ascending: false })
-          .limit(200);
-
-        if (error) throw error;
-
-        const list = (Array.isArray(data) ? data : [])
-          .map((ev) => {
-            const id = safeStr(ev?.id || "");
-            const title = cleanSpaces(ev?.title || "Evento") || "Evento";
-            const type = safeStr(ev?.type || "");
-            const ok = !!(id && title && eventTypeMatches(pageKey, type));
-            return { id, title, ok, dates: [] };
-          })
-          .filter((x) => x.ok);
-
-        return list;
-      } catch (eB) {
-        if (isRLSError(eB) || isRLSError(eA)) toast("Acceso bloqueado (RLS) leyendo eventos.");
-        else console.warn("[events] fetch fail:", eA, eB);
-        return [];
-      }
+    } catch (e) {
+      if (isRLSError(e)) toast("Acceso bloqueado (RLS) leyendo eventos.");
+      else console.warn("[reviews] fetchEventsForSelect fail:", e);
+      REVIEW_EVENTS = [];
+      REVIEW_ELIGIBLE = new Map();
+      return [];
     }
   }
 
@@ -506,17 +561,42 @@
       return;
     }
 
-    reviewEventSel.disabled = false;
+    // Si ninguno está elegible, igual mostramos, pero deshabilitamos (y explicamos)
+    const anyEligible = events.some((e) => e.eligible);
 
     const options = events
       .map((ev) => {
         const dates = ev.dates && ev.dates.length ? ` · ${ev.dates.join(" / ")}` : "";
         const label = `${ev.title}${dates}`;
-        return `<option value="${esc(ev.id)}" data-title="${esc(ev.title)}">${esc(label)}</option>`;
+
+        const disabled = ev.eligible ? "" : "disabled";
+        let hint = "";
+        if (!ev.eligible) {
+          if (Number.isFinite(ev.nextEndMs)) {
+            hint = ` (Disponible después de ${fmtShortDate(new Date(ev.nextEndMs).toISOString())})`;
+          } else {
+            hint = " (Disponible al finalizar)";
+          }
+        }
+
+        return `<option value="${esc(ev.id)}" data-title="${esc(ev.title)}" data-eligible="${ev.eligible ? "1" : "0"}" ${disabled}>${esc(label + hint)}</option>`;
       })
       .join("");
 
     reviewEventSel.innerHTML = placeholder + options;
+    reviewEventSel.disabled = !anyEligible;
+
+    if (!anyEligible) {
+      toast("Las reseñas se habilitan cuando el evento finaliza.");
+    }
+  }
+
+  function isSelectedEventEligible(eventId) {
+    const id = String(eventId || "");
+    const st = REVIEW_ELIGIBLE.get(id);
+    if (!st) return { eligible: false, reason: "No pude validar el evento. Recargá la página." };
+    if (st.eligible) return { eligible: true, reason: "" };
+    return { eligible: false, reason: st.reason || "Las reseñas se habilitan cuando el evento finaliza." };
   }
 
   // ------------------------------------------------------------
@@ -584,24 +664,28 @@
         </div>
       `;
 
-      tile.addEventListener(
-        "touchstart",
-        (e) => {
-          const already = tile.classList.contains("isActive");
-          $$(".gItem.isActive", gridEl).forEach((x) => x.classList.remove("isActive"));
-          if (!already) {
-            tile.classList.add("isActive");
-            e.preventDefault();
-          }
-        },
-        { passive: false }
-      );
+      // ✅ FIX: No bloquear scroll en móvil.
+      // Antes: preventDefault() en touchstart => impedía desplazarse al activar overlay.
+      // Ahora: toggle con click/tap sin matar scroll.
+      tile.addEventListener("click", (e) => {
+        // si la persona está haciendo scroll, normalmente no hay click real; esto es seguro.
+        const already = tile.classList.contains("isActive");
+        $$(".gItem.isActive", gridEl).forEach((x) => x.classList.remove("isActive"));
+        if (!already) tile.classList.add("isActive");
+      });
 
       frag.appendChild(tile);
     });
 
     gridEl.appendChild(frag);
   }
+
+  // Cerrar overlay si se toca/clickea fuera
+  document.addEventListener("click", (e) => {
+    if (!gridEl) return;
+    const inside = e.target && e.target.closest ? e.target.closest(".gItem") : null;
+    if (!inside) $$(".gItem.isActive", gridEl).forEach((x) => x.classList.remove("isActive"));
+  });
 
   // ------------------------------------------------------------
   // GALERÍA: filtros
@@ -769,7 +853,7 @@
   }
 
   // ------------------------------------------------------------
-  // REVIEWS: submit
+  // REVIEWS: submit (con gating)
   // ------------------------------------------------------------
   function updateCountUI() {
     if (!reviewTextTa || !reviewCountEl) return;
@@ -783,6 +867,13 @@
     const eventId = String(reviewEventSel.value || "");
     if (!eventId) {
       toast("Seleccioná un evento para comentar.");
+      return;
+    }
+
+    // ✅ NUEVO: solo permitir reseñas si el evento ya terminó
+    const gate = isSelectedEventEligible(eventId);
+    if (!gate.eligible) {
+      toast(gate.reason || "Las reseñas se habilitan cuando el evento finaliza.");
       return;
     }
 
