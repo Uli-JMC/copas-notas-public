@@ -6,8 +6,13 @@
    - Filtros: fecha + búsqueda (debounce)
    - Grid IG: render limpio y quita skeletons
    - Reviews: LocalStorage (por ahora), pero:
-     ✅ Select de eventos: Supabase events + event_dates
+     ✅✅ Select de eventos: Supabase events + event_dates
      ✅ Reseñas SOLO si el evento YA TERMINÓ (ends_at < now)
+
+   ✅ FIX 2026-01-21:
+   - Evita errores 400 por "embedded relationships" (events/event_dates) en gallery_items
+   - La galería usa SIEMPRE un SELECT BASE (sin joins) -> 0 requests 400
+   - Mantiene TODO lo demás igual (reviews siguen usando events + event_dates)
 ============================================================ */
 
 (function () {
@@ -114,7 +119,6 @@
   }
 
   function isBadRequest(err) {
-    // supabase-js v2 trae status a veces, o el texto viene en message
     const st = Number(err?.status || 0);
     const msg = safeStr(err?.message || "").toLowerCase();
     return st === 400 || msg.includes("bad request") || msg.includes("400");
@@ -230,7 +234,8 @@
     target
   `;
 
-  // ⚠️ Opción A: relaciones normales (events, event_dates)
+  // ⚠️ Mantengo tus selects con joins (por si luego arreglás FK),
+  // pero la galería NO los usa para evitar 400.
   const SELECT_GALLERY_A = `
     id,
     type,
@@ -244,7 +249,6 @@
     event_dates ( label, date, start_at )
   `;
 
-  // ⚠️ Opción B: relaciones nombradas por FK (fallback)
   const SELECT_GALLERY_B = `
     id,
     type,
@@ -258,7 +262,19 @@
     event_dates:event_dates!gallery_items_event_date_id_fkey ( label, date, start_at )
   `;
 
-  // promos: lectura flexible
+  const SELECT_PROMOS_BASE = `
+    id,
+    type,
+    title,
+    name,
+    tags,
+    image_url,
+    image_path,
+    created_at,
+    target
+  `;
+
+  // promos: lectura flexible (con joins) -> no lo usamos para evitar 400
   const SELECT_PROMOS = `
     id,
     type,
@@ -350,14 +366,7 @@
     return Array.isArray(data) ? data : [];
   }
 
-  async function fetchGalleryBaseOnly() {
-    // ✅ sin joins -> no 400 por relaciones
-    const rows = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_BASE);
-    return rows
-      .map(normalizeGalleryRow)
-      .filter((x) => x.type === pageKey && x.img && (!x.target || x.target === "home"));
-  }
-
+  // ✅ FIX: La galería usa SOLO SELECT BASE (sin joins) para evitar 400
   async function fetchGallery() {
     if (!hasSupabase()) {
       toast("Falta Supabase en esta página (revisá scripts).");
@@ -366,64 +375,30 @@
 
     await ensureSessionOptional();
 
-    // 1) gallery_items A (join normal)
+    // 1) gallery_items (BASE)
     try {
-      const rowsA = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_A);
-      return rowsA
+      const rows = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_BASE);
+      return rows
         .map(normalizeGalleryRow)
         .filter((x) => x.type === pageKey && x.img && (!x.target || x.target === "home"));
-    } catch (eA) {
-      const msg = safeStr(eA?.message || "").toLowerCase();
-      const looksLikeJoin =
-        msg.includes("could not find") ||
-        msg.includes("relationship") ||
-        msg.includes("embedded") ||
-        msg.includes("schema cache") ||
-        msg.includes("foreign key");
-
-      // Si es 400, casi siempre es por join/embedded
-      const joinProbablyBroke = looksLikeJoin || isBadRequest(eA);
-
-      if (!joinProbablyBroke && !isMissingTable(eA)) {
-        if (isRLSError(eA)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
-        else console.warn("[gallery] gallery_items A error:", eA);
-      }
-
-      // 1b) gallery_items B (join por FK)
-      try {
-        const rowsB = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_B);
-        return rowsB
-          .map(normalizeGalleryRow)
-          .filter((x) => x.type === pageKey && x.img && (!x.target || x.target === "home"));
-      } catch (eB) {
-        // 1c) fallback definitivo: BASE sin joins (no rompe)
-        try {
-          return await fetchGalleryBaseOnly();
-        } catch (eBase) {
-          if (!isMissingTable(eB)) {
-            if (isRLSError(eB)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
-            else console.warn("[gallery] gallery_items B error:", eB);
-          }
-          console.warn("[gallery] base-only fail:", eBase);
-        }
+    } catch (e1) {
+      if (!isMissingTable(e1)) {
+        if (isRLSError(e1)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
+        else console.warn("[gallery] gallery_items base error:", e1);
       }
     }
 
-    // 2) fallback promos
+    // 2) fallback promos (BASE)
     try {
-      const rowsP = await fetchUsing(DB.GALLERY_FALLBACK, SELECT_PROMOS);
+      const rowsP = await fetchUsing(DB.GALLERY_FALLBACK, SELECT_PROMOS_BASE);
       return rowsP
         .map(normalizeGalleryRow)
         .filter((x) => x.type === pageKey && x.img && (!x.target || x.target === "home"));
     } catch (eP) {
-      if (isMissingTable(eP)) {
-        toast("No existe tabla gallery_items ni promos.");
-      } else if (isRLSError(eP)) {
-        toast("Acceso bloqueado (RLS) leyendo promos.");
-      } else {
-        toast("No pude cargar la galería.");
-        console.warn("[gallery] promos error:", eP);
-      }
+      if (isMissingTable(eP)) toast("No existe tabla gallery_items ni promos.");
+      else if (isRLSError(eP)) toast("Acceso bloqueado (RLS) leyendo promos.");
+      else toast("No pude cargar la galería.");
+      console.warn("[gallery] promos base error:", eP);
       return [];
     }
   }
@@ -444,7 +419,6 @@
   async function fetchEventDatesByEvent() {
     const client = sb();
 
-    // intentamos con start_at/ends_at (tu tabla ya lo tiene)
     try {
       const { data, error } = await client
         .from(DB.EVENT_DATES)
@@ -469,7 +443,6 @@
         byEvent.get(eventId).push({ id, eventId, label, startAt, endsAt, createdAt });
       });
 
-      // ordenar por startAt/createdAt para consistencia
       byEvent.forEach((arr) => {
         arr.sort((a, b) => {
           const ta = Number.isFinite(toMs(a.startAt)) ? toMs(a.startAt) : toMs(a.createdAt);
@@ -972,14 +945,16 @@
   }
 
   function onReviewListClick(e) {
-    const btn = e.target && e.target.closest ? e.target.closest(".reactBtn") : null;
+    const btn = e.target && e.target.closest ? e.target.closest(".reactBtn") : e.target;
     if (!btn) return;
+    const realBtn = btn.closest ? btn.closest(".reactBtn") : null;
+    if (!realBtn) return;
 
-    const card = btn.closest(".reviewCard");
+    const card = realBtn.closest(".reviewCard");
     if (!card) return;
 
     const reviewId = String(card.dataset.reviewId || "");
-    const kind = String(btn.dataset.react || "");
+    const kind = String(realBtn.dataset.react || "");
     if (!reviewId || !kind) return;
 
     toggleReaction(reviewId, kind);
