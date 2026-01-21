@@ -200,48 +200,48 @@
     STORAGE_BUCKET: "gallery",
   };
 
-  // ⚠️ Opción A: relaciones normales (events, event_dates)
-  const SELECT_GALLERY_A = `
-    id,
-    type,
-    name,
-    tags,
-    image_url,
-    image_path,
-    created_at,
-    target,
-    events ( title ),
-    event_dates ( label, date, start_at )
-  `;
+// ------------------------------------------------------------
+// DB config (CONFIGURACIÓN FINAL VALIDADA)
+// ------------------------------------------------------------
+const DB = {
+  GALLERY_PRIMARY: "gallery_items",
+  GALLERY_FALLBACK: "promos",
+  EVENTS: "events",        // se usarán luego si hacés queries separadas
+  EVENT_DATES: "event_dates",
+  STORAGE_BUCKET: "gallery",
+};
 
-  // ⚠️ Opción B: relaciones nombradas por FK (fallback)
-  const SELECT_GALLERY_B = `
-    id,
-    type,
-    name,
-    tags,
-    image_url,
-    image_path,
-    created_at,
-    target,
-    events:events!gallery_items_event_id_fkey ( title ),
-    event_dates:event_dates!gallery_items_event_date_id_fkey ( label, date, start_at )
-  `;
+// ------------------------------------------------------------
+// SELECTS SIN EMBEDS (evita 400 por relaciones inexistentes)
+// ------------------------------------------------------------
 
-  // promos: lectura flexible
-  const SELECT_PROMOS = `
-    id,
-    type,
-    title,
-    name,
-    tags,
-    image_url,
-    image_path,
-    created_at,
-    target,
-    events ( title ),
-    event_dates ( label, date, start_at )
-  `;
+// gallery_items (principal)
+const SELECT_GALLERY_A = `
+  id,
+  type,
+  name,
+  tags,
+  image_url,
+  image_path,
+  created_at,
+  target
+`;
+
+// fallback B = igual al A (ya no usamos joins por FK)
+const SELECT_GALLERY_B = SELECT_GALLERY_A;
+
+// promos (fallback)
+const SELECT_PROMOS = `
+  id,
+  type,
+  title,
+  name,
+  tags,
+  image_url,
+  image_path,
+  created_at,
+  target
+`;
 
   function publicUrlFromPath(path) {
     const p = safeStr(path).trim();
