@@ -162,7 +162,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const btnWA = $("#btnWA");
     if (btnWA && ev.title) {
       const txt = `Hola 👋 me inscribí a "${ev.title}" (${d?.label || "fecha confirmada"}). ¿Me confirman detalles?`;
-      btnWA.href = `https://wa.me/5068845123?text=${encodeURIComponent(txt)}`;
+      btnWA.href = `https://wa.me/50688323801text=${encodeURIComponent(txt)}`;
     }
   } catch (err) {
     console.error(err);
