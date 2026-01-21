@@ -113,6 +113,13 @@
     );
   }
 
+  function isBadRequest(err) {
+    // supabase-js v2 trae status a veces, o el texto viene en message
+    const st = Number(err?.status || 0);
+    const msg = safeStr(err?.message || "").toLowerCase();
+    return st === 400 || msg.includes("bad request") || msg.includes("400");
+  }
+
   function prettyErr(err) {
     const msg = safeStr(err?.message || err || "");
     return msg || "Ocurrió un error.";
@@ -169,7 +176,14 @@
   // Supabase availability (PUBLIC client)
   // ------------------------------------------------------------
   function sb() {
-    return (window.APP && (APP.supabase || APP.sb)) || null;
+    // ✅ Prioriza publicSb si existe (evita choques admin/public)
+    try {
+      if (window.APP && APP.publicSb) return APP.publicSb;
+      if (window.APP && (APP.supabase || APP.sb)) return APP.supabase || APP.sb;
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 
   function hasSupabase() {
@@ -190,7 +204,7 @@
   }
 
   // ------------------------------------------------------------
-  // DB config
+  // DB config (ÚNICA DEFINICIÓN)
   // ------------------------------------------------------------
   const DB = {
     GALLERY_PRIMARY: "gallery_items",
@@ -200,48 +214,64 @@
     STORAGE_BUCKET: "gallery",
   };
 
-// ------------------------------------------------------------
-// DB config (CONFIGURACIÓN FINAL VALIDADA)
-// ------------------------------------------------------------
-const DB = {
-  GALLERY_PRIMARY: "gallery_items",
-  GALLERY_FALLBACK: "promos",
-  EVENTS: "events",        // se usarán luego si hacés queries separadas
-  EVENT_DATES: "event_dates",
-  STORAGE_BUCKET: "gallery",
-};
+  // ------------------------------------------------------------
+  // SELECTS (ÚNICA DEFINICIÓN)
+  // ------------------------------------------------------------
 
-// ------------------------------------------------------------
-// SELECTS SIN EMBEDS (evita 400 por relaciones inexistentes)
-// ------------------------------------------------------------
+  // ✅ Base SIN joins (evita 400/joins y pinta igual)
+  const SELECT_GALLERY_BASE = `
+    id,
+    type,
+    name,
+    tags,
+    image_url,
+    image_path,
+    created_at,
+    target
+  `;
 
-// gallery_items (principal)
-const SELECT_GALLERY_A = `
-  id,
-  type,
-  name,
-  tags,
-  image_url,
-  image_path,
-  created_at,
-  target
-`;
+  // ⚠️ Opción A: relaciones normales (events, event_dates)
+  const SELECT_GALLERY_A = `
+    id,
+    type,
+    name,
+    tags,
+    image_url,
+    image_path,
+    created_at,
+    target,
+    events ( title ),
+    event_dates ( label, date, start_at )
+  `;
 
-// fallback B = igual al A (ya no usamos joins por FK)
-const SELECT_GALLERY_B = SELECT_GALLERY_A;
+  // ⚠️ Opción B: relaciones nombradas por FK (fallback)
+  const SELECT_GALLERY_B = `
+    id,
+    type,
+    name,
+    tags,
+    image_url,
+    image_path,
+    created_at,
+    target,
+    events:events!gallery_items_event_id_fkey ( title ),
+    event_dates:event_dates!gallery_items_event_date_id_fkey ( label, date, start_at )
+  `;
 
-// promos (fallback)
-const SELECT_PROMOS = `
-  id,
-  type,
-  title,
-  name,
-  tags,
-  image_url,
-  image_path,
-  created_at,
-  target
-`;
+  // promos: lectura flexible
+  const SELECT_PROMOS = `
+    id,
+    type,
+    title,
+    name,
+    tags,
+    image_url,
+    image_path,
+    created_at,
+    target,
+    events ( title ),
+    event_dates ( label, date, start_at )
+  `;
 
   function publicUrlFromPath(path) {
     const p = safeStr(path).trim();
@@ -310,9 +340,22 @@ const SELECT_PROMOS = `
 
   async function fetchUsing(table, selectStr) {
     const client = sb();
-    const { data, error } = await client.from(table).select(selectStr).order("created_at", { ascending: false }).limit(1000);
+    const { data, error } = await client
+      .from(table)
+      .select(selectStr)
+      .order("created_at", { ascending: false })
+      .limit(1000);
+
     if (error) throw error;
     return Array.isArray(data) ? data : [];
+  }
+
+  async function fetchGalleryBaseOnly() {
+    // ✅ sin joins -> no 400 por relaciones
+    const rows = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_BASE);
+    return rows
+      .map(normalizeGalleryRow)
+      .filter((x) => x.type === pageKey && x.img && (!x.target || x.target === "home"));
   }
 
   async function fetchGallery() {
@@ -323,7 +366,7 @@ const SELECT_PROMOS = `
 
     await ensureSessionOptional();
 
-    // 1) gallery_items A
+    // 1) gallery_items A (join normal)
     try {
       const rowsA = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_A);
       return rowsA
@@ -338,21 +381,30 @@ const SELECT_PROMOS = `
         msg.includes("schema cache") ||
         msg.includes("foreign key");
 
-      if (!looksLikeJoin && !isMissingTable(eA)) {
+      // Si es 400, casi siempre es por join/embedded
+      const joinProbablyBroke = looksLikeJoin || isBadRequest(eA);
+
+      if (!joinProbablyBroke && !isMissingTable(eA)) {
         if (isRLSError(eA)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
         else console.warn("[gallery] gallery_items A error:", eA);
       }
 
-      // 1b) gallery_items B (si el join fue el problema)
+      // 1b) gallery_items B (join por FK)
       try {
         const rowsB = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_B);
         return rowsB
           .map(normalizeGalleryRow)
           .filter((x) => x.type === pageKey && x.img && (!x.target || x.target === "home"));
       } catch (eB) {
-        if (!isMissingTable(eB)) {
-          if (isRLSError(eB)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
-          else console.warn("[gallery] gallery_items B error:", eB);
+        // 1c) fallback definitivo: BASE sin joins (no rompe)
+        try {
+          return await fetchGalleryBaseOnly();
+        } catch (eBase) {
+          if (!isMissingTable(eB)) {
+            if (isRLSError(eB)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
+            else console.warn("[gallery] gallery_items B error:", eB);
+          }
+          console.warn("[gallery] base-only fail:", eBase);
         }
       }
     }
@@ -435,31 +487,21 @@ const SELECT_PROMOS = `
   }
 
   function computeEligibilityForEvent(dates) {
-    // Regla:
-    // - eligible SOLO si existe al menos una fecha con ends_at en el pasado
-    // - si hay fechas pero ninguna terminó -> no eligible (aún no ha pasado)
-    // - si no hay fechas -> no eligible (no hay base para reseña)
     const now = nowMs();
 
     const parsed = (Array.isArray(dates) ? dates : []).map((d) => {
       const endMs = toMs(d.endsAt);
       const startMs = toMs(d.startAt);
-      return {
-        ...d,
-        startMs,
-        endMs,
-      };
+      return { ...d, startMs, endMs };
     });
 
     const ended = parsed.filter((d) => Number.isFinite(d.endMs) && d.endMs < now);
     if (ended.length) {
-      // último finalizado
       ended.sort((a, b) => a.endMs - b.endMs);
       const last = ended[ended.length - 1];
       return { eligible: true, reason: "", endedAtMs: last.endMs, nextEndMs: NaN };
     }
 
-    // si hay fechas con endMs futuro, damos razón amigable
     const futureEnds = parsed.filter((d) => Number.isFinite(d.endMs) && d.endMs >= now);
     if (futureEnds.length) {
       futureEnds.sort((a, b) => a.endMs - b.endMs);
@@ -472,7 +514,6 @@ const SELECT_PROMOS = `
       };
     }
 
-    // si no hay ends_at válidos
     if (parsed.length) {
       return {
         eligible: false,
@@ -497,7 +538,6 @@ const SELECT_PROMOS = `
     const client = sb();
     const datesByEvent = await fetchEventDatesByEvent();
 
-    // events
     try {
       const { data, error } = await client
         .from(DB.EVENTS)
@@ -515,10 +555,7 @@ const SELECT_PROMOS = `
           const ok = !!(id && title && eventTypeMatches(pageKey, type));
 
           const dates = datesByEvent.get(id) || [];
-          const labels = dates
-            .map((d) => d?.label)
-            .filter(Boolean)
-            .slice(0, 3);
+          const labels = dates.map((d) => d?.label).filter(Boolean).slice(0, 3);
 
           const eligibility = computeEligibilityForEvent(dates);
           REVIEW_ELIGIBLE.set(id, eligibility);
@@ -535,7 +572,6 @@ const SELECT_PROMOS = `
         })
         .filter((x) => x.ok);
 
-      // guardamos snapshot para validaciones
       REVIEW_EVENTS = list;
       return list;
     } catch (e) {
@@ -551,17 +587,14 @@ const SELECT_PROMOS = `
     if (!reviewEventSel) return;
 
     const placeholder = `<option value="" disabled selected>Seleccioná un evento</option>`;
-
     const events = await fetchEventsForSelect();
 
     if (!events.length) {
-      reviewEventSel.innerHTML =
-        placeholder + `<option value="" disabled>(Aún no hay eventos disponibles)</option>`;
+      reviewEventSel.innerHTML = placeholder + `<option value="" disabled>(Aún no hay eventos disponibles)</option>`;
       reviewEventSel.disabled = true;
       return;
     }
 
-    // Si ninguno está elegible, igual mostramos, pero deshabilitamos (y explicamos)
     const anyEligible = events.some((e) => e.eligible);
 
     const options = events
@@ -586,9 +619,7 @@ const SELECT_PROMOS = `
     reviewEventSel.innerHTML = placeholder + options;
     reviewEventSel.disabled = !anyEligible;
 
-    if (!anyEligible) {
-      toast("Las reseñas se habilitan cuando el evento finaliza.");
-    }
+    if (!anyEligible) toast("Las reseñas se habilitan cuando el evento finaliza.");
   }
 
   function isSelectedEventEligible(eventId) {
@@ -635,11 +666,7 @@ const SELECT_PROMOS = `
     clearSkeletons();
 
     if (!items || !items.length) {
-      gridEl.innerHTML = `
-        <div style="opacity:.8; padding:16px;">
-          Aún no hay contenido en la galería.
-        </div>
-      `;
+      gridEl.innerHTML = `<div style="opacity:.8; padding:16px;">Aún no hay contenido en la galería.</div>`;
       return;
     }
 
@@ -664,11 +691,7 @@ const SELECT_PROMOS = `
         </div>
       `;
 
-      // ✅ FIX: No bloquear scroll en móvil.
-      // Antes: preventDefault() en touchstart => impedía desplazarse al activar overlay.
-      // Ahora: toggle con click/tap sin matar scroll.
-      tile.addEventListener("click", (e) => {
-        // si la persona está haciendo scroll, normalmente no hay click real; esto es seguro.
+      tile.addEventListener("click", () => {
         const already = tile.classList.contains("isActive");
         $$(".gItem.isActive", gridEl).forEach((x) => x.classList.remove("isActive"));
         if (!already) tile.classList.add("isActive");
@@ -680,7 +703,6 @@ const SELECT_PROMOS = `
     gridEl.appendChild(frag);
   }
 
-  // Cerrar overlay si se toca/clickea fuera
   document.addEventListener("click", (e) => {
     if (!gridEl) return;
     const inside = e.target && e.target.closest ? e.target.closest(".gItem") : null;
@@ -697,9 +719,7 @@ const SELECT_PROMOS = `
 
     const dates = uniq(allItems.map((x) => x.dateISO).filter(Boolean)).sort();
     const base = `<option value="">Todas</option>`;
-    const opts = dates
-      .map((d) => `<option value="${esc(d)}">${esc(fmtShortDate(d))}</option>`)
-      .join("");
+    const opts = dates.map((d) => `<option value="${esc(d)}">${esc(fmtShortDate(d))}</option>`).join("");
     selDate.innerHTML = base + opts;
   }
 
@@ -870,7 +890,6 @@ const SELECT_PROMOS = `
       return;
     }
 
-    // ✅ NUEVO: solo permitir reseñas si el evento ya terminó
     const gate = isSelectedEventEligible(eventId);
     if (!gate.eligible) {
       toast(gate.reason || "Las reseñas se habilitan cuando el evento finaliza.");
@@ -971,7 +990,6 @@ const SELECT_PROMOS = `
   // ------------------------------------------------------------
   async function initGallery() {
     try {
-      // Quitamos skeletons cuando llegue la respuesta
       allItems = await fetchGallery();
 
       mountDateFilter();
@@ -1009,7 +1027,7 @@ const SELECT_PROMOS = `
     }
 
     if (formEl) formEl.addEventListener("submit", handleSubmit);
-    reviewListEl.addEventListener("click", onReviewListClick);
+    if (reviewListEl) reviewListEl.addEventListener("click", onReviewListClick);
 
     renderReviews(loadReviews());
 
