@@ -184,8 +184,9 @@ Deno.serve(async (req) => {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    const SB_URL = getEnv("SB_URL");
-    const SB_SERVICE_ROLE_KEY = getEnv("SB_SERVICE_ROLE_KEY");
+    // ✅ NOMBRES CORRECTOS según tu dashboard (Supabase 2025+)
+    const SUPABASE_URL = getEnv("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = getEnv("SUPABASE_SERVICE_ROLE_KEY"); // 👈 pegar aquí el service_role LEGACY
     const RESEND_API_KEY = getEnv("RESEND_API_KEY");
     const FROM_EMAIL = getEnv("FROM_EMAIL");
 
@@ -194,13 +195,13 @@ Deno.serve(async (req) => {
 
     // 1) Leer pendientes
     const qUrl =
-      `${SB_URL}/rest/v1/email_outbox` +
+      `${SUPABASE_URL}/rest/v1/email_outbox` +
       `?status=eq.PENDING` +
       `&order=created_at.asc` +
       `&limit=${limit}` +
       `&select=id,kind,to_email,payload,tries,status,created_at`;
 
-    const pendingRes = await sbGet(qUrl, SB_SERVICE_ROLE_KEY);
+    const pendingRes = await sbGet(qUrl, SUPABASE_SERVICE_ROLE_KEY);
     if (!pendingRes.ok) return json({ error: "No pude leer email_outbox", details: await pendingRes.text() }, 500);
 
     const pending = (await pendingRes.json()) as any[];
@@ -219,8 +220,8 @@ Deno.serve(async (req) => {
       const tries = Number(row.tries || 0);
 
       // 2) LOCK: PENDING -> SENDING (solo si sigue PENDING)
-      const lockUrl = `${SB_URL}/rest/v1/email_outbox?id=eq.${encodeURIComponent(outboxId)}&status=eq.PENDING`;
-      const lockRes = await sbPatch(lockUrl, SB_SERVICE_ROLE_KEY, {
+      const lockUrl = `${SUPABASE_URL}/rest/v1/email_outbox?id=eq.${encodeURIComponent(outboxId)}&status=eq.PENDING`;
+      const lockRes = await sbPatch(lockUrl, SUPABASE_SERVICE_ROLE_KEY, {
         status: "SENDING",
         tries: tries + 1,
         last_error: null,
@@ -251,13 +252,13 @@ Deno.serve(async (req) => {
         if (!registrationId) throw new Error("payload sin registration_id");
 
         const regUrl =
-          `${SB_URL}/rest/v1/registrations` +
+          `${SUPABASE_URL}/rest/v1/registrations` +
           `?id=eq.${encodeURIComponent(registrationId)}` +
           `&select=id,name,email,phone,marketing_opt_in,created_at,` +
           `event:events(title,type,location,time_range,duration_hours),` +
           `date:event_dates(label)`;
 
-        const regRes = await sbGet(regUrl, SB_SERVICE_ROLE_KEY);
+        const regRes = await sbGet(regUrl, SUPABASE_SERVICE_ROLE_KEY);
         if (!regRes.ok) throw new Error(`No pude leer registration: ${await regRes.text()}`);
 
         const regs = await regRes.json().catch(() => []);
@@ -286,8 +287,8 @@ Deno.serve(async (req) => {
         await sendResend(RESEND_API_KEY, FROM_EMAIL, toEmail, built.subject, built.html);
 
         // 4) Marcar SENT
-        const sentUrl = `${SB_URL}/rest/v1/email_outbox?id=eq.${encodeURIComponent(outboxId)}`;
-        const sentRes = await sbPatch(sentUrl, SB_SERVICE_ROLE_KEY, {
+        const sentUrl = `${SUPABASE_URL}/rest/v1/email_outbox?id=eq.${encodeURIComponent(outboxId)}`;
+        const sentRes = await sbPatch(sentUrl, SUPABASE_SERVICE_ROLE_KEY, {
           status: "SENT",
           sent_at: new Date().toISOString(),
           last_error: null,
@@ -304,8 +305,8 @@ Deno.serve(async (req) => {
         const msg = safeStr((e as any)?.message || e);
 
         // Marcar ERROR
-        const errUrl = `${SB_URL}/rest/v1/email_outbox?id=eq.${encodeURIComponent(outboxId)}`;
-        await sbPatch(errUrl, SB_SERVICE_ROLE_KEY, {
+        const errUrl = `${SUPABASE_URL}/rest/v1/email_outbox?id=eq.${encodeURIComponent(outboxId)}`;
+        await sbPatch(errUrl, SUPABASE_SERVICE_ROLE_KEY, {
           status: "ERROR",
           last_error: msg.slice(0, 2000),
         }).catch(() => {});
@@ -317,4 +318,3 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: safeStr((err as any)?.message || err) }, 500);
   }
 });
-
