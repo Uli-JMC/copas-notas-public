@@ -15,13 +15,11 @@ function waLink(phoneE164NoPlus: string, text: string) {
 Deno.serve(async (req) => {
   try {
     // Requiere JWT de Supabase (anon/service_role) en Authorization
-    const auth = req.headers.get("authorization") || "";
-    if (!auth.toLowerCase().startsWith("bearer ")) {
-      return new Response(JSON.stringify({ error: "Missing authorization header" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+const CRON_SECRET = Deno.env.get("CRON_SECRET") || "";
+const incoming = req.headers.get("x-cron-secret") || "";
+if (!CRON_SECRET || incoming !== CRON_SECRET) {
+  return new Response("Unauthorized", { status: 401 });
+}
 
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     const SB_URL = Deno.env.get("SB_URL") || Deno.env.get("SUPABASE_URL");
