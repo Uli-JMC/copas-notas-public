@@ -51,10 +51,13 @@ Deno.serve(async (req) => {
         headers: { "Content-Type": "application/json" },
       });
     if (!SB_SERVICE_ROLE_KEY)
-      return new Response(JSON.stringify({ error: "Missing SB_SERVICE_ROLE_KEY/SUPABASE_SERVICE_ROLE_KEY" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: "Missing SB_SERVICE_ROLE_KEY/SUPABASE_SERVICE_ROLE_KEY" }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
 
     const body = (await req.json().catch(() => null)) as ReqBody | null;
     if (!body?.registration_id) {
@@ -228,7 +231,8 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: `${BRAND_NAME} <onboarding@resend.dev>`,
+        // ✅ CAMBIO: usar dominio verificado en Resend
+        from: `${BRAND_NAME} <reservas@reservas.entrecopasynotas.com>`,
         to: [toEmail],
         subject: `Confirmación de reserva ${reservationNumber} — ${eventTitle}`,
         html,
