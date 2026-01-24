@@ -32,12 +32,17 @@ Deno.serve(async (req) => {
     const BRAND_NAME = (Deno.env.get("BRAND_NAME") || "Entre Copas").trim();
     const BRAND_LOGO_URL = (Deno.env.get("BRAND_LOGO_URL") || "").trim();
     const EMAIL_HEADER_IMAGE_URL = (Deno.env.get("EMAIL_HEADER_IMAGE_URL") || "").trim();
+
+    // ✅ NUEVO (opcional): configurable por secret/env
+    const FROM_EMAIL = (Deno.env.get("FROM_EMAIL") || "reservas@reservas.entrecopasynotas.com").trim();
+
     const WHATSAPP_NUMBER = "50688323801";
 
     console.log("step=env", {
       hasResend: Boolean(RESEND_API_KEY),
       hasSbUrl: Boolean(SB_URL),
       hasServiceRole: Boolean(SB_SERVICE_ROLE_KEY),
+      hasFromEmail: Boolean(FROM_EMAIL),
     });
 
     if (!RESEND_API_KEY)
@@ -225,14 +230,13 @@ Deno.serve(async (req) => {
   </body>
 </html>`;
 
-    console.log("step=resend_send", { toEmail });
+    console.log("step=resend_send", { toEmail, from: FROM_EMAIL });
 
     const resendResp = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        // ✅ CAMBIO: usar dominio verificado en Resend
-        from: `${BRAND_NAME} <reservas@reservas.entrecopasynotas.com>`,
+        from: `${BRAND_NAME} <${FROM_EMAIL}>`,
         to: [toEmail],
         subject: `Confirmación de reserva ${reservationNumber} — ${eventTitle}`,
         html,
