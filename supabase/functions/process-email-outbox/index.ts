@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 type ReqBody = {
   limit?: number;
-  outbox_id?: string; // opcional: procesar solo un outbox_id específico
+  outbox_id?: string;
 };
 
 function moneyCRC(n: number) {
@@ -20,6 +20,50 @@ function jsonResp(status: number, payload: any) {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function isRetryableError(message: string) {
+  const msg = (message || "").toLowerCase();
+
+  // Errores temporales típicos
+  return (
+    msg.includes("rate limit") ||
+    msg.includes("timeout") ||
+    msg.includes("timed out") ||
+    msg.includes("temporarily") ||
+    msg.includes("temporary") ||
+    msg.includes("network") ||
+    msg.includes("fetch failed") ||
+    msg.includes("connection") ||
+    msg.includes("econnreset") ||
+    msg.includes("429") ||
+    msg.includes("503") ||
+    msg.includes("502") ||
+    msg.includes("504") ||
+    msg.includes("internal server error") ||
+    msg.includes("service unavailable")
+  );
+}
+
+function calcBackoffMinutes(tries: number) {
+  // Backoff progresivo (máx 60 min)
+  // tries=1 -> 1 min
+  // tries=2 -> 2 min
+  // tries=3 -> 5 min
+  // tries=4 -> 10 min
+  // tries>=5 -> 30 min
+  // tries>=8 -> 60 min
+  if (tries <= 1) return 1;
+  if (tries === 2) return 2;
+  if (tries === 3) return 5;
+  if (tries === 4) return 10;
+  if (tries <= 7) return 30;
+  return 60;
+}
+
+function addMinutesToISO(minutes: number) {
+  const d = new Date(Date.now() + minutes * 60_000);
+  return d.toISOString();
 }
 
 Deno.serve(async (req) => {
@@ -45,9 +89,7 @@ Deno.serve(async (req) => {
     const BRAND_LOGO_URL = (Deno.env.get("BRAND_LOGO_URL") || "").trim();
     const EMAIL_HEADER_IMAGE_URL = (Deno.env.get("EMAIL_HEADER_IMAGE_URL") || "").trim();
 
-    // ✅ From con dominio verificado
-    const FROM_EMAIL = (Deno.env.get("FROM_EMAIL") || `reservas@reservas.entrecopasynotas.com`).trim();
-
+    const FROM_EMAIL = (Deno.env.get("FROM_EMAIL") || "reservas@reservas.entrecopasynotas.com").trim();
     const WHATSAPP_NUMBER = "50688323801";
 
     console.log("step=env", {
@@ -73,11 +115,13 @@ Deno.serve(async (req) => {
     const sb = createClient(SB_URL, SB_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
     // ============================================================
-    // 1) Traer pendientes
+    // 1) Query pendientes (con retry window opcional)
     // ============================================================
+    // Si existe next_retry_at: solo procesamos <= now()
+    // Como no sabemos si existe, no hacemos filtro fuerte en query.
     let q = sb
       .from("email_outbox")
-      .select("id,to_email,payload,status,kind,tries,created_at")
+      .select("id,to_email,payload,status,kind,tries,created_at,last_error,next_retry_at")
       .eq("status", "PENDING")
       .order("created_at", { ascending: true })
       .limit(limit);
@@ -85,7 +129,6 @@ Deno.serve(async (req) => {
     if (body.outbox_id) q = q.eq("id", body.outbox_id);
 
     const { data: rows, error: qErr } = await q;
-
     if (qErr) {
       console.log("step=outbox_query_error", qErr);
       return jsonResp(500, { error: "outbox query failed", details: qErr });
@@ -97,8 +140,8 @@ Deno.serve(async (req) => {
 
     let sent = 0;
     let failed = 0;
+    let skipped = 0;
 
-    // kinds soportados (no nos amarramos a uno solo)
     const SUPPORTED_KINDS = new Set([
       "registration_confirmation",
       "send-confirmation-email",
@@ -114,26 +157,54 @@ Deno.serve(async (req) => {
       const kind = String(row.kind || "").trim();
       let payload: any = row.payload;
 
+      // retry window (si existe next_retry_at)
+      const nextRetryAt = row.next_retry_at ? new Date(String(row.next_retry_at)).getTime() : null;
+      if (nextRetryAt && nextRetryAt > Date.now()) {
+        skipped++;
+        continue;
+      }
+
       console.log("step=row_start", { outboxId, kind });
 
       try {
-        // tries++ de entrada (best-effort)
-        await sb
+        // ============================================================
+        // LOCK: PENDING -> SENDING (anti doble worker)
+        // ============================================================
+        // Solo 1 worker debe poder cambiarlo de PENDING a SENDING.
+        // Si alguien lo agarró primero, el update afectará 0 rows.
+        const { data: lockData, error: lockErr } = await sb
           .from("email_outbox")
-          .update({ tries: Number(row.tries ?? 0) + 1 })
-          .eq("id", outboxId);
+          .update({ status: "SENDING" })
+          .eq("id", outboxId)
+          .eq("status", "PENDING")
+          .select("id");
 
-        // kind validation
+        if (lockErr) {
+          throw new Error(`lock update failed: ${lockErr.message}`);
+        }
+
+        if (!lockData || lockData.length === 0) {
+          // otro worker lo agarró
+          skipped++;
+          continue;
+        }
+
+        // tries++ ya con lock
+        const newTries = Number(row.tries ?? 0) + 1;
+        await sb.from("email_outbox").update({ tries: newTries }).eq("id", outboxId);
+
+        // ============================================================
+        // Validation
+        // ============================================================
         if (!SUPPORTED_KINDS.has(kind)) {
           throw new Error(`kind no soportado: ${kind}`);
         }
 
-        // payload normalize
         if (typeof payload === "string") {
           try {
             payload = JSON.parse(payload);
           } catch {
-            // se queda string
+            // ignore
           }
         }
 
@@ -143,7 +214,7 @@ Deno.serve(async (req) => {
         }
 
         // ============================================================
-        // 2) Buscar registro real
+        // Data fetch
         // ============================================================
         const { data: reg, error: regErr } = await sb
           .from("registrations")
@@ -157,29 +228,19 @@ Deno.serve(async (req) => {
         const fullName = (reg.name || "Invitado").trim();
         const toEmail = (reg.email || String(row.to_email || "") || "").trim();
         const reservationNumber = (reg.reservation_number || reg.id || "").trim();
-
         if (!toEmail) throw new Error("El registro no tiene email (reg.email vacío)");
 
-        console.log("step=reg_ok", { outboxId, registrationId, toEmail });
-
-        // ============================================================
-        // 3) Buscar evento/fecha (best-effort)
-        // ============================================================
-        const { data: ev, error: evErr } = await sb
+        const { data: ev } = await sb
           .from("events")
           .select("title,location,time_range,price")
           .eq("id", reg.event_id)
           .maybeSingle();
 
-        if (evErr) console.log("step=events_warn", evErr);
-
-        const { data: dt, error: dtErr } = await sb
+        const { data: dt } = await sb
           .from("event_dates")
           .select("label")
           .eq("id", reg.event_date_id)
           .maybeSingle();
-
-        if (dtErr) console.log("step=dates_warn", dtErr);
 
         const eventTitle = (ev?.title ?? "Evento").trim();
         const location = (ev?.location ?? "Por confirmar").trim();
@@ -277,6 +338,7 @@ Deno.serve(async (req) => {
               <div style="margin-top:18px;padding-top:14px;border-top:1px solid #eef0f4;color:#9ca3af;font-size:12px;">— ${BRAND_NAME}</div>
             </td></tr>
           </table>
+
           <div style="max-width:600px;margin-top:10px;color:#9ca3af;font-size:12px;text-align:center;">
             Este correo es automático. Si necesitás ayuda, respondé por WhatsApp.
           </div>
@@ -287,7 +349,7 @@ Deno.serve(async (req) => {
 </html>`;
 
         // ============================================================
-        // 4) Enviar por Resend
+        // Resend send
         // ============================================================
         console.log("step=resend_send", { outboxId, toEmail, from: FROM_EMAIL });
 
@@ -309,9 +371,7 @@ Deno.serve(async (req) => {
           throw new Error(`Resend error ${resendResp.status}: ${resendText}`);
         }
 
-        // ============================================================
-        // 5) Marcar como SENT (guardar el id de Resend si viene)
-        // ============================================================
+        // parse resend id
         let resendId: string | null = null;
         try {
           const parsed = JSON.parse(resendText);
@@ -320,32 +380,62 @@ Deno.serve(async (req) => {
           // ignore
         }
 
+        // ✅ SENT
         await sb
           .from("email_outbox")
           .update({
             status: "SENT",
             last_error: null,
-            // opcional: para debug (si tenés campo para esto en payload, lo dejamos ahí)
             payload: { ...(payload || {}), resend_id: resendId },
           })
           .eq("id", outboxId);
 
         sent++;
-        console.log("step=row_sent", { outboxId, resendId });
       } catch (err: any) {
         const msg = err?.message ?? String(err);
-        console.log("step=send_failed", { outboxId, msg });
+        const triesNow = Number(row.tries ?? 0) + 1;
 
-        await sb
-          .from("email_outbox")
-          .update({ status: "FAILED", last_error: msg })
-          .eq("id", outboxId);
+        console.log("step=send_failed", { outboxId, msg, triesNow });
 
-        failed++;
+        // ============================================================
+        // RETRY AUTO
+        // ============================================================
+        const retryable = isRetryableError(msg);
+        const MAX_TRIES = 8;
+
+        if (retryable && triesNow < MAX_TRIES) {
+          const backoffMin = calcBackoffMinutes(triesNow);
+          const nextRetry = addMinutesToISO(backoffMin);
+
+          console.log("step=retry_scheduled", { outboxId, triesNow, backoffMin, nextRetry });
+
+          // volvemos a PENDING + programamos retry
+          await sb
+            .from("email_outbox")
+            .update({
+              status: "PENDING",
+              last_error: msg,
+              next_retry_at: nextRetry,
+            } as any)
+            .eq("id", outboxId);
+
+          failed++;
+        } else {
+          // FAILED definitivo
+          await sb
+            .from("email_outbox")
+            .update({
+              status: "FAILED",
+              last_error: msg,
+            })
+            .eq("id", outboxId);
+
+          failed++;
+        }
       }
     }
 
-    return jsonResp(200, { ok: true, processed: rows.length, sent, failed });
+    return jsonResp(200, { ok: true, processed: rows.length, sent, failed, skipped });
   } catch (e: any) {
     console.log("ERROR:", e?.message ?? String(e));
     return jsonResp(500, { error: "Internal error", details: e?.message ?? String(e) });
