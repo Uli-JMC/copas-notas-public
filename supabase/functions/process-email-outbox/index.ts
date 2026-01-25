@@ -24,8 +24,6 @@ function jsonResp(status: number, payload: any) {
 
 function isRetryableError(message: string) {
   const msg = (message || "").toLowerCase();
-
-  // Errores temporales típicos
   return (
     msg.includes("rate limit") ||
     msg.includes("timeout") ||
@@ -46,13 +44,6 @@ function isRetryableError(message: string) {
 }
 
 function calcBackoffMinutes(tries: number) {
-  // Backoff progresivo (máx 60 min)
-  // tries=1 -> 1 min
-  // tries=2 -> 2 min
-  // tries=3 -> 5 min
-  // tries=4 -> 10 min
-  // tries>=5 -> 30 min
-  // tries>=8 -> 60 min
   if (tries <= 1) return 1;
   if (tries === 2) return 2;
   if (tries === 3) return 5;
@@ -117,8 +108,8 @@ Deno.serve(async (req) => {
     // ============================================================
     // 1) Query pendientes (con retry window opcional)
     // ============================================================
-    // Si existe next_retry_at: solo procesamos <= now()
-    // Como no sabemos si existe, no hacemos filtro fuerte en query.
+    // NOTA: asumimos que existe next_retry_at. Si NO existe, esta función va a fallar
+    // en el select. Si tu tabla aún no tiene next_retry_at, creá esa columna.
     let q = sb
       .from("email_outbox")
       .select("id,to_email,payload,status,kind,tries,created_at,last_error,next_retry_at")
@@ -149,6 +140,8 @@ Deno.serve(async (req) => {
       "registration_email",
     ]);
 
+    const MAX_TRIES = 8;
+
     // ============================================================
     // Worker loop
     // ============================================================
@@ -170,28 +163,24 @@ Deno.serve(async (req) => {
         // ============================================================
         // LOCK: PENDING -> SENDING (anti doble worker)
         // ============================================================
-        // Solo 1 worker debe poder cambiarlo de PENDING a SENDING.
-        // Si alguien lo agarró primero, el update afectará 0 rows.
         const { data: lockData, error: lockErr } = await sb
           .from("email_outbox")
           .update({ status: "SENDING" })
           .eq("id", outboxId)
           .eq("status", "PENDING")
-          .select("id");
+          .select("id,tries")
+          .maybeSingle();
 
-        if (lockErr) {
-          throw new Error(`lock update failed: ${lockErr.message}`);
-        }
-
-        if (!lockData || lockData.length === 0) {
+        if (lockErr) throw new Error(`lock update failed: ${lockErr.message}`);
+        if (!lockData) {
           // otro worker lo agarró
           skipped++;
           continue;
         }
 
         // tries++ ya con lock
-        const newTries = Number(row.tries ?? 0) + 1;
-        await sb.from("email_outbox").update({ tries: newTries }).eq("id", outboxId);
+        const triesNow = Number(row.tries ?? 0) + 1;
+        await sb.from("email_outbox").update({ tries: triesNow }).eq("id", outboxId);
 
         // ============================================================
         // Validation
@@ -209,9 +198,7 @@ Deno.serve(async (req) => {
         }
 
         const registrationId = String(payload?.registration_id || "").trim();
-        if (!registrationId) {
-          throw new Error("payload.registration_id faltante (Modo B requiere esto)");
-        }
+        if (!registrationId) throw new Error("payload.registration_id faltante (Modo B requiere esto)");
 
         // ============================================================
         // Data fetch
@@ -367,18 +354,14 @@ Deno.serve(async (req) => {
         const resendText = await resendResp.text();
         console.log("step=resend_resp", { outboxId, status: resendResp.status, body: resendText });
 
-        if (!resendResp.ok) {
-          throw new Error(`Resend error ${resendResp.status}: ${resendText}`);
-        }
+        if (!resendResp.ok) throw new Error(`Resend error ${resendResp.status}: ${resendText}`);
 
         // parse resend id
         let resendId: string | null = null;
         try {
           const parsed = JSON.parse(resendText);
           resendId = parsed?.id ? String(parsed.id) : null;
-        } catch {
-          // ignore
-        }
+        } catch {}
 
         // ✅ SENT
         await sb
@@ -386,8 +369,9 @@ Deno.serve(async (req) => {
           .update({
             status: "SENT",
             last_error: null,
+            next_retry_at: null,
             payload: { ...(payload || {}), resend_id: resendId },
-          })
+          } as any)
           .eq("id", outboxId);
 
         sent++;
@@ -398,18 +382,16 @@ Deno.serve(async (req) => {
         console.log("step=send_failed", { outboxId, msg, triesNow });
 
         // ============================================================
-        // RETRY AUTO
+        // RETRY AUTO (con backoff + next_retry_at)
         // ============================================================
         const retryable = isRetryableError(msg);
-        const MAX_TRIES = 8;
-
         if (retryable && triesNow < MAX_TRIES) {
           const backoffMin = calcBackoffMinutes(triesNow);
           const nextRetry = addMinutesToISO(backoffMin);
 
           console.log("step=retry_scheduled", { outboxId, triesNow, backoffMin, nextRetry });
 
-          // volvemos a PENDING + programamos retry
+          // Volvemos a PENDING + programamos retry
           await sb
             .from("email_outbox")
             .update({
@@ -421,13 +403,14 @@ Deno.serve(async (req) => {
 
           failed++;
         } else {
-          // FAILED definitivo
+          // FAILED definitivo (no retry o superó max tries)
           await sb
             .from("email_outbox")
             .update({
               status: "FAILED",
               last_error: msg,
-            })
+              next_retry_at: null,
+            } as any)
             .eq("id", outboxId);
 
           failed++;
