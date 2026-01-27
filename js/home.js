@@ -436,3 +436,13 @@ window.addEventListener("ecn:events-updated", () => {
   // Toast suave de bienvenida (opcional)
   setTimeout(() => toast("Bienvenido", "Revisá los próximos eventos."), 800);
 })();
+
+// Siempre iniciar arriba al cargar/recargar
+
+if ("scrollRestoration" in history) {
+  history.scrollRestoration = "manual";
+}
+
+window.addEventListener("load", () => {
+  window.scrollTo(0, 0);
+});
