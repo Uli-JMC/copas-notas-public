@@ -784,7 +784,6 @@ a:focus-visible{ box-shadow: var(--focusRing); outline: none; border-radius: 10p
   border: 1px solid rgba(255,255,255,.10);
   background: rgba(169, 9, 9, 0.05);
   overflow:hidden;
-  box-shadow: 0 14px 44px rgba(0,0,0,.45);
   min-height: 260px;
   display:grid;
   grid-template-columns: 1fr 1fr;
