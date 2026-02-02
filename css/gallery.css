@@ -299,6 +299,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
 
 /* ============================================================
    ✅ GALERÍA tipo Instagram (borde 1px, sin redondeo, sin sombra)
+   ✅ Hover: oscurece más + texto centrado (más pequeño)
 ============================================================ */
 .galleryGrid{
   display:grid;
@@ -309,12 +310,13 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
 /* Item cuadrado */
 .gItem{
   position: relative;
-  border-radius: 0;             /* ✅ */
+  border-radius: 0;              /* ✅ */
   overflow: hidden;
   background: #f3f4f6;
-  border: 1px solid var(--line); /* ✅ borde como cards */
+  border: 1px solid var(--line); /* ✅ borde */
   box-shadow: none;              /* ✅ */
   transform: translateZ(0);
+  isolation:isolate;
 }
 
 /* Ratio cuadrado */
@@ -331,66 +333,82 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
   height:100%;
   object-fit: cover;
   transform: scale(1.01);
-  transition: filter .18s ease;  /* ✅ solo oscurecer suave */
+  transition: filter .20s ease, transform .20s ease;
 }
 
-/* Overlay (solo aparece al hover) */
+/* Overlay (centrado, oculto por defecto) */
 .gOverlay{
   position:absolute;
   inset:0;
   display:flex;
   flex-direction:column;
-  justify-content:flex-end;
-  gap:10px;
-  padding: 12px;
-  background: linear-gradient(
-    to top,
-    rgba(0,0,0,.72),
-    rgba(0,0,0,.18) 55%,
-    rgba(0,0,0,0)
-  );
+  align-items:center;
+  justify-content:center;         /* ✅ centrado */
+  gap: 10px;
+  padding: 16px;
+  background: rgba(0,0,0,.36);    /* ✅ base (invisible porque opacity 0) */
   opacity: 0;
-  transition: opacity .18s ease;
+  transition: opacity .20s ease, background .20s ease;
+  text-align:center;
 }
 
+/* Título centrado (más sobrio) */
 .gTitle{
   margin:0;
-  color: #fff;
+  color: rgba(255,255,255,.94);
   font-weight: 800;
-  letter-spacing:.01em;
-  font-size: 14px;
-  line-height: 1.2;
-  text-shadow: 0 6px 22px rgba(0,0,0,.45);
+  letter-spacing:.08em;
+  text-transform: uppercase;
+  font-size: 12px;               /* ✅ más pequeño */
+  line-height: 1.25;
+  text-shadow: 0 10px 28px rgba(0,0,0,.40);
 }
 
+/* Hashtags centrados */
 .gTags{
   display:flex;
   flex-wrap:wrap;
-  gap:8px;
+  justify-content:center;
+  gap: 8px;
+  max-width: 92%;
 }
 
+/* Tag (más pequeño y “pro”) */
 .gTag{
   display:inline-flex;
   align-items:center;
-  padding: 7px 10px;
+  padding: 6px 10px;
   border-radius: 999px;
-  background: var(--pillBg);
-  color: var(--pillText);
-  font-size: 11px;
-  letter-spacing:.10em;
+  background: rgba(0,0,0,.55);     /* ✅ más oscuro */
+  color: rgba(255,255,255,.92);
+  font-size: 10.5px;              /* ✅ más pequeño */
+  letter-spacing:.08em;
   text-transform: lowercase;
   white-space:nowrap;
 }
 
-/* Hover/focus */
+/* Hover/focus: oscurecer más + mostrar overlay */
 .gItem:hover .gOverlay,
-.gItem:focus-within .gOverlay{ opacity: 1; }
+.gItem:focus-within .gOverlay{
+  opacity: 1;
+  background: rgba(0,0,0,.52);     /* ✅ más oscuro al hover */
+}
+
 .gItem:hover .gMedia,
-.gItem:focus-within .gMedia{ filter: brightness(.70); }
+.gItem:focus-within .gMedia{
+  filter: brightness(.62) contrast(1.06); /* ✅ más oscuro (como tu ejemplo) */
+  transform: scale(1.03);
+}
 
 /* Touch helper (JS agrega isActive) */
-.gItem.isActive .gOverlay{ opacity:1; }
-.gItem.isActive .gMedia{ filter: brightness(.70); }
+.gItem.isActive .gOverlay{
+  opacity: 1;
+  background: rgba(0,0,0,.52);
+}
+.gItem.isActive .gMedia{
+  filter: brightness(.62) contrast(1.06);
+  transform: scale(1.03);
+}
 
 /* Responsive grid */
 @media (max-width: 980px){
@@ -398,8 +416,9 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
 }
 @media (max-width: 640px){
   .galleryGrid{ grid-template-columns: repeat(2, 1fr); }
-  .gOverlay{ padding: 12px; }
-  .gTitle{ font-size: 13px; }
+  .gOverlay{ padding: 14px; }
+  .gTitle{ font-size: 11.5px; }
+  .gTag{ font-size: 10px; }
 }
 
 /* Skeleton (placeholder) */

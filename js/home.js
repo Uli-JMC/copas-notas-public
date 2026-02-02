@@ -106,7 +106,9 @@ function goRegister(id, soldOut) {
 // Supabase helpers
 // ============================================================
 function hardFail(msg) {
-  try { console.error(msg); } catch (_) {}
+  try {
+    console.error(msg);
+  } catch (_) {}
 }
 
 function hasSupabase() {
@@ -115,14 +117,18 @@ function hasSupabase() {
 
 async function fetchEventsFromSupabase() {
   if (!hasSupabase()) {
-    hardFail("APP.supabase no está listo. Revisá el orden: supabase-js CDN -> supabaseClient.js -> home.js");
+    hardFail(
+      "APP.supabase no está listo. Revisá el orden: supabase-js CDN -> supabaseClient.js -> home.js"
+    );
     return [];
   }
 
   // 1) Traer eventos
   const evRes = await APP.supabase
     .from("events")
-    .select('id,title,type,month_key,"desc",img,location,time_range,duration_hours,created_at,updated_at')
+    .select(
+      'id,title,type,month_key,"desc",img,location,time_range,duration_hours,created_at,updated_at'
+    )
     .order("created_at", { ascending: false });
 
   if (evRes.error) {
@@ -166,7 +172,10 @@ async function fetchEventsFromSupabase() {
     const labels = evDates.map((x) => x.label).filter(Boolean);
 
     // seats = suma de seats_available de todas las fechas
-    const seats = evDates.reduce((acc, x) => acc + (Number(x.seats_available) || 0), 0);
+    const seats = evDates.reduce(
+      (acc, x) => acc + (Number(x.seats_available) || 0),
+      0
+    );
 
     return {
       id: ev?.id || "",
@@ -182,6 +191,217 @@ async function fetchEventsFromSupabase() {
       timeRange: ev?.time_range || "",
       durationHours: ev?.duration_hours || "",
     };
+  });
+}
+
+// ============================================================
+// ✅ GALERÍA HOME PREVIEW (8 fotos desde gallery_items)
+//   ✅ SIN "isWide"
+//   ✅ Texto tipo hashtags (usa tags si existen)
+// ============================================================
+async function fetchGalleryPreview(limit = 8) {
+  if (!hasSupabase()) return [];
+
+  const sel = "id,type,name,tags,image_url,image_path,created_at,target";
+  const res = await APP.supabase
+    .from("gallery_items")
+    .select(sel)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (res.error) {
+    console.warn("[home] gallery_items error:", res.error);
+    return [];
+  }
+  return Array.isArray(res.data) ? res.data : [];
+}
+
+function publicUrlFromPath(path) {
+  const p = String(path || "").trim();
+  if (!p) return "";
+  try {
+    // ✅ si tu bucket tiene otro nombre, cambiá SOLO esto:
+    const bucket = "gallery";
+    const out = APP.supabase.storage.from(bucket).getPublicUrl(p);
+    return out?.data?.publicUrl || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function resolveGalleryImg(row) {
+  const url = String(row?.image_url || "").trim();
+  if (url) return url;
+  const pub = publicUrlFromPath(row?.image_path);
+  return pub || "";
+}
+
+/** Normaliza tags a formato "#tag #tag2 ..." */
+function toHashtags(tagsLike, fallbackName) {
+  // tags puede venir como array, string CSV, string JSON, etc.
+  let tags = [];
+
+  if (Array.isArray(tagsLike)) {
+    tags = tagsLike;
+  } else {
+    const raw = String(tagsLike ?? "").trim();
+    if (raw) {
+      // intenta JSON array primero
+      if (raw.startsWith("[") && raw.endsWith("]")) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) tags = parsed;
+        } catch (_) {}
+      }
+      // si no era JSON, asumimos CSV / separado por coma
+      if (!tags.length) {
+        tags = raw.split(",").map((t) => t.trim()).filter(Boolean);
+      }
+    }
+  }
+
+  // slug simple (mantiene letras/números y guion bajo/medio)
+  const clean = (t) =>
+    String(t ?? "")
+      .trim()
+      .toLowerCase()
+      .replaceAll("á", "a")
+      .replaceAll("é", "e")
+      .replaceAll("í", "i")
+      .replaceAll("ó", "o")
+      .replaceAll("ú", "u")
+      .replaceAll("ñ", "n")
+      .replace(/[^a-z0-9_-]+/g, "")
+      .replace(/_{2,}/g, "_")
+      .replace(/-{2,}/g, "-");
+
+  const out = tags
+    .map(clean)
+    .filter(Boolean)
+    .slice(0, 6) // ✅ para que no se desborde en una línea
+    .map((t) => "#" + t)
+    .join(" ");
+
+  if (out) return out;
+
+  // fallback si no hay tags
+  const base = clean(fallbackName) || "entrecopasynotas";
+  return `#${base} #cocteleria #maridaje`;
+}
+
+async function renderHomeGalleryPreview() {
+  const grid = qs("#homeGalleryGrid");
+  if (!grid) return;
+
+  const rows = await fetchGalleryPreview(8);
+
+  if (!rows.length) {
+    grid.innerHTML = "";
+    return;
+  }
+
+  grid.innerHTML = "";
+
+  rows.forEach((r) => {
+    const img = resolveGalleryImg(r);
+    if (!img) return;
+
+    const name = String(r?.name || r?.type || "Galería").trim();
+    const label = toHashtags(r?.tags, name);
+
+    const item = document.createElement("a");
+    // ✅ SIN isWide (layout uniforme)
+    item.className = "gpItem";
+    item.href = "./gallery.html";
+    item.style.setProperty("--gpimg", `url('${safeCssUrl(img)}')`);
+    item.innerHTML = `<span>${escapeHtml(label)}</span>`;
+    grid.appendChild(item);
+  });
+}
+
+// ============================================================
+// ✅ Testimonial rotator (temporal, desde data-attrs)
+// ============================================================
+function initQuoteRotator() {
+  const el = qs("#quoteRotator");
+  if (!el) return;
+
+  // anti doble-montaje
+  if (el.dataset.mounted === "true") return;
+  el.dataset.mounted = "true";
+
+  const raw = el.getAttribute("data-quotes") || "[]";
+  const intervalRaw = el.getAttribute("data-interval") || "4500";
+  let interval = parseInt(intervalRaw, 10);
+  if (!Number.isFinite(interval)) interval = 4500;
+  interval = Math.max(2500, interval);
+
+  let quotes = [];
+  try {
+    quotes = JSON.parse(raw);
+  } catch (_) {
+    quotes = [];
+  }
+  if (!Array.isArray(quotes) || quotes.length === 0) return;
+
+  let i = 0;
+  const setQuote = (idx) => {
+    const q = String(quotes[idx] ?? "").trim();
+    if (!q) return;
+    el.textContent = "“" + q + "”";
+  };
+
+  setQuote(0);
+
+  // guarda el timer para evitar duplicados
+  const t = setInterval(() => {
+    i = (i + 1) % quotes.length;
+    setQuote(i);
+  }, interval);
+
+  // si navegan/recargan raro, cleanup básico
+  window.addEventListener(
+    "beforeunload",
+    () => {
+      try {
+        clearInterval(t);
+      } catch (_) {}
+    },
+    { once: true }
+  );
+}
+
+// ============================================================
+// ✅ Newsletter/Form (temporal: evita reload y muestra toast)
+// ============================================================
+function initNewsletterForm() {
+  const form = qs(".newsForm");
+  if (!form) return;
+
+  // anti doble bind
+  if (form.dataset.bound === "true") return;
+  form.dataset.bound = "true";
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+
+    try {
+      const first = (qs("#nfFirst")?.value || "").trim();
+      const last = (qs("#nfLast")?.value || "").trim();
+      const email = (qs("#nfEmail")?.value || "").trim();
+      const msg = (qs("#nfMsg")?.value || "").trim();
+
+      if (!first || !last || !email || !msg) {
+        toast("Faltan datos", "Completá todos los campos para enviar el mensaje.");
+        return;
+      }
+
+      // ✅ temporal: solo feedback visual
+      toast("Enviado", "¡Gracias! Pronto te contactamos.");
+      form.reset();
+    } catch (_) {
+      toast("Error", "No se pudo enviar. Intentá de nuevo.");
+    }
   });
 }
 
@@ -212,7 +432,7 @@ function renderEmptyState() {
   slidesEl.innerHTML = `
     <article class="slide" style="--bgimg:url('${safeCssUrl(heroImg)}')">
       <div class="container heroCard">
-        <div class="heroInner">
+        <div class="heroInnerPanel">
           <div class="heroMeta">
             <span class="pill">Experiencias</span>
           </div>
@@ -243,13 +463,16 @@ function renderSlides() {
 
     const slide = document.createElement("article");
     slide.className = "slide";
-    slide.style.setProperty("--bgimg", `url('${safeCssUrl(ev.img || getDefaultHero())}')`);
+    slide.style.setProperty(
+      "--bgimg",
+      `url('${safeCssUrl(ev.img || getDefaultHero())}')`
+    );
 
-    const pillText = soldOut ? "AGOTADO" : (ev.type || "Experiencia");
+    const pillText = soldOut ? "AGOTADO" : ev.type || "Experiencia";
 
     slide.innerHTML = `
       <div class="container heroCard">
-        <div class="heroInner">
+        <div class="heroInnerPanel">
           <div class="heroMeta">
             <span class="pill">${escapeHtml(pillText)}</span>
           </div>
@@ -282,7 +505,9 @@ function renderSlides() {
 function updateTransform() {
   if (!slidesEl || !dotsEl) return;
   slidesEl.style.transform = `translateX(-${idx * 100}%)`;
-  [...dotsEl.children].forEach((d, i) => d.setAttribute("aria-current", i === idx));
+  [...dotsEl.children].forEach((d, i) =>
+    d.setAttribute("aria-current", i === idx)
+  );
 }
 
 function goTo(next, user) {
@@ -294,7 +519,7 @@ function goTo(next, user) {
 
 function restartAuto() {
   clearInterval(autoTimer);
-  if (EVENTS.length <= 1) return; // ✅ si solo hay 1, no auto-rotación
+  if (EVENTS.length <= 1) return;
   autoTimer = setInterval(() => goTo(idx + 1), AUTO_MS);
 }
 
@@ -306,7 +531,9 @@ const monthGrid = qs("#monthGrid");
 let activeMonth = null;
 
 function getThreeMonthWindow() {
-  return window.ECN?.getMonths3 ? ECN.getMonths3(new Date()) : ["ENERO", "FEBRERO", "MARZO"];
+  return window.ECN?.getMonths3
+    ? ECN.getMonths3(new Date())
+    : ["ENERO", "FEBRERO", "MARZO"];
 }
 
 function renderMonths() {
@@ -342,7 +569,9 @@ function renderMonthGrid() {
   const list = EVENTS.filter((e) => e.monthKey === activeMonth);
 
   if (!list.length) {
-    monthGrid.innerHTML = `<div class="emptyMonth">No hay eventos para <b>${escapeHtml(activeMonth)}</b>.</div>`;
+    monthGrid.innerHTML = `<div class="emptyMonth">No hay eventos para <b>${escapeHtml(
+      activeMonth
+    )}</b>.</div>`;
     return;
   }
 
@@ -407,8 +636,6 @@ document.addEventListener("click", (e) => {
 // ============================================================
 async function refreshFromSupabase() {
   EVENTS = await fetchEventsFromSupabase();
-
-  // ✅ si no hay eventos, igual renderiza, pero SIN flash (porque seguimos en loading)
   renderSlides();
   restartAuto();
   renderMonths();
@@ -423,22 +650,27 @@ window.addEventListener("ecn:events-updated", () => {
 // Init (SIN flash)
 // ============================================================
 (async function init() {
-  // ✅ Arrancamos en modo loading y NO pintamos empty state antes del fetch
   setLoading(true);
 
   try {
     await refreshFromSupabase();
   } finally {
-    // ✅ solo cuando ya está todo pintado, mostramos el hero
     setLoading(false);
   }
 
-  // Toast suave de bienvenida (opcional)
+  // ✅ Galería preview (8) en Home
+  renderHomeGalleryPreview().catch(() => {});
+
+  // ✅ Rotador testimonial (temporal)
+  initQuoteRotator();
+
+  // ✅ Form newsletter (temporal)
+  initNewsletterForm();
+
   setTimeout(() => toast("Bienvenido", "Revisá los próximos eventos."), 800);
 })();
 
 // Siempre iniciar arriba al cargar/recargar
-
 if ("scrollRestoration" in history) {
   history.scrollRestoration = "manual";
 }

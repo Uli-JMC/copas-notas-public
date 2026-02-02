@@ -4,30 +4,29 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#000000" />
+  <meta name="theme-color" content="#ffffff" />
 
   <title>Entre Copas & Notas | Experiencias en vino y coctelería</title>
   <meta name="description"
     content="Catas de vino y experiencias de coctelería. Descubrí próximos eventos, fechas y cupos disponibles." />
 
-  <!-- Styles -->
   <link rel="stylesheet" href="./css/home.css" />
 </head>
 
 <body class="is-loading">
 
-<!-- Loader anti-flash -->
-<div id="pageLoader" class="pageLoader" aria-hidden="false">
-  <div class="pageLoader__inner">
-    <div class="pageLoader__spinner" aria-hidden="true"></div>
-    <p class="pageLoader__text">Cargando experiencias…</p>
+  <!-- Loader anti-flash -->
+  <div id="pageLoader" class="pageLoader" aria-hidden="false">
+    <div class="pageLoader__inner">
+      <div class="pageLoader__spinner" aria-hidden="true"></div>
+      <p class="pageLoader__text">Cargando experiencias…</p>
+    </div>
   </div>
-</div>
 
   <!-- Toasts -->
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
-  <!-- Modal evento (se mantiene para eventos) -->
+  <!-- Modal evento -->
   <div class="modal" id="eventModal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Detalle del evento">
     <div class="modalCard">
       <div class="modalTop">
@@ -57,7 +56,7 @@
     </div>
   </div>
 
-  <!-- ✅ PROMO MODAL (Publicidad) -->
+  <!-- ✅ PROMO MODAL -->
   <div class="pmodal" id="promoModal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Promoción">
     <div class="pmodalCard" role="document">
       <button class="pmodalClose" id="promoClose" type="button" aria-label="Cerrar">✕</button>
@@ -92,8 +91,9 @@
 
         <div class="navlinks">
           <a href="#home">Home</a>
-          <a href="#proximos">Próximos</a>
-          <a href="#info">General</a>
+          <a href="#proximos">Eventos</a>
+          <a href="#galeria">Galería</a>
+          <a href="#about">About</a>
         </div>
 
         <div class="navright">
@@ -103,7 +103,7 @@
     </div>
   </header>
 
-  <!-- ✅ PROMO BANNER MOUNT -->
+  <!-- PROMO BANNER MOUNT -->
   <div id="promoBannerMount" aria-live="polite"></div>
 
   <!-- HERO / CARRUSEL -->
@@ -136,59 +136,190 @@
     </div>
   </section>
 
-  <!-- INFO DESTACADA -->
-  <section class="section section--highlight" id="info">
-    <div class="container">
-      <div class="sectionHead sectionHead--center">
-        <div>
-          <h2 class="h2">Dos experiencias. Un mismo mood.</h2>
-          <p class="sub">Elegí tu estilo y viví una experiencia guiada, social y memorable.</p>
-        </div>
+
+<!-- ✅ ABOUT (editorial, limpio) -->
+<section class="section" id="about" aria-label="Sobre Entre Copas & Notas">
+  <div class="container">
+    <div class="sectionHead">
+      <div>
+        <h2 class="h2">About</h2>
+        <p class="sub">
+          Experiencias guiadas y sociales: vino, maridaje y coctelería con un formato claro, cálido y memorable.
+        </p>
+      </div>
+    </div>
+
+    <div class="aboutGrid" aria-label="Pilares de la experiencia">
+
+      <div class="aboutCard">
+        <div class="aboutIcon" aria-hidden="true"></div>
+        <div class="aboutTitle">Curado y simple</div>
+        <p class="aboutText">
+          Menús y dinámicas diseñadas para que cualquiera disfrute, desde principiantes hasta curiosos.
+        </p>
       </div>
 
-      <div class="duoCards">
+      <div class="aboutCard">
+        <div class="aboutIcon" aria-hidden="true"></div>
+        <div class="aboutTitle">Social y memorable</div>
+        <p class="aboutText">
+          Un espacio para conectar: amigos, pareja o equipos — con ritmo, guía y buen gusto.
+        </p>
+      </div>
 
-        <article class="duoCard">
-          <div class="duoMedia" style="--img:url('/assets/img/features/feature-wine.png');"></div>
-          <div class="duoBody">
-            <h3>Catas de vino</h3>
-            <p>Explorá aromas, notas y maridajes en un formato fácil de seguir.</p>
-            <ul class="duoList">
-              <li>Guía paso a paso</li>
-              <li>Maridajes y tips</li>
-              <li>Ambiente relajado</li>
-            </ul>
-            <div class="duoActions">
-              <a class="btn primary" href="./maridajes.html">Leer más</a>
+      <div class="aboutCard">
+        <div class="aboutIcon" aria-hidden="true"></div>
+        <div class="aboutTitle">Calidad en cada detalle</div>
+        <p class="aboutText">
+          Ingredientes, vinos y montaje seleccionados para que la experiencia se sienta premium, sin ser pesada.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+  <!-- ✅ GALERÍA (preview en Home: 8 fotos desde Supabase) -->
+  <section class="section" id="galeria">
+    <div class="container">
+
+      <div class="galleryPreviewHead">
+        <div>
+          <p class="galleryKicker">GALERÍA</p>
+          <h2 class="h2">Coctelería &amp; Maridajes</h2>
+          <p class="sub">Una vista rápida de la galería — y si querés ver todo, entrás con un solo click.</p>
+        </div>
+
+        <!-- ✅ BOTÓN SUPERIOR ELIMINADO (solo dejamos el CTA inferior) -->
+      </div>
+
+      <div class="galleryPreviewGrid" id="homeGalleryGrid" aria-label="Preview de galería"></div>
+
+      <div class="galleryPreviewCta">
+        <a class="btn primary" href="./gallery.html">Ver galería</a>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ✅ TESTIMONIAL ancho (rotativo temporal) -->
+  <section class="testimonial" aria-label="Testimonios">
+    <div class="container">
+      <p class="quoteKicker">Escuchá a quienes ya vivieron la experiencia</p>
+
+      <!-- ✅ Rotación temporal (controlada por home.js) -->
+      <p class="quote" id="quoteRotator" data-interval="4500" data-quotes='[
+          "Un espacio para desconectarse, aprender y compartir. Perfecto para venir con amigos.",
+          "La guía fue súper clara y la experiencia se sintió premium de principio a fin.",
+          "Me encantó el balance entre aprender y disfrutar. Volvería sin pensarlo.",
+          "El ambiente, los sabores y los detalles… todo se siente bien pensado."
+        ]'>
+        “Un espacio para desconectarse, aprender y compartir. Perfecto para venir con amigos.”
+      </p>
+
+      <p class="sub" style="text-align:center; margin-top:14px;">
+        * Frases rotativas temporales — luego las conectamos con testimonios reales.
+      </p>
+    </div>
+  </section>
+
+  <!-- ✅ NEWSLETTER / FORM -->
+  <section class="newsletter" aria-label="Newsletter y contacto">
+    <div class="container">
+      <div class="newsGrid">
+        <div class="newsLeft" style="--nimg:url('./assets/img/hero-1.jpg');">
+          <h3>Suscribite</h3>
+          <p>
+            Recibí fechas nuevas, promos y experiencias destacadas. Sin spam, solo lo bueno.
+          </p>
+        </div>
+
+        <form class="newsForm" aria-label="Formulario de contacto">
+          <h3>Escribinos</h3>
+
+          <div class="formRow">
+            <div class="formField">
+              <label for="nfFirst">Nombre *</label>
+              <input id="nfFirst" name="first" type="text" placeholder="Tu nombre" required />
+            </div>
+            <div class="formField">
+              <label for="nfLast">Apellido *</label>
+              <input id="nfLast" name="last" type="text" placeholder="Tu apellido" required />
             </div>
           </div>
-        </article>
 
-        <article class="duoCard">
-          <div class="duoMedia" style="--img:url('/assets/img/features/feature-cocktail.png');"></div>
-          <div class="duoBody">
-            <h3>Coctelería</h3>
-            <p>Técnica, balance y presentación para cócteles con estilo.</p>
-            <ul class="duoList">
-              <li>Clásicos y autor</li>
-              <li>Métodos e ingredientes</li>
-              <li>Degustación guiada</li>
-            </ul>
-            <div class="duoActions">
-              <a class="btn primary" href="./cocteles.html">Leer más</a>
-            </div>
+          <div class="formField" style="margin-bottom:12px;">
+            <label for="nfEmail">Correo *</label>
+            <input id="nfEmail" name="email" type="email" placeholder="hola@ejemplo.com" required />
           </div>
-        </article>
 
+          <div class="formField">
+            <label for="nfMsg">Mensaje *</label>
+            <textarea id="nfMsg" name="message" placeholder="Contanos qué te gustaría vivir o consultar…"
+              required></textarea>
+          </div>
+
+          <div class="formActions">
+            <button class="formBtn" type="submit">Enviar</button>
+          </div>
+
+          <p class="sub" style="margin-top:12px;">
+            * Este formulario es visual (temporal). Luego lo conectamos a tu flujo real.
+          </p>
+        </form>
       </div>
     </div>
   </section>
 
-  <!-- Footer -->
-  <footer class="footer">
+  <!-- ✅ FOOTER -->
+  <footer class="footerWide" aria-label="Footer">
     <div class="container">
-      <div class="footerRow">
-        <div>Entre Copas &amp; Notas · Experiencias</div>
+      <div class="footerCols">
+
+        <div>
+          <h4 class="fTitle">About</h4>
+          <p class="fText">
+            Entre Copas &amp; Notas crea experiencias guiadas de vino, maridaje y coctelería.
+            Un formato social, claro y memorable.
+          </p>
+        </div>
+
+        <div>
+          <h4 class="fTitle">Contact</h4>
+          <div class="fContact">
+            <div>📍 Costa Rica</div>
+            <div>📲 WhatsApp: 8832-3801</div>
+            <div>✉️ contacto@entrecopasynotas.com</div>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="fTitle">Quick links</h4>
+          <ul class="fList">
+            <li><a href="#home">Home</a></li>
+            <li><a href="#proximos">Próximos eventos</a></li>
+            <li><a href="#galeria">Galería</a></li>
+            <li><a href="#about">About</a></li>
+            <li><a href="./gallery.html">Ver galería</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="fTitle">Follow</h4>
+          <ul class="fList">
+            <li><a href="https://instagram.com/entrecopasynotas" target="_blank" rel="noopener">Instagram</a></li>
+            <li>
+              <a href="https://wa.me/50688323801?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
+                target="_blank" rel="noopener">WhatsApp</a>
+            </li>
+          </ul>
+        </div>
+
+      </div>
+
+      <div class="footerBottom">
+        <div>© 2026 Entre Copas &amp; Notas</div>
         <div class="social">
           <a class="icon-btn"
             href="https://wa.me/50688323801?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
@@ -201,14 +332,12 @@
   </footer>
 
   <!-- Scripts -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-<script src="./js/supabaseClient.js" defer></script>
-
-<script src="./js/data.js" defer></script>
-<script src="./js/home.js" defer></script>
-<script src="./js/home-promos.js" defer></script>
-
-
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script src="./js/supabaseClient.js" defer></script>
+  <script src="./js/data.js" defer></script>
+  <script src="./js/home.js" defer></script>
+  <script src="./js/home-promos.js" defer></script>
 
 </body>
+
 </html>

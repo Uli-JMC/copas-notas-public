@@ -9,9 +9,17 @@
    ✅ PATCH 2026-01-19:
    - Fix: "No molestar" siempre usa la promo MODAL actual (no una vieja por cierre)
    - Opcional: marcar dismiss_once al presionar "No molestar" (setOnceToo = true)
+
+   ✅ UX PATCH (banner + modal) 2026-02:
+   - Banner: evita “layout jump” reservando altura (cache) + fade/slide-in
+   - Modal: solo se abre si no hay scroll reciente (menos invasivo en mobile)
 ============================================================ */
 (function () {
   "use strict";
+
+  // ✅ Guard global anti doble-evaluación
+  if (window.__ecnHomePromosMounted === true) return;
+  window.__ecnHomePromosMounted = true;
 
   const $ = (sel) => document.querySelector(sel);
 
@@ -27,7 +35,8 @@
   const LS = {
     DISMISS_UNTIL: "ecn_promo_dismiss_until",      // timestamp
     DISMISS_ONCE: "ecn_promo_dismiss_once",        // promoId (opcional)
-    BANNER_DISMISS: "ecn_banner_dismiss_until"     // timestamp
+    BANNER_DISMISS: "ecn_banner_dismiss_until",    // timestamp
+    BANNER_H: "ecn_banner_height_px"               // cached height px (anti-jump)
   };
 
   function now() { return Date.now(); }
@@ -104,9 +113,6 @@
 
   // ------------------------------------------------------------
   // Normalización (Supabase row -> UI promo)
-  // Soporta:
-  // - Supabase: description, cta_label, cta_href, media_img, dismiss_days, start_at, end_at
-  // - Local:    desc, ctaLabel, ctaHref, mediaImg, dismissDays, startAt, endAt
   // ------------------------------------------------------------
   function normalizePromo(p) {
     const kind = normalizeKind(p?.kind);
@@ -234,19 +240,47 @@
   }
 
   // ------------------------------------------------------------
-  // Banner
+  // Banner (anti-jump + fade/slide)
   // ------------------------------------------------------------
   function shouldShowBanner() {
     const until = readInt(LS.BANNER_DISMISS, 0);
     return now() > until;
   }
 
+  function ensureMountTransition(mount) {
+    if (!mount) return;
+    // transición suave del placeholder para evitar “salto” feo
+    mount.style.transition = "min-height .22s ease";
+    mount.style.willChange = "min-height";
+  }
+
+  function reserveBannerSpace(mount) {
+    if (!mount) return;
+    const cached = readInt(LS.BANNER_H, 64); // valor seguro
+    mount.style.minHeight = Math.max(0, cached) + "px";
+  }
+
+  function clearBannerSpace(mount) {
+    if (!mount) return;
+    // baja suave
+    mount.style.minHeight = "0px";
+  }
+
   function renderBanner(mount, p) {
     if (!mount) return;
     mount.innerHTML = "";
 
-    if (!p) return;
-    if (!shouldShowBanner()) return;
+    if (!p) {
+      clearBannerSpace(mount);
+      return;
+    }
+    if (!shouldShowBanner()) {
+      clearBannerSpace(mount);
+      return;
+    }
+
+    ensureMountTransition(mount);
+    reserveBannerSpace(mount); // ✅ reserva antes de insertar (reduce jump)
 
     mount.innerHTML = `
       <div class="pbanner" role="region" aria-label="Anuncio">
@@ -269,15 +303,52 @@
       </div>
     `;
 
+    const banner = mount.querySelector(".pbanner");
+
+    // ✅ Animación suave SIN CSS extra
+    if (banner) {
+      banner.style.opacity = "0";
+      banner.style.transform = "translateY(-6px)";
+      banner.style.transition = "opacity .18s ease, transform .18s ease";
+      // next frame
+      requestAnimationFrame(() => {
+        banner.style.opacity = "1";
+        banner.style.transform = "translateY(0)";
+      });
+
+      // ✅ medir altura real y cachearla
+      setTimeout(() => {
+        try {
+          const h = Math.ceil(banner.getBoundingClientRect().height || 0);
+          if (h > 0) {
+            write(LS.BANNER_H, h);
+            mount.style.minHeight = h + "px";
+          }
+        } catch (_) {}
+      }, 40);
+    }
+
     $("#pbannerClose")?.addEventListener("click", () => {
       const days = Math.max(1, Number(p.dismissDays || 3));
       write(LS.BANNER_DISMISS, now() + days * 86400000);
-      mount.innerHTML = "";
+
+      // fade out + colapsar placeholder
+      try {
+        if (banner) {
+          banner.style.opacity = "0";
+          banner.style.transform = "translateY(-6px)";
+        }
+      } catch (_) {}
+
+      setTimeout(() => {
+        mount.innerHTML = "";
+        clearBannerSpace(mount);
+      }, 180);
     }, { once: true });
   }
 
   // ------------------------------------------------------------
-  // Modal
+  // Modal (solo si no hay scroll reciente)
   // ------------------------------------------------------------
   function canShowModal(promoId) {
     const until = readInt(LS.DISMISS_UNTIL, 0);
@@ -288,6 +359,23 @@
     if (onceId && onceId === promoId) return false;
 
     return true;
+  }
+
+  // ✅ detecta “scroll activo”: si hubo scroll en los últimos X ms, no abras modal
+  let lastScrollAt = now();
+  function wireScrollSignal() {
+    // 1 sola vez
+    if (window.__ecnHomePromosScrollWired) return;
+    window.__ecnHomePromosScrollWired = true;
+
+    window.addEventListener("scroll", () => {
+      lastScrollAt = now();
+    }, { passive: true });
+  }
+
+  function isScrollActive(windowMs) {
+    const w = Math.max(300, Number(windowMs || 900));
+    return (now() - lastScrollAt) < w;
   }
 
   function openModal(modal, p) {
@@ -388,6 +476,9 @@
     const modal = $("#promoModal");
     if (!mount || !modal) return;
 
+    // ✅ scroll signal (para no abrir modal mientras el usuario scrollea)
+    wireScrollSignal();
+
     // 1) Supabase-first
     let promos = [];
     try {
@@ -399,6 +490,7 @@
 
     if (!Array.isArray(promos) || !promos.length) {
       mount.innerHTML = "";
+      clearBannerSpace(mount);
       return;
     }
 
@@ -407,10 +499,16 @@
 
     renderBanner(mount, bannerPromo);
 
+    // ✅ Modal: abre solo si NO hay scroll reciente
     if (modalPromo && canShowModal(modalPromo.id)) {
-      currentModalPromo = modalPromo; // ✅ set promo actual
-      wireModal(modal);               // ✅ ya no recibe p
-      setTimeout(() => openModal(modal, modalPromo), 600);
+      currentModalPromo = modalPromo;
+      wireModal(modal);
+
+      setTimeout(() => {
+        // si el usuario está scrolleando o tocando scroll, no lo molestamos
+        if (isScrollActive(900)) return;
+        openModal(modal, modalPromo);
+      }, 650);
     }
   }
 

@@ -1,7 +1,7 @@
 /* ============================================================
    gallery.js ✅ PRO (Maridajes + Cocteles) - 2026 (Supabase)
    - 1 solo JS para ambas páginas
-   - Lee window.ECN_PAGE.type: "cocteles" | "maridajes"
+   - Lee window.ECN_PAGE.type: "cocteles" | "maridajes" | "all"
    - Galería: Supabase (public) -> gallery_items (preferido) o promos (fallback)
    - Filtros: fecha + búsqueda (debounce)
    - Grid IG: render limpio y quita skeletons
@@ -13,6 +13,10 @@
    - Evita errores 400 por "embedded relationships" (events/event_dates) en gallery_items
    - La galería usa SIEMPRE un SELECT BASE (sin joins) -> 0 requests 400
    - Mantiene TODO lo demás igual (reviews siguen usando events + event_dates)
+
+   ✅ PATCH 2026-02-01:
+   - Soporte para window.ECN_PAGE.type = "all"
+   - En "all" muestra cocteles + maridajes
 ============================================================ */
 
 (function () {
@@ -145,12 +149,13 @@
   }
 
   // ------------------------------------------------------------
-  // Page key desde tu config
+  // Page key desde tu config  ✅ PATCH: soporta "all"
   // ------------------------------------------------------------
   function getPageKey() {
     const t = window.ECN_PAGE && window.ECN_PAGE.type ? String(window.ECN_PAGE.type).toLowerCase() : "";
     if (t.includes("coct")) return "cocteles";
     if (t.includes("marid")) return "maridajes";
+    if (t.includes("all")) return "all";     // ✅ PATCH
     return "gallery";
   }
   const pageKey = getPageKey();
@@ -375,12 +380,18 @@
 
     await ensureSessionOptional();
 
+    // helper ✅ PATCH: filtro por tipo con soporte "all"
+    const okType = (xType) => {
+      if (pageKey === "all") return xType === "cocteles" || xType === "maridajes";
+      return xType === pageKey;
+    };
+
     // 1) gallery_items (BASE)
     try {
       const rows = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_BASE);
       return rows
         .map(normalizeGalleryRow)
-        .filter((x) => x.type === pageKey && x.img && (!x.target || x.target === "home"));
+        .filter((x) => okType(x.type) && x.img && (!x.target || x.target === "home"));
     } catch (e1) {
       if (!isMissingTable(e1)) {
         if (isRLSError(e1)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
@@ -393,7 +404,7 @@
       const rowsP = await fetchUsing(DB.GALLERY_FALLBACK, SELECT_PROMOS_BASE);
       return rowsP
         .map(normalizeGalleryRow)
-        .filter((x) => x.type === pageKey && x.img && (!x.target || x.target === "home"));
+        .filter((x) => okType(x.type) && x.img && (!x.target || x.target === "home"));
     } catch (eP) {
       if (isMissingTable(eP)) toast("No existe tabla gallery_items ni promos.");
       else if (isRLSError(eP)) toast("Acceso bloqueado (RLS) leyendo promos.");
@@ -409,9 +420,15 @@
   let REVIEW_EVENTS = [];                 // [{id,title,dates:[...], eligible:boolean, reason:string}]
   let REVIEW_ELIGIBLE = new Map();        // eventId -> { eligible, reason, endedAtMs, nextEndMs }
 
-  function eventTypeMatches(pageKey, typeText) {
+  function eventTypeMatches(pageKeyForMatch, typeText) {
     const t = norm(typeText || "");
-    if (pageKey === "cocteles") return t.includes("coct");
+
+    // ✅ PATCH: en "all" permitimos ambos grupos
+    if (pageKeyForMatch === "all") {
+      return t.includes("coct") || t.includes("vino") || t.includes("cata") || t.includes("marid");
+    }
+
+    if (pageKeyForMatch === "cocteles") return t.includes("coct");
     // maridajes: vino / cata / marid
     return t.includes("vino") || t.includes("cata") || t.includes("marid");
   }
