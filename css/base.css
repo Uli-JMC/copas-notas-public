@@ -1,7 +1,8 @@
 /* ============================================================
-   base.css ✅ GLOBAL (2026) — DEPURADO
+   base.css ✅ GLOBAL (2026) — DEPURADO + MOBILE MENU PRO
    - Variables / tipografía / layout
-   - Header (siteHeader) + nav desktop + hamburger móvil + drawer
+   - Header (siteHeader) + nav desktop + hamburger móvil (top-right)
+   - Drawer full-screen desde la derecha + backdrop
    - Botones, footer
    - Toasts, modals, promo modal
    - Loader anti-flash
@@ -32,6 +33,12 @@
 
   --shadow-soft: 0 18px 50px rgba(0,0,0,.12);
   --shadow-mid: 0 22px 60px rgba(0,0,0,.20);
+
+  /* Drawer */
+  --drawer-bg: #7b55ff;
+  --drawer-z-backdrop: 1100;
+  --drawer-z: 1150;
+  --header-z: 50;
 }
 
 *{ box-sizing:border-box }
@@ -109,14 +116,13 @@ body.is-loading .pageLoader{
 
 /* ============================================================
    ✅ HEADER + NAV (ÚNICO SISTEMA)
-   - Usa tu HTML: .siteHeader .headerRow .brand .navDesktop
-   - Hamburguesa SOLO móvil: #hamburgerFab dentro del header
+   - Usa tu HTML: .siteHeader .headerRow .brand .navDesktop #hamburgerFab
 ============================================================ */
 
 .siteHeader{
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: var(--header-z);
   background: rgba(255,255,255,.92);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -141,8 +147,14 @@ body.is-loading .pageLoader{
   text-transform: uppercase;
   font-weight: 800;
   font-size: 13px;
+  min-width: 0;
 }
-.brandText{ white-space:nowrap; }
+.brandText{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-width: 70vw;
+}
 
 /* Desktop menu a la derecha */
 .navDesktop{
@@ -165,46 +177,101 @@ body.is-loading .pageLoader{
 .navLink:hover{ color: rgba(18,18,18,.95); }
 
 /* ============================================================
-   ✅ Hamburguesa (solo móvil) + Drawer
-   - NO fixed. Va dentro del header en esquina derecha.
+   ✅ Hamburguesa (SOLO MÓVIL) — top-right dentro del header
+   - 3 líneas + animación a X (aria-expanded="true")
+   - micro “pop” al tocar
 ============================================================ */
 
-/* default (desktop): oculto */
-.hamburgerFab{ display:none; }
+.hamburgerFab{
+  display:none; /* desktop: oculto */
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  margin-left: 10px;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
 
-/* Backdrop + Drawer: existen en DOM, pero hidden/controlados */
+.hamburgerFab:active{
+  transform: scale(.96);
+}
+
+.hamburgerFab span{
+  position:absolute;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: rgba(18,18,18,.86);
+  border-radius: 999px;
+  transition:
+    transform .32s cubic-bezier(.2,.9,.25,1),
+    top .24s ease,
+    opacity .18s ease,
+    filter .2s ease;
+  transform-origin: center;
+}
+
+.hamburgerFab span:nth-child(1){ top: 15px; }
+.hamburgerFab span:nth-child(2){ top: 21px; }
+.hamburgerFab span:nth-child(3){ top: 27px; }
+
+.hamburgerFab[aria-expanded="true"] span:nth-child(1){
+  top: 21px;
+  transform: rotate(45deg);
+}
+.hamburgerFab[aria-expanded="true"] span:nth-child(2){
+  opacity: 0;
+  transform: translateX(10px);
+}
+.hamburgerFab[aria-expanded="true"] span:nth-child(3){
+  top: 21px;
+  transform: rotate(-45deg);
+}
+
+/* ============================================================
+   Drawer Backdrop + Drawer (full-screen desde la derecha)
+============================================================ */
+
 .drawerBackdrop{
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,.45);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
-  z-index: 1100;
+  z-index: var(--drawer-z-backdrop);
 }
 
-/* Drawer full-screen desde la derecha */
+/* Drawer full-screen */
 .mobileDrawer{
   position: fixed;
   top: 0;
   right: 0;
   height: 100dvh;
   width: 100%;
-  background: #7b55ff;
+  background: var(--drawer-bg);
   color: #fff;
-  z-index: 1150;
+  z-index: var(--drawer-z);
 
   transform: translateX(110%);
-  transition: transform .26s cubic-bezier(.2,.9,.25,1);
+  transition: transform .30s cubic-bezier(.2,.9,.25,1);
   display:flex;
   align-items:center;
   justify-content:center;
   padding: 28px 18px;
+
+  /* mejor scroll si el contenido crece */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mobileDrawer.is-open{
   transform: translateX(0);
 }
 
+/* Botón cerrar */
 .drawerClose{
   position: absolute;
   top: 18px;
@@ -217,9 +284,11 @@ body.is-loading .pageLoader{
   color: #fff;
   font-size: 22px;
   cursor:pointer;
+  transition: .15s ease;
 }
 .drawerClose:hover{ background: rgba(255,255,255,.16); }
 
+/* Links grandes centrados */
 .drawerNav{
   width: min(520px, 92vw);
   display:flex;
@@ -239,8 +308,12 @@ body.is-loading .pageLoader{
   font-size: clamp(28px, 6vw, 44px);
   line-height: 1;
   opacity: .95;
+  transition: opacity .15s ease, transform .15s ease;
 }
-.drawerLink:hover{ opacity: 1; }
+.drawerLink:hover{
+  opacity: 1;
+  transform: translateX(2px);
+}
 
 .drawerCta{
   margin-top: 18px;
@@ -253,57 +326,14 @@ body.is-loading .pageLoader{
   padding: 10px 14px;
   border-radius: 14px;
   background: rgba(255,255,255,.14);
+  transition: .15s ease;
 }
 .drawerCta:hover{ background: rgba(255,255,255,.20); }
 
-/* ✅ Mobile rules */
+/* ✅ Responsive: mobile muestra hamburguesa y oculta navDesktop */
 @media (max-width: 900px){
   .navDesktop{ display:none; }
-
-  .hamburgerFab{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-    width: 44px;
-    height: 44px;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-    position: relative;
-    z-index: 1200;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  /* 3 líneas */
-  .hamburgerFab span{
-    position:absolute;
-    width: 28px;
-    height: 2px;
-    background: rgba(18,18,18,.85);
-    border-radius: 999px;
-    transition:
-      transform .26s cubic-bezier(.2,.9,.25,1),
-      opacity .18s ease,
-      top .22s ease,
-      background .2s ease;
-  }
-  .hamburgerFab span:nth-child(1){ top: 15px; }
-  .hamburgerFab span:nth-child(2){ top: 21px; }
-  .hamburgerFab span:nth-child(3){ top: 27px; }
-
-  /* Estado abierto -> X (por aria-expanded="true") */
-  .hamburgerFab[aria-expanded="true"] span:nth-child(1){
-    top: 21px;
-    transform: rotate(45deg);
-  }
-  .hamburgerFab[aria-expanded="true"] span:nth-child(2){
-    opacity: 0;
-    transform: translateX(8px);
-  }
-  .hamburgerFab[aria-expanded="true"] span:nth-child(3){
-    top: 21px;
-    transform: rotate(-45deg);
-  }
+  .hamburgerFab{ display:inline-flex; }
 }
 
 /* ============================================================
