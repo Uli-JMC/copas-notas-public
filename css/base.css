@@ -1,7 +1,8 @@
 /* ============================================================
-   base.css ✅ GLOBAL (2026)
+   base.css ✅ GLOBAL (2026) — DEPURADO
    - Variables / tipografía / layout
-   - Botones, nav, footer
+   - Header (siteHeader) + nav desktop + hamburger móvil + drawer
+   - Botones, footer
    - Toasts, modals, promo modal
    - Loader anti-flash
 ============================================================ */
@@ -107,82 +108,202 @@ body.is-loading .pageLoader{
 }
 
 /* ============================================================
-   Topbar / Nav
+   ✅ HEADER + NAV (ÚNICO SISTEMA)
+   - Usa tu HTML: .siteHeader .headerRow .brand .navDesktop
+   - Hamburguesa SOLO móvil: #hamburgerFab dentro del header
 ============================================================ */
-.topbar{
+
+.siteHeader{
   position: sticky;
-  top:0;
+  top: 0;
   z-index: 50;
+  background: rgba(255,255,255,.92);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  background: rgba(255,255,255,.86);
   border-bottom: 1px solid rgba(18,18,18,.10);
 }
 
-.nav{
+.headerRow{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap: 14px;
-  padding: 14px 0;
+  gap: 16px;
+  min-height: 72px;
 }
 
+/* Brand SIN icon */
 .brand{
   display:flex;
   align-items:center;
-  gap:10px;
   text-decoration:none;
-  min-width: 220px;
-}
-
-.brand img{
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-}
-
-.brand span{
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing:.14em;
-  text-transform: uppercase;
-  line-height:1.15;
-  white-space:nowrap;
-  opacity: .95;
-}
-
-.navlinks{
-  display:flex;
-  align-items:center;
-  gap: 18px;
-}
-
-.navlinks a{
-  text-decoration:none;
-  color: var(--muted);
-  font-size: 12px;
+  color: var(--text);
   letter-spacing:.18em;
   text-transform: uppercase;
-  padding: 10px 10px;
-  border-radius: 999px;
-  transition: .15s ease;
+  font-weight: 800;
+  font-size: 13px;
 }
+.brandText{ white-space:nowrap; }
 
-.navlinks a:hover{
-  color: var(--text);
-  background: rgba(18,18,18,.04);
-}
-
-.navright{
+/* Desktop menu a la derecha */
+.navDesktop{
   display:flex;
   align-items:center;
-  gap:10px;
-  min-width: 220px;
   justify-content:flex-end;
+  gap: 28px;
+  margin-left: auto;
 }
 
-@media (max-width: 920px){
-  .navlinks{ display:none; }
+.navLink{
+  text-decoration:none;
+  color: rgba(18,18,18,.70);
+  letter-spacing:.22em;
+  text-transform: uppercase;
+  font-size: 12px;
+  padding: 10px 2px;
+  transition: .15s ease;
+}
+.navLink:hover{ color: rgba(18,18,18,.95); }
+
+/* ============================================================
+   ✅ Hamburguesa (solo móvil) + Drawer
+   - NO fixed. Va dentro del header en esquina derecha.
+============================================================ */
+
+/* default (desktop): oculto */
+.hamburgerFab{ display:none; }
+
+/* Backdrop + Drawer: existen en DOM, pero hidden/controlados */
+.drawerBackdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 1100;
+}
+
+/* Drawer full-screen desde la derecha */
+.mobileDrawer{
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100dvh;
+  width: 100%;
+  background: #7b55ff;
+  color: #fff;
+  z-index: 1150;
+
+  transform: translateX(110%);
+  transition: transform .26s cubic-bezier(.2,.9,.25,1);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 28px 18px;
+}
+
+.mobileDrawer.is-open{
+  transform: translateX(0);
+}
+
+.drawerClose{
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.25);
+  background: rgba(255,255,255,.10);
+  color: #fff;
+  font-size: 22px;
+  cursor:pointer;
+}
+.drawerClose:hover{ background: rgba(255,255,255,.16); }
+
+.drawerNav{
+  width: min(520px, 92vw);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap: 22px;
+  text-align:center;
+}
+
+.drawerLink{
+  color: #fff;
+  text-decoration:none;
+  font-weight: 900;
+  letter-spacing:.10em;
+  text-transform: uppercase;
+  font-size: clamp(28px, 6vw, 44px);
+  line-height: 1;
+  opacity: .95;
+}
+.drawerLink:hover{ opacity: 1; }
+
+.drawerCta{
+  margin-top: 18px;
+  color: #fff;
+  text-decoration:none;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing:.06em;
+  opacity: .95;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.14);
+}
+.drawerCta:hover{ background: rgba(255,255,255,.20); }
+
+/* ✅ Mobile rules */
+@media (max-width: 900px){
+  .navDesktop{ display:none; }
+
+  .hamburgerFab{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+    z-index: 1200;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 3 líneas */
+  .hamburgerFab span{
+    position:absolute;
+    width: 28px;
+    height: 2px;
+    background: rgba(18,18,18,.85);
+    border-radius: 999px;
+    transition:
+      transform .26s cubic-bezier(.2,.9,.25,1),
+      opacity .18s ease,
+      top .22s ease,
+      background .2s ease;
+  }
+  .hamburgerFab span:nth-child(1){ top: 15px; }
+  .hamburgerFab span:nth-child(2){ top: 21px; }
+  .hamburgerFab span:nth-child(3){ top: 27px; }
+
+  /* Estado abierto -> X (por aria-expanded="true") */
+  .hamburgerFab[aria-expanded="true"] span:nth-child(1){
+    top: 21px;
+    transform: rotate(45deg);
+  }
+  .hamburgerFab[aria-expanded="true"] span:nth-child(2){
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  .hamburgerFab[aria-expanded="true"] span:nth-child(3){
+    top: 21px;
+    transform: rotate(-45deg);
+  }
 }
 
 /* ============================================================
@@ -435,9 +556,7 @@ body.is-loading .pageLoader{
   background-position:center;
 }
 
-.modalBox{
-  padding: 16px;
-}
+.modalBox{ padding: 16px; }
 
 .kv{
   display:grid;
@@ -563,182 +682,3 @@ body.is-loading .pageLoader{
   .pmodalCard{ grid-template-columns: 1fr; }
   .pmodalMedia{ min-height: 240px; }
 }
-
-/* ============================================================
-   HEADER + NAV (Desktop + Mobile Drawer)
-============================================================ */
-
-.siteHeader{
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: rgba(255,255,255,.92);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(18,18,18,.10);
-}
-
-.headerRow{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 16px;
-  min-height: 72px;
-}
-
-/* Brand SIN icon */
-.brand{
-  display:flex;
-  align-items:center;
-  text-decoration:none;
-  color: var(--text, #111);
-  letter-spacing:.18em;
-  text-transform: uppercase;
-  font-weight: 800;
-  font-size: 13px;
-}
-.brandText{ white-space:nowrap; }
-
-/* Desktop menu a la derecha */
-.navDesktop{
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  gap: 28px;
-  margin-left: auto;
-}
-
-.navLink{
-  text-decoration:none;
-  color: rgba(18,18,18,.70);
-  letter-spacing:.22em;
-  text-transform: uppercase;
-  font-size: 12px;
-  padding: 10px 2px;
-  transition: .15s ease;
-}
-.navLink:hover{
-  color: rgba(18,18,18,.95);
-}
-
-/* ============================================================
-   Mobile: ocultar nav desktop + mostrar FAB flotante
-============================================================ */
-.hamburgerFab{
-  position: fixed;
-  top: 92px;            /* ✅ flota sobre el hero */
-  left: 18px;
-  width: 54px;
-  height: 54px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,.18);
-  background: rgba(0,0,0,.30);
-  backdrop-filter: blur(10px);
-  z-index: 80;
-  display:none;         /* desktop: no */
-  align-items:center;
-  justify-content:center;
-  gap: 7px;
-  cursor:pointer;
-}
-
-.hamburgerFab span{
-  display:block;
-  width: 22px;
-  height: 2px;
-  background: rgba(255,255,255,.92);
-  border-radius: 99px;
-}
-
-/* Drawer backdrop */
-.drawerBackdrop{
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.45);
-  z-index: 90;
-}
-
-/* Drawer full screen */
-.mobileDrawer{
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100vh;
-  background: #7b55ff; /* ✅ morado */
-  color: #fff;
-  z-index: 95;
-  transform: translateX(-100%);
-  transition: transform .28s ease;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding: 28px 18px;
-}
-
-.mobileDrawer.is-open{
-  transform: translateX(0);
-}
-
-.drawerClose{
-  position: absolute;
-  top: 18px;
-  left: 18px;
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,.25);
-  background: rgba(255,255,255,.10);
-  color: #fff;
-  font-size: 22px;
-  cursor:pointer;
-}
-
-/* Links grandes centrados */
-.drawerNav{
-  width: min(520px, 92vw);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap: 22px;
-  text-align:center;
-}
-
-.drawerLink{
-  color: #fff;
-  text-decoration:none;
-  font-weight: 900;
-  letter-spacing:.10em;
-  text-transform: uppercase;
-  font-size: clamp(28px, 6vw, 44px);
-  line-height: 1;
-  opacity: .95;
-}
-.drawerLink:hover{ opacity: 1; }
-
-.drawerCta{
-  margin-top: 18px;
-  color: #fff;
-  text-decoration:none;
-  font-weight: 800;
-  font-size: 22px;
-  letter-spacing:.06em;
-  opacity: .95;
-}
-
-/* ============================================================
-   Responsive rules
-============================================================ */
-@media (max-width: 900px){
-  .navDesktop{ display:none; }
-  .hamburgerFab{ display:flex; }
-}
-
-/* Opcional: posición del FAB en pantallas pequeñas */
-@media (max-width: 520px){
-  .hamburgerFab{
-    top: 82px;
-    left: 14px;
-  }
-}
-
