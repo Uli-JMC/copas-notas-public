@@ -10,7 +10,8 @@
   <meta name="description"
     content="Catas de vino y experiencias de coctelería. Descubrí próximos eventos, fechas y cupos disponibles." />
 
-  <link rel="stylesheet" href="./css/home.css" />
+ <link rel="stylesheet" href="./css/base.css" />
+<link rel="stylesheet" href="./css/home.css" />
 </head>
 
 <body class="is-loading">
@@ -136,61 +137,55 @@
     </div>
   </section>
 
+  <!-- ✅ ABOUT -->
+  <section class="section" id="about" aria-label="Sobre Entre Copas & Notas">
+    <div class="container">
+      <div class="sectionHead">
+        <div>
+          <h2 class="h2">About</h2>
+          <p class="sub">
+            Experiencias guiadas y sociales: vino, maridaje y coctelería con un formato claro, cálido y memorable.
+          </p>
+        </div>
+      </div>
 
-<!-- ✅ ABOUT (editorial, limpio) -->
-<section class="section" id="about" aria-label="Sobre Entre Copas & Notas">
-  <div class="container">
-    <div class="sectionHead">
-      <div>
-        <h2 class="h2">About</h2>
-        <p class="sub">
-          Experiencias guiadas y sociales: vino, maridaje y coctelería con un formato claro, cálido y memorable.
-        </p>
+      <div class="aboutGrid" aria-label="Pilares de la experiencia">
+        <div class="aboutCard">
+          <div class="aboutIcon" aria-hidden="true"></div>
+          <div class="aboutTitle">Curado y simple</div>
+          <p class="aboutText">
+            Menús y dinámicas diseñadas para que cualquiera disfrute, desde principiantes hasta curiosos.
+          </p>
+        </div>
+
+        <div class="aboutCard">
+          <div class="aboutIcon" aria-hidden="true"></div>
+          <div class="aboutTitle">Social y memorable</div>
+          <p class="aboutText">
+            Un espacio para conectar: amigos, pareja o equipos — con ritmo, guía y buen gusto.
+          </p>
+        </div>
+
+        <div class="aboutCard">
+          <div class="aboutIcon" aria-hidden="true"></div>
+          <div class="aboutTitle">Calidad en cada detalle</div>
+          <p class="aboutText">
+            Ingredientes, vinos y montaje seleccionados para que la experiencia se sienta premium, sin ser pesada.
+          </p>
+        </div>
       </div>
     </div>
+  </section>
 
-    <div class="aboutGrid" aria-label="Pilares de la experiencia">
-
-      <div class="aboutCard">
-        <div class="aboutIcon" aria-hidden="true"></div>
-        <div class="aboutTitle">Curado y simple</div>
-        <p class="aboutText">
-          Menús y dinámicas diseñadas para que cualquiera disfrute, desde principiantes hasta curiosos.
-        </p>
-      </div>
-
-      <div class="aboutCard">
-        <div class="aboutIcon" aria-hidden="true"></div>
-        <div class="aboutTitle">Social y memorable</div>
-        <p class="aboutText">
-          Un espacio para conectar: amigos, pareja o equipos — con ritmo, guía y buen gusto.
-        </p>
-      </div>
-
-      <div class="aboutCard">
-        <div class="aboutIcon" aria-hidden="true"></div>
-        <div class="aboutTitle">Calidad en cada detalle</div>
-        <p class="aboutText">
-          Ingredientes, vinos y montaje seleccionados para que la experiencia se sienta premium, sin ser pesada.
-        </p>
-      </div>
-
-    </div>
-  </div>
-</section>
-
-  <!-- ✅ GALERÍA (preview en Home: 8 fotos desde Supabase) -->
+  <!-- ✅ GALERÍA -->
   <section class="section" id="galeria">
     <div class="container">
-
       <div class="galleryPreviewHead">
         <div>
           <p class="galleryKicker">GALERÍA</p>
           <h2 class="h2">Coctelería &amp; Maridajes</h2>
           <p class="sub">Una vista rápida de la galería — y si querés ver todo, entrás con un solo click.</p>
         </div>
-
-        <!-- ✅ BOTÓN SUPERIOR ELIMINADO (solo dejamos el CTA inferior) -->
       </div>
 
       <div class="galleryPreviewGrid" id="homeGalleryGrid" aria-label="Preview de galería"></div>
@@ -198,17 +193,14 @@
       <div class="galleryPreviewCta">
         <a class="btn primary" href="./gallery.html">Ver galería</a>
       </div>
-
     </div>
   </section>
 
-
-  <!-- ✅ TESTIMONIAL ancho (rotativo temporal) -->
+  <!-- ✅ TESTIMONIAL -->
   <section class="testimonial" aria-label="Testimonios">
     <div class="container">
       <p class="quoteKicker">Escuchá a quienes ya vivieron la experiencia</p>
 
-      <!-- ✅ Rotación temporal (controlada por home.js) -->
       <p class="quote" id="quoteRotator" data-interval="4500" data-quotes='[
           "Un espacio para desconectarse, aprender y compartir. Perfecto para venir con amigos.",
           "La guía fue súper clara y la experiencia se sintió premium de principio a fin.",
@@ -224,7 +216,7 @@
     </div>
   </section>
 
-  <!-- ✅ NEWSLETTER / FORM -->
+  <!-- ✅ NEWSLETTER -->
   <section class="newsletter" aria-label="Newsletter y contacto">
     <div class="container">
       <div class="newsGrid">
@@ -337,7 +329,6 @@
   <script src="./js/data.js" defer></script>
   <script src="./js/home.js" defer></script>
   <script src="./js/home-promos.js" defer></script>
-
 </body>
 
 </html>

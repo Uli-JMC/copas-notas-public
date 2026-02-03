@@ -1,5 +1,13 @@
 "use strict";
 
+/* ============================================================
+   home.js ✅ PRO (Carrusel tipo Wix: título izquierda + panel derecha)
+   - ✅ estructura heroRow: Left(title) + Right(info panel)
+   - ✅ panel blanco con bloques negros
+   - ✅ SIN flecha
+   - ✅ mantiene tu supabase events + dates + gallery + newsletter
+============================================================ */
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -33,10 +41,8 @@ function normalizeImgPath(input) {
   const raw = String(input ?? "").trim();
   if (!raw) return fallback;
 
-  // URL absoluta
   if (/^https?:\/\//i.test(raw)) return raw;
 
-  // conserva query/hash
   const [pathPart, rest] = raw.split(/(?=[?#])/);
   let p = pathPart.replaceAll("\\", "/");
 
@@ -140,7 +146,7 @@ async function fetchEventsFromSupabase() {
   const events = Array.isArray(evRes.data) ? evRes.data : [];
   if (!events.length) return [];
 
-  // 2) Traer fechas y agregarlas por event_id
+  // 2) Traer fechas
   const datesRes = await APP.supabase
     .from("event_dates")
     .select("id,event_id,label,seats_total,seats_available,created_at")
@@ -166,12 +172,11 @@ async function fetchEventsFromSupabase() {
     });
   });
 
-  // 3) Mapear a UI (tu estructura actual)
+  // 3) map para UI
   return events.map((ev) => {
     const evDates = byEvent.get(ev.id) || [];
     const labels = evDates.map((x) => x.label).filter(Boolean);
 
-    // seats = suma de seats_available de todas las fechas
     const seats = evDates.reduce(
       (acc, x) => acc + (Number(x.seats_available) || 0),
       0
@@ -186,7 +191,6 @@ async function fetchEventsFromSupabase() {
       desc: ev?.desc || "",
       seats,
       img: normalizeImgPath(ev?.img),
-      // extras
       location: ev?.location || "",
       timeRange: ev?.time_range || "",
       durationHours: ev?.duration_hours || "",
@@ -196,8 +200,6 @@ async function fetchEventsFromSupabase() {
 
 // ============================================================
 // ✅ GALERÍA HOME PREVIEW (8 fotos desde gallery_items)
-//   ✅ SIN "isWide"
-//   ✅ Texto tipo hashtags (usa tags si existen)
 // ============================================================
 async function fetchGalleryPreview(limit = 8) {
   if (!hasSupabase()) return [];
@@ -220,7 +222,6 @@ function publicUrlFromPath(path) {
   const p = String(path || "").trim();
   if (!p) return "";
   try {
-    // ✅ si tu bucket tiene otro nombre, cambiá SOLO esto:
     const bucket = "gallery";
     const out = APP.supabase.storage.from(bucket).getPublicUrl(p);
     return out?.data?.publicUrl || "";
@@ -236,9 +237,7 @@ function resolveGalleryImg(row) {
   return pub || "";
 }
 
-/** Normaliza tags a formato "#tag #tag2 ..." */
 function toHashtags(tagsLike, fallbackName) {
-  // tags puede venir como array, string CSV, string JSON, etc.
   let tags = [];
 
   if (Array.isArray(tagsLike)) {
@@ -246,21 +245,18 @@ function toHashtags(tagsLike, fallbackName) {
   } else {
     const raw = String(tagsLike ?? "").trim();
     if (raw) {
-      // intenta JSON array primero
       if (raw.startsWith("[") && raw.endsWith("]")) {
         try {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) tags = parsed;
         } catch (_) {}
       }
-      // si no era JSON, asumimos CSV / separado por coma
       if (!tags.length) {
         tags = raw.split(",").map((t) => t.trim()).filter(Boolean);
       }
     }
   }
 
-  // slug simple (mantiene letras/números y guion bajo/medio)
   const clean = (t) =>
     String(t ?? "")
       .trim()
@@ -278,13 +274,12 @@ function toHashtags(tagsLike, fallbackName) {
   const out = tags
     .map(clean)
     .filter(Boolean)
-    .slice(0, 6) // ✅ para que no se desborde en una línea
+    .slice(0, 6)
     .map((t) => "#" + t)
     .join(" ");
 
   if (out) return out;
 
-  // fallback si no hay tags
   const base = clean(fallbackName) || "entrecopasynotas";
   return `#${base} #cocteleria #maridaje`;
 }
@@ -310,7 +305,6 @@ async function renderHomeGalleryPreview() {
     const label = toHashtags(r?.tags, name);
 
     const item = document.createElement("a");
-    // ✅ SIN isWide (layout uniforme)
     item.className = "gpItem";
     item.href = "./gallery.html";
     item.style.setProperty("--gpimg", `url('${safeCssUrl(img)}')`);
@@ -320,13 +314,12 @@ async function renderHomeGalleryPreview() {
 }
 
 // ============================================================
-// ✅ Testimonial rotator (temporal, desde data-attrs)
+// ✅ Testimonial rotator
 // ============================================================
 function initQuoteRotator() {
   const el = qs("#quoteRotator");
   if (!el) return;
 
-  // anti doble-montaje
   if (el.dataset.mounted === "true") return;
   el.dataset.mounted = "true";
 
@@ -353,13 +346,11 @@ function initQuoteRotator() {
 
   setQuote(0);
 
-  // guarda el timer para evitar duplicados
   const t = setInterval(() => {
     i = (i + 1) % quotes.length;
     setQuote(i);
   }, interval);
 
-  // si navegan/recargan raro, cleanup básico
   window.addEventListener(
     "beforeunload",
     () => {
@@ -372,13 +363,12 @@ function initQuoteRotator() {
 }
 
 // ============================================================
-// ✅ Newsletter/Form (temporal: evita reload y muestra toast)
+// ✅ Newsletter/Form (temporal)
 // ============================================================
 function initNewsletterForm() {
   const form = qs(".newsForm");
   if (!form) return;
 
-  // anti doble bind
   if (form.dataset.bound === "true") return;
   form.dataset.bound = "true";
 
@@ -396,7 +386,6 @@ function initNewsletterForm() {
         return;
       }
 
-      // ✅ temporal: solo feedback visual
       toast("Enviado", "¡Gracias! Pronto te contactamos.");
       form.reset();
     } catch (_) {
@@ -425,6 +414,16 @@ function getDefaultHero() {
   }
 }
 
+/* ✅ extra: formato “VIERNES 4 ABRIL” si existe fecha */
+function getHeroDayLabel(ev) {
+  // tu data actual no trae weekday/day/month en hero,
+  // pero usamos el 1er label de dates como fallback.
+  // Ej: "Viernes 4 Abril • 19:00"
+  const first = String(ev?.dates?.[0] || "").trim();
+  if (!first) return "PRÓXIMA FECHA";
+  return first.toUpperCase();
+}
+
 function renderEmptyState() {
   if (!slidesEl) return;
 
@@ -433,11 +432,18 @@ function renderEmptyState() {
     <article class="slide" style="--bgimg:url('${safeCssUrl(heroImg)}')">
       <div class="container heroCard">
         <div class="heroInnerPanel">
-          <div class="heroMeta">
-            <span class="pill">Experiencias</span>
+          <div class="heroRow">
+            <div class="heroLeft">
+              <h1 class="heroTitle heroTitle--wix">NO HAY EVENTOS</h1>
+            </div>
+            <div class="heroRight">
+              <div class="heroInfoPanel">
+                <div class="heroTag">PRONTO</div>
+                <div class="heroTag">NUEVAS FECHAS</div>
+                <a class="heroPanelBtn" href="#proximos">VER EVENTOS</a>
+              </div>
+            </div>
           </div>
-          <h1 class="heroTitle">No hay eventos disponibles</h1>
-          <p class="heroDesc">Pronto publicaremos nuevas fechas.</p>
         </div>
       </div>
     </article>
@@ -468,24 +474,41 @@ function renderSlides() {
       `url('${safeCssUrl(ev.img || getDefaultHero())}')`
     );
 
-    const pillText = soldOut ? "AGOTADO" : ev.type || "Experiencia";
+    // Panel derecho: bloques negros (como Wix)
+    const labelA = getHeroDayLabel(ev); // ejemplo: VIERNES 4 ABRIL
+    const labelB = String(ev?.timeRange || "").trim().toUpperCase() || "19:00";
+    const labelC = String(ev?.location || "").trim().toUpperCase() || "COSTA RICA";
 
     slide.innerHTML = `
       <div class="container heroCard">
         <div class="heroInnerPanel">
-          <div class="heroMeta">
-            <span class="pill">${escapeHtml(pillText)}</span>
+
+          <div class="heroRow">
+            <!-- ✅ LEFT -->
+            <div class="heroLeft">
+              <div class="heroMeta">
+                <span class="pill">${escapeHtml(soldOut ? "AGOTADO" : (ev.type || "EXPERIENCIA"))}</span>
+              </div>
+
+              <h1 class="heroTitle heroTitle--wix">${escapeHtml(ev.title)}</h1>
+              <p class="heroDesc heroDesc--wix">${escapeHtml(ev.desc)}</p>
+            </div>
+
+            <!-- ✅ RIGHT panel -->
+            <div class="heroRight">
+              <div class="heroInfoPanel" role="group" aria-label="Información del evento">
+                <div class="heroTag">${escapeHtml(labelA)}</div>
+                <div class="heroTag">${escapeHtml(labelB)}</div>
+                <div class="heroTag">${escapeHtml(labelC)}</div>
+
+                <button class="heroPanelBtn" data-action="register" data-id="${ev.id}"
+                  ${soldOut ? "disabled style='opacity:.55'" : ""}>
+                  ENTRADAS
+                </button>
+              </div>
+            </div>
           </div>
 
-          <h1 class="heroTitle">${escapeHtml(ev.title)}</h1>
-          <p class="heroDesc">${escapeHtml(ev.desc)}</p>
-
-          <div class="heroActions">
-            <button class="btn primary" data-action="register" data-id="${ev.id}"
-              ${soldOut ? "disabled style='opacity:.55'" : ""}>
-              Inscribirme
-            </button>
-          </div>
         </div>
       </div>
     `;
@@ -658,13 +681,8 @@ window.addEventListener("ecn:events-updated", () => {
     setLoading(false);
   }
 
-  // ✅ Galería preview (8) en Home
   renderHomeGalleryPreview().catch(() => {});
-
-  // ✅ Rotador testimonial (temporal)
   initQuoteRotator();
-
-  // ✅ Form newsletter (temporal)
   initNewsletterForm();
 
   setTimeout(() => toast("Bienvenido", "Revisá los próximos eventos."), 800);
@@ -674,7 +692,6 @@ window.addEventListener("ecn:events-updated", () => {
 if ("scrollRestoration" in history) {
   history.scrollRestoration = "manual";
 }
-
 window.addEventListener("load", () => {
   window.scrollTo(0, 0);
 });
