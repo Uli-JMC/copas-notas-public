@@ -89,25 +89,25 @@
         <span class="brandText">ENTRE COPAS &amp; NOTAS</span>
       </a>
 
-      <!-- Menú desktop (derecha, donde antes estaba el botón) -->
+      <!-- Menú desktop (derecha) -->
       <nav class="navDesktop" aria-label="Menú principal">
         <a class="navLink" href="./index.html">HOME</a>
         <a class="navLink" href="./events.html">EVENTOS</a>
         <a class="navLink" href="./gallery.html">GALERÍA</a>
         <a class="navLink" href="./about.html">ABOUT</a>
       </nav>
+
+      <!-- ✅ Hamburguesa SOLO móvil, arriba derecha dentro del header -->
+      <button class="hamburgerFab" id="hamburgerFab"
+        aria-label="Abrir menú"
+        aria-controls="mobileDrawer"
+        aria-expanded="false"
+        type="button">
+        <span></span><span></span><span></span>
+      </button>
     </div>
 
-    <!-- ✅ Botón hamburguesa flotante (solo móvil, sobre el hero) -->
-    <button class="hamburgerFab" id="hamburgerFab"
-      aria-label="Abrir menú"
-      aria-controls="mobileDrawer"
-      aria-expanded="false"
-      type="button">
-      <span></span><span></span><span></span>
-    </button>
-
-    <!-- ✅ Backdrop + Drawer full screen -->
+    <!-- ✅ Backdrop + Drawer full-screen -->
     <div class="drawerBackdrop" id="drawerBackdrop" hidden></div>
 
     <aside class="mobileDrawer" id="mobileDrawer" aria-hidden="true">
@@ -351,7 +351,7 @@
   <script src="./js/home.js" defer></script>
   <script src="./js/home-promos.js" defer></script>
 
-  <!-- ✅ Drawer script (podés moverlo a un archivo si querés) -->
+  <!-- ✅ Drawer script -->
   <script>
     (function () {
       const fab = document.getElementById("hamburgerFab");
