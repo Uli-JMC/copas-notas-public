@@ -92,7 +92,7 @@
    ✅ Ajuste: centrar un poco el texto y el panel (Wix-like)
 ============================================================ */
 :root{
-  --heroShift: 34px;
+  --heroShift: 50px;
 }
 
 .heroLeft{
@@ -163,9 +163,7 @@
 /* Panel blanco con bloques negros (Wix) */
 .heroInfoPanel{
   width: min(360px, 92vw);
-  border-radius: 10px;
   background: rgba(255,255,255,.96);
-  border: 1px solid rgba(255,255,255,.92);
   padding: 18px;
   box-shadow: var(--shadow-mid);
   display:flex;
