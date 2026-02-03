@@ -701,7 +701,7 @@
 }
 
 .newsLeft{
-  border-radius: 18px;
+  /*border-radius: 18px;*/
   border: 1px solid rgba(18,18,18,.10);
   overflow:hidden;
   min-height: 320px;
@@ -745,7 +745,7 @@
 
 /* form */
 .newsForm{
-  border-radius: 18px;
+  /*border-radius: 18px;*/
   border: 1px solid rgba(18,18,18,.10);
   background: rgba(18,18,18,.02);
   padding: 18px;
