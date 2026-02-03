@@ -1,6 +1,7 @@
 /* ============================================================
-   home.css ✅ HOME ONLY (2026)
-   - Hero carrusel estilo Wix
+   home.css ✅ HOME ONLY (2026) — ACTUALIZADO
+   - Hero carrusel estilo Wix (texto + panel blanco)
+   - ✅ Ajuste: texto y cuadro un poco MÁS centrados
    - Meses + grid eventos
    - About, Galería preview
    - Testimonial + Newsletter
@@ -85,6 +86,24 @@
 .heroRight{
   display:flex;
   justify-content:flex-end;
+}
+
+/* ============================================================
+   ✅ Ajuste: centrar un poco el texto y el panel (Wix-like)
+   - texto se mueve a la derecha
+   - panel se mueve a la izquierda
+   Ajustá el valor a gusto: 18px / 28px / 36px / 44px
+============================================================ */
+:root{
+  --heroShift: 34px;
+}
+
+.heroLeft{
+  transform: translateX(var(--heroShift));
+}
+
+.heroRight{
+  transform: translateX(calc(var(--heroShift) * -1));
 }
 
 .heroMeta{
@@ -246,6 +265,12 @@
   }
   .heroRight{ justify-content:flex-start; }
   .heroInfoPanel{ width: min(420px, 100%); }
+
+  /* ✅ en mobile/tablet NO movemos con translate para evitar overflow */
+  .heroLeft,
+  .heroRight{
+    transform: none;
+  }
 }
 
 @media (max-width: 640px){
