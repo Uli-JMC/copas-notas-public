@@ -10,8 +10,8 @@
   <meta name="description"
     content="Catas de vino y experiencias de coctelería. Descubrí próximos eventos, fechas y cupos disponibles." />
 
- <link rel="stylesheet" href="./css/base.css" />
-<link rel="stylesheet" href="./css/home.css" />
+  <link rel="stylesheet" href="./css/base.css" />
+  <link rel="stylesheet" href="./css/home.css" />
 </head>
 
 <body class="is-loading">
@@ -81,27 +81,48 @@
     </div>
   </div>
 
-  <!-- Header -->
-  <header class="topbar">
-    <div class="container">
-      <nav class="nav">
-        <a class="brand" href="./index.html" aria-label="Ir a portada">
-          <img src="./assets/img/logocuadrado-entrecopasynotas.png" alt="Entre Copas & Notas" />
-          <span>Entre Copas &amp; Notas</span>
-        </a>
+  <!-- ✅ HEADER -->
+  <header class="siteHeader" id="siteHeader">
+    <div class="container headerRow">
+      <!-- Brand SIN icono -->
+      <a class="brand" href="./index.html" aria-label="Entre Copas & Notas">
+        <span class="brandText">ENTRE COPAS &amp; NOTAS</span>
+      </a>
 
-        <div class="navlinks">
-          <a href="#home">Home</a>
-          <a href="#proximos">Eventos</a>
-          <a href="#galeria">Galería</a>
-          <a href="#about">About</a>
-        </div>
-
-        <div class="navright">
-          <a class="btn" href="#proximos">Próximos eventos</a>
-        </div>
+      <!-- Menú desktop (derecha, donde antes estaba el botón) -->
+      <nav class="navDesktop" aria-label="Menú principal">
+        <a class="navLink" href="./index.html">HOME</a>
+        <a class="navLink" href="./events.html">EVENTOS</a>
+        <a class="navLink" href="./gallery.html">GALERÍA</a>
+        <a class="navLink" href="./about.html">ABOUT</a>
       </nav>
     </div>
+
+    <!-- ✅ Botón hamburguesa flotante (solo móvil, sobre el hero) -->
+    <button class="hamburgerFab" id="hamburgerFab"
+      aria-label="Abrir menú"
+      aria-controls="mobileDrawer"
+      aria-expanded="false"
+      type="button">
+      <span></span><span></span><span></span>
+    </button>
+
+    <!-- ✅ Backdrop + Drawer full screen -->
+    <div class="drawerBackdrop" id="drawerBackdrop" hidden></div>
+
+    <aside class="mobileDrawer" id="mobileDrawer" aria-hidden="true">
+      <button class="drawerClose" id="drawerClose" aria-label="Cerrar menú" type="button">✕</button>
+
+      <nav class="drawerNav" aria-label="Menú móvil">
+        <a class="drawerLink" href="./index.html">INICIO</a>
+        <a class="drawerLink" href="./events.html">EVENTOS</a>
+        <a class="drawerLink" href="./gallery.html">GALERÍA</a>
+        <a class="drawerLink" href="./about.html">ACERCA DE</a>
+        <a class="drawerLink" href="./contact.html">CONTACTO</a>
+
+        <a class="drawerCta" href="./login.html">Entrar</a>
+      </nav>
+    </aside>
   </header>
 
   <!-- PROMO BANNER MOUNT -->
@@ -329,6 +350,48 @@
   <script src="./js/data.js" defer></script>
   <script src="./js/home.js" defer></script>
   <script src="./js/home-promos.js" defer></script>
+
+  <!-- ✅ Drawer script (podés moverlo a un archivo si querés) -->
+  <script>
+    (function () {
+      const fab = document.getElementById("hamburgerFab");
+      const drawer = document.getElementById("mobileDrawer");
+      const backdrop = document.getElementById("drawerBackdrop");
+      const closeBtn = document.getElementById("drawerClose");
+      if (!fab || !drawer || !backdrop || !closeBtn) return;
+
+      function openDrawer() {
+        backdrop.hidden = false;
+        drawer.classList.add("is-open");
+        drawer.setAttribute("aria-hidden", "false");
+        fab.setAttribute("aria-expanded", "true");
+        document.documentElement.style.overflow = "hidden";
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeDrawer() {
+        drawer.classList.remove("is-open");
+        drawer.setAttribute("aria-hidden", "true");
+        fab.setAttribute("aria-expanded", "false");
+        document.documentElement.style.overflow = "";
+        document.body.style.overflow = "";
+        setTimeout(() => { backdrop.hidden = true; }, 220);
+      }
+
+      fab.addEventListener("click", openDrawer);
+      closeBtn.addEventListener("click", closeDrawer);
+      backdrop.addEventListener("click", closeDrawer);
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && drawer.classList.contains("is-open")) closeDrawer();
+      });
+
+      drawer.addEventListener("click", (e) => {
+        const a = e.target.closest("a");
+        if (a) closeDrawer();
+      });
+    })();
+  </script>
 </body>
 
 </html>
