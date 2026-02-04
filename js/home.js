@@ -6,6 +6,7 @@
    - ✅ panel blanco con bloques negros
    - ✅ SIN flecha
    - ✅ mantiene tu supabase events + dates + gallery + newsletter
+   - ✅ FIX 2026-02: Drawer toggle (hamburger abre/cierra) + sin X izquierda
 ============================================================ */
 
 // ============================================================
@@ -106,6 +107,78 @@ function goRegister(id, soldOut) {
     return;
   }
   window.location.href = `./register.html?event=${encodeURIComponent(id)}`;
+}
+
+// ============================================================
+// ✅ Drawer / Mobile Menu (Hamburger = abre/cierra)
+// - No usa #drawerClose (podés quitar la X izquierda del HTML)
+// ============================================================
+function initMobileDrawer() {
+  // anti doble bind
+  if (document.documentElement.dataset.drawerBound === "true") return;
+  document.documentElement.dataset.drawerBound = "true";
+
+  const fab = document.getElementById("hamburgerFab");
+  const drawer = document.getElementById("mobileDrawer");
+  const backdrop = document.getElementById("drawerBackdrop");
+  if (!fab || !drawer || !backdrop) return;
+
+  let isOpen = false;
+
+  const lockScroll = (on) => {
+    document.documentElement.style.overflow = on ? "hidden" : "";
+    document.body.style.overflow = on ? "hidden" : "";
+  };
+
+  const openDrawer = () => {
+    if (isOpen) return;
+    isOpen = true;
+
+    backdrop.hidden = false;
+    drawer.classList.add("is-open");
+    drawer.setAttribute("aria-hidden", "false");
+
+    fab.setAttribute("aria-expanded", "true");
+    fab.setAttribute("aria-label", "Cerrar menú");
+
+    lockScroll(true);
+  };
+
+  const closeDrawer = () => {
+    if (!isOpen) return;
+    isOpen = false;
+
+    drawer.classList.remove("is-open");
+    drawer.setAttribute("aria-hidden", "true");
+
+    fab.setAttribute("aria-expanded", "false");
+    fab.setAttribute("aria-label", "Abrir menú");
+
+    lockScroll(false);
+
+    // deja correr la animación antes de ocultar backdrop
+    setTimeout(() => {
+      backdrop.hidden = true;
+    }, 220);
+  };
+
+  const toggleDrawer = () => {
+    if (isOpen) closeDrawer();
+    else openDrawer();
+  };
+
+  fab.addEventListener("click", toggleDrawer);
+  backdrop.addEventListener("click", closeDrawer);
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeDrawer();
+  });
+
+  // cerrar si tocan un link del drawer
+  drawer.addEventListener("click", (e) => {
+    const a = e.target.closest("a");
+    if (a) closeDrawer();
+  });
 }
 
 // ============================================================
@@ -416,9 +489,6 @@ function getDefaultHero() {
 
 /* ✅ extra: formato “VIERNES 4 ABRIL” si existe fecha */
 function getHeroDayLabel(ev) {
-  // tu data actual no trae weekday/day/month en hero,
-  // pero usamos el 1er label de dates como fallback.
-  // Ej: "Viernes 4 Abril • 19:00"
   const first = String(ev?.dates?.[0] || "").trim();
   if (!first) return "PRÓXIMA FECHA";
   return first.toUpperCase();
@@ -474,15 +544,13 @@ function renderSlides() {
       `url('${safeCssUrl(ev.img || getDefaultHero())}')`
     );
 
-    // Panel derecho: bloques negros (como Wix)
-    const labelA = getHeroDayLabel(ev); // ejemplo: VIERNES 4 ABRIL
+    const labelA = getHeroDayLabel(ev);
     const labelB = String(ev?.timeRange || "").trim().toUpperCase() || "19:00";
     const labelC = String(ev?.location || "").trim().toUpperCase() || "COSTA RICA";
 
     slide.innerHTML = `
       <div class="container heroCard">
         <div class="heroInnerPanel">
-
           <div class="heroRow">
             <!-- ✅ LEFT -->
             <div class="heroLeft">
@@ -508,7 +576,6 @@ function renderSlides() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
     `;
@@ -676,6 +743,9 @@ window.addEventListener("ecn:events-updated", () => {
   setLoading(true);
 
   try {
+    // ✅ drawer toggle listo desde el inicio
+    initMobileDrawer();
+
     await refreshFromSupabase();
   } finally {
     setLoading(false);
