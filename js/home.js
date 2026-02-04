@@ -6,7 +6,7 @@
    - ✅ panel blanco con bloques negros
    - ✅ SIN flecha
    - ✅ mantiene tu supabase events + dates + gallery + newsletter
-   - ✅ FIX 2026-02: Drawer toggle (hamburger abre/cierra) + sin X izquierda
+   - ✅ FIX 2026-02: Drawer toggle (hamburger abre/cierra) + transición anclas limpia
 ============================================================ */
 
 // ============================================================
@@ -111,7 +111,7 @@ function goRegister(id, soldOut) {
 
 // ============================================================
 // ✅ Drawer / Mobile Menu (Hamburger = abre/cierra)
-// - No usa #drawerClose (podés quitar la X izquierda del HTML)
+// ✅ FIX: transición fea al tocar links/anclas (cerrar y luego navegar)
 // ============================================================
 function initMobileDrawer() {
   // anti doble bind
@@ -123,6 +123,7 @@ function initMobileDrawer() {
   const backdrop = document.getElementById("drawerBackdrop");
   if (!fab || !drawer || !backdrop) return;
 
+  const TRANSITION_MS = 300; // base.css: .30s
   let isOpen = false;
 
   const lockScroll = (on) => {
@@ -156,10 +157,9 @@ function initMobileDrawer() {
 
     lockScroll(false);
 
-    // deja correr la animación antes de ocultar backdrop
     setTimeout(() => {
       backdrop.hidden = true;
-    }, 220);
+    }, TRANSITION_MS);
   };
 
   const toggleDrawer = () => {
@@ -167,17 +167,39 @@ function initMobileDrawer() {
     else openDrawer();
   };
 
+  // ✅ estado inicial seguro
+  fab.setAttribute("aria-expanded", "false");
+  fab.setAttribute("aria-label", "Abrir menú");
+  drawer.setAttribute("aria-hidden", "true");
+  backdrop.hidden = true;
+
   fab.addEventListener("click", toggleDrawer);
   backdrop.addEventListener("click", closeDrawer);
 
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeDrawer();
+    if (e.key === "Escape" && isOpen) closeDrawer();
   });
 
-  // cerrar si tocan un link del drawer
+  // ✅ cerrar + navegar después de animación si no es #anchor
   drawer.addEventListener("click", (e) => {
     const a = e.target.closest("a");
-    if (a) closeDrawer();
+    if (!a) return;
+
+    const href = (a.getAttribute("href") || "").trim();
+    if (!href) return;
+
+    // anchors (#)
+    if (href.startsWith("#")) {
+      closeDrawer();
+      return; // dejamos que el browser haga el scroll normal
+    }
+
+    // navegación a otra página
+    e.preventDefault();
+    closeDrawer();
+    setTimeout(() => {
+      window.location.href = href;
+    }, TRANSITION_MS);
   });
 }
 
@@ -325,7 +347,10 @@ function toHashtags(tagsLike, fallbackName) {
         } catch (_) {}
       }
       if (!tags.length) {
-        tags = raw.split(",").map((t) => t.trim()).filter(Boolean);
+        tags = raw
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
       }
     }
   }
@@ -546,7 +571,8 @@ function renderSlides() {
 
     const labelA = getHeroDayLabel(ev);
     const labelB = String(ev?.timeRange || "").trim().toUpperCase() || "19:00";
-    const labelC = String(ev?.location || "").trim().toUpperCase() || "COSTA RICA";
+    const labelC =
+      String(ev?.location || "").trim().toUpperCase() || "COSTA RICA";
 
     slide.innerHTML = `
       <div class="container heroCard">
@@ -555,7 +581,9 @@ function renderSlides() {
             <!-- ✅ LEFT -->
             <div class="heroLeft">
               <div class="heroMeta">
-                <span class="pill">${escapeHtml(soldOut ? "AGOTADO" : (ev.type || "EXPERIENCIA"))}</span>
+                <span class="pill">${escapeHtml(
+                  soldOut ? "AGOTADO" : ev.type || "EXPERIENCIA"
+                )}</span>
               </div>
 
               <h1 class="heroTitle heroTitle--wix">${escapeHtml(ev.title)}</h1>
@@ -757,6 +785,13 @@ window.addEventListener("ecn:events-updated", () => {
 
   setTimeout(() => toast("Bienvenido", "Revisá los próximos eventos."), 800);
 })();
+
+// ✅ Backup: si este script carga antes del header, reintenta al DOM listo
+document.addEventListener("DOMContentLoaded", () => {
+  try {
+    initMobileDrawer();
+  } catch (_) {}
+});
 
 // Siempre iniciar arriba al cargar/recargar
 if ("scrollRestoration" in history) {
