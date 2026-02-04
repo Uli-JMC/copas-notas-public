@@ -351,57 +351,6 @@
   <script src="./js/home.js" defer></script>
   <script src="./js/home-promos.js" defer></script>
 
-  <!-- ✅ Drawer script (TOGGLE) -->
-  <script>
-    (function () {
-      const fab = document.getElementById("hamburgerFab");
-      const drawer = document.getElementById("mobileDrawer");
-      const backdrop = document.getElementById("drawerBackdrop");
-      if (!fab || !drawer || !backdrop) return;
-
-      function isOpen() {
-        return drawer.classList.contains("is-open");
-      }
-
-      function lockScroll(on) {
-        document.documentElement.style.overflow = on ? "hidden" : "";
-        document.body.style.overflow = on ? "hidden" : "";
-      }
-
-      function openDrawer() {
-        backdrop.hidden = false;
-        drawer.classList.add("is-open");
-        drawer.setAttribute("aria-hidden", "false");
-        fab.setAttribute("aria-expanded", "true");
-        lockScroll(true);
-      }
-
-      function closeDrawer() {
-        drawer.classList.remove("is-open");
-        drawer.setAttribute("aria-hidden", "true");
-        fab.setAttribute("aria-expanded", "false");
-        lockScroll(false);
-        setTimeout(() => { backdrop.hidden = true; }, 220);
-      }
-
-      function toggleDrawer() {
-        if (isOpen()) closeDrawer();
-        else openDrawer();
-      }
-
-      fab.addEventListener("click", toggleDrawer);
-      backdrop.addEventListener("click", closeDrawer);
-
-      window.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && isOpen()) closeDrawer();
-      });
-
-      drawer.addEventListener("click", (e) => {
-        const a = e.target.closest("a");
-        if (a) closeDrawer();
-      });
-    })();
-  </script>
 </body>
 
 </html>
