@@ -1,11 +1,10 @@
 /* ============================================================
-   base.css ✅ GLOBAL (2026) — DEPURADO + MOBILE MENU PRO
-   - Variables / tipografía / layout
-   - Header (siteHeader) + nav desktop + hamburger móvil (top-right)
-   - Drawer full-screen desde la derecha + backdrop
-   - Botones, footer
-   - Toasts, modals, promo modal
-   - Loader anti-flash
+   base.css ✅ GLOBAL (2026) — MOBILE MENU PRO (FIX)
+   - Header nítido en mobile (sin blur feo)
+   - Hamburger top-right (animación a X por aria-expanded)
+   - Drawer full-screen desde la derecha (sin gaps)
+   - Backdrop + scroll lock friendly
+   - Botones, footer, toasts, modals, promo modal, loader
 ============================================================ */
 
 :root{
@@ -110,13 +109,10 @@ body.is-loading .pageLoader{
   letter-spacing:.08em;
 }
 
-@keyframes spin{
-  to{ transform: rotate(360deg); }
-}
+@keyframes spin{ to{ transform: rotate(360deg); } }
 
 /* ============================================================
    ✅ HEADER + NAV (ÚNICO SISTEMA)
-   - Usa tu HTML: .siteHeader .headerRow .brand .navDesktop #hamburgerFab
 ============================================================ */
 
 .siteHeader{
@@ -124,9 +120,18 @@ body.is-loading .pageLoader{
   top: 0;
   z-index: var(--header-z);
   background: rgba(255,255,255,.92);
+  border-bottom: 1px solid rgba(18,18,18,.10);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(18,18,18,.10);
+}
+
+/* ✅ FIX: en mobile se percibe “borroso” -> lo hacemos sólido y sin blur */
+@media (max-width: 900px){
+  .siteHeader{
+    background: #fff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 .headerRow{
@@ -137,7 +142,7 @@ body.is-loading .pageLoader{
   min-height: 72px;
 }
 
-/* Brand SIN icon */
+/* Brand */
 .brand{
   display:flex;
   align-items:center;
@@ -156,7 +161,7 @@ body.is-loading .pageLoader{
   max-width: 70vw;
 }
 
-/* Desktop menu a la derecha */
+/* Desktop menu */
 .navDesktop{
   display:flex;
   align-items:center;
@@ -178,8 +183,6 @@ body.is-loading .pageLoader{
 
 /* ============================================================
    ✅ Hamburguesa (SOLO MÓVIL) — top-right dentro del header
-   - 3 líneas + animación a X (aria-expanded="true")
-   - micro “pop” al tocar
 ============================================================ */
 
 .hamburgerFab{
@@ -195,9 +198,7 @@ body.is-loading .pageLoader{
   user-select: none;
 }
 
-.hamburgerFab:active{
-  transform: scale(.96);
-}
+.hamburgerFab:active{ transform: scale(.96); }
 
 .hamburgerFab span{
   position:absolute;
@@ -209,8 +210,7 @@ body.is-loading .pageLoader{
   transition:
     transform .32s cubic-bezier(.2,.9,.25,1),
     top .24s ease,
-    opacity .18s ease,
-    filter .2s ease;
+    opacity .18s ease;
   transform-origin: center;
 }
 
@@ -231,8 +231,14 @@ body.is-loading .pageLoader{
   transform: rotate(-45deg);
 }
 
+/* Responsive: mobile muestra hamburguesa y oculta navDesktop */
+@media (max-width: 900px){
+  .navDesktop{ display:none; }
+  .hamburgerFab{ display:inline-flex; }
+}
+
 /* ============================================================
-   Drawer Backdrop + Drawer (full-screen desde la derecha)
+   Drawer Backdrop + Drawer (full-screen desde la derecha) — FIX
 ============================================================ */
 
 .drawerBackdrop{
@@ -250,43 +256,31 @@ body.is-loading .pageLoader{
   top: 0;
   right: 0;
   height: 100dvh;
-  width: 100%;
+
+  /* ✅ FIX gap: usar 100vw real */
+  width: 100vw;
+
   background: var(--drawer-bg);
   color: #fff;
   z-index: var(--drawer-z);
 
-  transform: translateX(110%);
+  /* ✅ FIX gap: 100% exacto, no 110% */
+  transform: translateX(100%);
   transition: transform .30s cubic-bezier(.2,.9,.25,1);
+
   display:flex;
   align-items:center;
   justify-content:center;
   padding: 28px 18px;
 
-  /* mejor scroll si el contenido crece */
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-.mobileDrawer.is-open{
-  transform: translateX(0);
-}
+.mobileDrawer.is-open{ transform: translateX(0); }
 
-/* Botón cerrar */
-.drawerClose{
-  position: absolute;
-  top: 18px;
-  left: 18px;
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,.25);
-  background: rgba(255,255,255,.10);
-  color: #fff;
-  font-size: 22px;
-  cursor:pointer;
-  transition: .15s ease;
-}
-.drawerClose:hover{ background: rgba(255,255,255,.16); }
+/* ✅ FIX: Ocultar X izquierda (solo usamos la X del hamburguesa) */
+.drawerClose{ display:none !important; }
 
 /* Links grandes centrados */
 .drawerNav{
@@ -329,12 +323,6 @@ body.is-loading .pageLoader{
   transition: .15s ease;
 }
 .drawerCta:hover{ background: rgba(255,255,255,.20); }
-
-/* ✅ Responsive: mobile muestra hamburguesa y oculta navDesktop */
-@media (max-width: 900px){
-  .navDesktop{ display:none; }
-  .hamburgerFab{ display:inline-flex; }
-}
 
 /* ============================================================
    Buttons

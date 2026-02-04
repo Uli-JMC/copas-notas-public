@@ -111,7 +111,7 @@
     <div class="drawerBackdrop" id="drawerBackdrop" hidden></div>
 
     <aside class="mobileDrawer" id="mobileDrawer" aria-hidden="true">
-      <button class="drawerClose" id="drawerClose" aria-label="Cerrar menú" type="button">✕</button>
+      <!-- ❌ Quitamos la X izquierda (drawerClose) -->
 
       <nav class="drawerNav" aria-label="Menú móvil">
         <a class="drawerLink" href="./index.html">INICIO</a>
@@ -351,39 +351,49 @@
   <script src="./js/home.js" defer></script>
   <script src="./js/home-promos.js" defer></script>
 
-  <!-- ✅ Drawer script -->
+  <!-- ✅ Drawer script (TOGGLE) -->
   <script>
     (function () {
       const fab = document.getElementById("hamburgerFab");
       const drawer = document.getElementById("mobileDrawer");
       const backdrop = document.getElementById("drawerBackdrop");
-      const closeBtn = document.getElementById("drawerClose");
-      if (!fab || !drawer || !backdrop || !closeBtn) return;
+      if (!fab || !drawer || !backdrop) return;
+
+      function isOpen() {
+        return drawer.classList.contains("is-open");
+      }
+
+      function lockScroll(on) {
+        document.documentElement.style.overflow = on ? "hidden" : "";
+        document.body.style.overflow = on ? "hidden" : "";
+      }
 
       function openDrawer() {
         backdrop.hidden = false;
         drawer.classList.add("is-open");
         drawer.setAttribute("aria-hidden", "false");
         fab.setAttribute("aria-expanded", "true");
-        document.documentElement.style.overflow = "hidden";
-        document.body.style.overflow = "hidden";
+        lockScroll(true);
       }
 
       function closeDrawer() {
         drawer.classList.remove("is-open");
         drawer.setAttribute("aria-hidden", "true");
         fab.setAttribute("aria-expanded", "false");
-        document.documentElement.style.overflow = "";
-        document.body.style.overflow = "";
+        lockScroll(false);
         setTimeout(() => { backdrop.hidden = true; }, 220);
       }
 
-      fab.addEventListener("click", openDrawer);
-      closeBtn.addEventListener("click", closeDrawer);
+      function toggleDrawer() {
+        if (isOpen()) closeDrawer();
+        else openDrawer();
+      }
+
+      fab.addEventListener("click", toggleDrawer);
       backdrop.addEventListener("click", closeDrawer);
 
       window.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && drawer.classList.contains("is-open")) closeDrawer();
+        if (e.key === "Escape" && isOpen()) closeDrawer();
       });
 
       drawer.addEventListener("click", (e) => {
