@@ -7,6 +7,7 @@
    - ✅ SIN flecha
    - ✅ mantiene tu supabase events + dates + gallery + newsletter
    - ✅ FIX 2026-02: Drawer toggle visible (X) + navegación sin flash
+   - ✅ Quote rotator: animación moderna + altura estable (CSS)
 ============================================================ */
 
 // ============================================================
@@ -159,13 +160,16 @@ function initMobileDrawer() {
       fab.style.right = "14px";
       fab.style.left = "";
       fab.style.zIndex = "2000"; // arriba del drawer/backdrop
-      spans.forEach((s) => (s.style.backgroundColor = "#fff")); // visible en fondo morado
+
+      // ✅ las líneas blancas sobre el drawer morado
+      spans.forEach((s) => (s.style.backgroundColor = "#fff"));
     } else {
       fab.style.position = fabOrig.position;
       fab.style.top = fabOrig.top;
       fab.style.right = fabOrig.right;
       fab.style.left = fabOrig.left;
       fab.style.zIndex = fabOrig.zIndex;
+
       spans.forEach((s, i) => (s.style.backgroundColor = spanOrigBg[i] || ""));
     }
   };
@@ -199,12 +203,10 @@ function initMobileDrawer() {
     fab.setAttribute("aria-expanded", "false");
     fab.setAttribute("aria-label", "Abrir menú");
 
-    // si vamos a navegar, podemos mantener scroll locked un toque
     if (!keepScroll) lockScroll(false);
 
     setFabOverDrawer(false);
 
-    // ✅ deja correr animación antes de ocultar backdrop
     if (!keepBackdrop) {
       setTimeout(() => {
         backdrop.hidden = true;
@@ -232,19 +234,16 @@ function initMobileDrawer() {
     const href = a.getAttribute("href") || "";
     if (!href) return;
 
-    // Links internos (#ancla) -> smooth scroll
+    // Anchors dentro de la misma página
     if (href.startsWith("#")) {
       e.preventDefault();
 
-      // cerramos normal
       closeDrawer();
 
-      // scroll después de la animación del drawer
       setTimeout(() => {
         try {
           const target = document.querySelector(href);
           if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-          // opcional: actualizar hash sin salto brusco
           history.replaceState(null, "", href);
         } catch (_) {}
       }, 280);
@@ -252,19 +251,17 @@ function initMobileDrawer() {
       return;
     }
 
-    // Link a otra página -> evitamos “ver la página detrás”
+    // Link a otra página: evita ver el contenido “detrás”
     e.preventDefault();
 
-    // cerramos pero mantenemos backdrop/scroll para que no se vea el fondo
     closeDrawer({ keepBackdrop: true, keepScroll: true });
 
-    // navegar cuando ya casi terminó la animación
     setTimeout(() => {
       window.location.href = href;
     }, 220);
   });
 
-  // ✅ si vuelven a desktop, aseguramos cerrar
+  // si vuelven a desktop, cerramos
   window.addEventListener("resize", () => {
     if (window.innerWidth > 900 && isOpen) closeDrawer();
   });
@@ -476,7 +473,8 @@ async function renderHomeGalleryPreview() {
 }
 
 // ============================================================
-// ✅ Testimonial rotator
+// ✅ Testimonial rotator (MODERNO)
+// - Usa clase .is-anim (CSS) para animación suave
 // ============================================================
 function initQuoteRotator() {
   const el = qs("#quoteRotator");
@@ -487,9 +485,10 @@ function initQuoteRotator() {
 
   const raw = el.getAttribute("data-quotes") || "[]";
   const intervalRaw = el.getAttribute("data-interval") || "4500";
+
   let interval = parseInt(intervalRaw, 10);
   if (!Number.isFinite(interval)) interval = 4500;
-  interval = Math.max(2500, interval);
+  interval = Math.max(2800, interval);
 
   let quotes = [];
   try {
@@ -497,13 +496,21 @@ function initQuoteRotator() {
   } catch (_) {
     quotes = [];
   }
-  if (!Array.isArray(quotes) || quotes.length === 0) return;
+
+  quotes = Array.isArray(quotes) ? quotes.map((q) => String(q || "").trim()).filter(Boolean) : [];
+  if (!quotes.length) return;
 
   let i = 0;
+
   const setQuote = (idx) => {
-    const q = String(quotes[idx] ?? "").trim();
+    const q = quotes[idx];
     if (!q) return;
+
+    // reinicia animación
+    el.classList.remove("is-anim");
+    void el.offsetWidth; // reflow
     el.textContent = "“" + q + "”";
+    el.classList.add("is-anim");
   };
 
   setQuote(0);
@@ -516,9 +523,7 @@ function initQuoteRotator() {
   window.addEventListener(
     "beforeunload",
     () => {
-      try {
-        clearInterval(t);
-      } catch (_) {}
+      try { clearInterval(t); } catch (_) {}
     },
     { once: true }
   );
@@ -576,7 +581,6 @@ function getDefaultHero() {
   }
 }
 
-/* ✅ extra: formato “VIERNES 4 ABRIL” si existe fecha */
 function getHeroDayLabel(ev) {
   const first = String(ev?.dates?.[0] || "").trim();
   if (!first) return "PRÓXIMA FECHA";
@@ -641,7 +645,6 @@ function renderSlides() {
       <div class="container heroCard">
         <div class="heroInnerPanel">
           <div class="heroRow">
-            <!-- ✅ LEFT -->
             <div class="heroLeft">
               <div class="heroMeta">
                 <span class="pill">${escapeHtml(soldOut ? "AGOTADO" : (ev.type || "EXPERIENCIA"))}</span>
@@ -651,7 +654,6 @@ function renderSlides() {
               <p class="heroDesc heroDesc--wix">${escapeHtml(ev.desc)}</p>
             </div>
 
-            <!-- ✅ RIGHT panel -->
             <div class="heroRight">
               <div class="heroInfoPanel" role="group" aria-label="Información del evento">
                 <div class="heroTag">${escapeHtml(labelA)}</div>

@@ -640,10 +640,10 @@
 }
 
 /* ============================================================
-   Testimonial
+   Testimonial ✅ MODERNO (altura estable + animación suave)
 ============================================================ */
 .testimonial{
-  padding: 60px 0;
+  padding: 84px 0; /* ✅ más aire y consistente */
   border-top: 1px solid rgba(18,18,18,.08);
   border-bottom: 1px solid rgba(18,18,18,.08);
   background: rgba(18,18,18,.02);
@@ -657,14 +657,37 @@
   font-size: 12px;
 }
 
+/* ✅ altura estable (no empuja layout) */
 .quote{
-  margin: 16px auto 0;
+  margin: 18px auto 0;
   max-width: 60ch;
   text-align:center;
-  font-size: clamp(18px, 2.4vw, 26px);
+  font-size: clamp(18px, 2.4vw, 28px);
   line-height: 1.45;
   color: rgba(18,18,18,.88);
-  font-weight: 600;
+  font-weight: 650;
+
+  /* evita saltos por frases distintas */
+  min-height: 4.6em;            /* ~3 líneas */
+  display: grid;
+  place-items: center;
+  padding: 0 10px;
+}
+
+/* ✅ animación moderna */
+.quote.is-anim{
+  animation: quoteIn .62s cubic-bezier(.2,.9,.25,1);
+  will-change: transform, opacity, filter;
+}
+
+@keyframes quoteIn{
+  0%   { opacity: 0; transform: translateY(10px) scale(.995); filter: blur(2px); }
+  100% { opacity: 1; transform: translateY(0) scale(1);      filter: blur(0); }
+}
+
+/* reduce motion */
+@media (prefers-reduced-motion: reduce){
+  .quote.is-anim{ animation: none; }
 }
 
 /* ============================================================
