@@ -6,7 +6,7 @@
    - ✅ panel blanco con bloques negros
    - ✅ SIN flecha
    - ✅ mantiene tu supabase events + dates + gallery + newsletter
-   - ✅ FIX 2026-02: Drawer toggle (hamburger abre/cierra) + transición anclas limpia
+   - ✅ FIX 2026-02: Drawer toggle visible (X) + navegación sin flash
 ============================================================ */
 
 // ============================================================
@@ -110,25 +110,64 @@ function goRegister(id, soldOut) {
 }
 
 // ============================================================
-// ✅ Drawer / Mobile Menu (Hamburger = abre/cierra)
-// ✅ FIX: transición fea al tocar links/anclas (cerrar y luego navegar)
+// ✅ Drawer / Mobile Menu (Hamburger = abre/cierra + X visible)
+// - FIX 1: el botón queda arriba del drawer (fixed + zIndex alto)
+// - FIX 2: al hacer click en link, cerramos y navegamos después (sin flash)
+// - FIX extra: clona botón/backdrop para eliminar listeners previos (script inline viejo)
 // ============================================================
 function initMobileDrawer() {
   // anti doble bind
   if (document.documentElement.dataset.drawerBound === "true") return;
   document.documentElement.dataset.drawerBound = "true";
 
-  const fab = document.getElementById("hamburgerFab");
+  const fab0 = document.getElementById("hamburgerFab");
   const drawer = document.getElementById("mobileDrawer");
-  const backdrop = document.getElementById("drawerBackdrop");
-  if (!fab || !drawer || !backdrop) return;
+  const backdrop0 = document.getElementById("drawerBackdrop");
+  if (!fab0 || !drawer || !backdrop0) return;
 
-  const TRANSITION_MS = 300; // base.css: .30s
+  // ✅ mata listeners viejos (por ejemplo el script inline del HTML)
+  const fab = fab0.cloneNode(true);
+  fab0.parentNode.replaceChild(fab, fab0);
+
+  const backdrop = backdrop0.cloneNode(true);
+  backdrop0.parentNode.replaceChild(backdrop, backdrop0);
+
   let isOpen = false;
+
+  // guardar estilos originales por si acaso
+  const fabOrig = {
+    position: fab.style.position || "",
+    top: fab.style.top || "",
+    right: fab.style.right || "",
+    left: fab.style.left || "",
+    zIndex: fab.style.zIndex || "",
+  };
+
+  const spans = Array.from(fab.querySelectorAll("span"));
+  const spanOrigBg = spans.map((s) => s.style.backgroundColor || "");
 
   const lockScroll = (on) => {
     document.documentElement.style.overflow = on ? "hidden" : "";
     document.body.style.overflow = on ? "hidden" : "";
+  };
+
+  const setFabOverDrawer = (on) => {
+    // ✅ ponemos el botón arriba del drawer para que se vea la X
+    if (on) {
+      fab.style.position = "fixed";
+      fab.style.top = "14px";
+      fab.style.right = "14px";
+      fab.style.left = "";
+      fab.style.zIndex = "2000"; // arriba del drawer/backdrop
+      spans.forEach((s) => (s.style.backgroundColor = "#fff")); // visible en fondo morado
+    } else {
+      fab.style.position = fabOrig.position;
+      fab.style.top = fabOrig.top;
+      fab.style.right = fabOrig.right;
+      fab.style.left = fabOrig.left;
+      fab.style.zIndex = fabOrig.zIndex;
+      spans.forEach((s, i) => (s.style.backgroundColor = spanOrigBg[i] || ""));
+    }
   };
 
   const openDrawer = () => {
@@ -136,16 +175,21 @@ function initMobileDrawer() {
     isOpen = true;
 
     backdrop.hidden = false;
+
     drawer.classList.add("is-open");
     drawer.setAttribute("aria-hidden", "false");
 
     fab.setAttribute("aria-expanded", "true");
     fab.setAttribute("aria-label", "Cerrar menú");
 
+    setFabOverDrawer(true);
     lockScroll(true);
   };
 
-  const closeDrawer = () => {
+  const closeDrawer = (opts = {}) => {
+    const keepBackdrop = !!opts.keepBackdrop;
+    const keepScroll = !!opts.keepScroll;
+
     if (!isOpen) return;
     isOpen = false;
 
@@ -155,11 +199,17 @@ function initMobileDrawer() {
     fab.setAttribute("aria-expanded", "false");
     fab.setAttribute("aria-label", "Abrir menú");
 
-    lockScroll(false);
+    // si vamos a navegar, podemos mantener scroll locked un toque
+    if (!keepScroll) lockScroll(false);
 
-    setTimeout(() => {
-      backdrop.hidden = true;
-    }, TRANSITION_MS);
+    setFabOverDrawer(false);
+
+    // ✅ deja correr animación antes de ocultar backdrop
+    if (!keepBackdrop) {
+      setTimeout(() => {
+        backdrop.hidden = true;
+      }, 260);
+    }
   };
 
   const toggleDrawer = () => {
@@ -167,39 +217,56 @@ function initMobileDrawer() {
     else openDrawer();
   };
 
-  // ✅ estado inicial seguro
-  fab.setAttribute("aria-expanded", "false");
-  fab.setAttribute("aria-label", "Abrir menú");
-  drawer.setAttribute("aria-hidden", "true");
-  backdrop.hidden = true;
-
   fab.addEventListener("click", toggleDrawer);
-  backdrop.addEventListener("click", closeDrawer);
+  backdrop.addEventListener("click", () => closeDrawer());
 
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && isOpen) closeDrawer();
+    if (e.key === "Escape") closeDrawer();
   });
 
-  // ✅ cerrar + navegar después de animación si no es #anchor
+  // ✅ cerrar + navegación SIN flash
   drawer.addEventListener("click", (e) => {
-    const a = e.target.closest("a");
+    const a = e.target.closest("a[href]");
     if (!a) return;
 
-    const href = (a.getAttribute("href") || "").trim();
+    const href = a.getAttribute("href") || "";
     if (!href) return;
 
-    // anchors (#)
+    // Links internos (#ancla) -> smooth scroll
     if (href.startsWith("#")) {
+      e.preventDefault();
+
+      // cerramos normal
       closeDrawer();
-      return; // dejamos que el browser haga el scroll normal
+
+      // scroll después de la animación del drawer
+      setTimeout(() => {
+        try {
+          const target = document.querySelector(href);
+          if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+          // opcional: actualizar hash sin salto brusco
+          history.replaceState(null, "", href);
+        } catch (_) {}
+      }, 280);
+
+      return;
     }
 
-    // navegación a otra página
+    // Link a otra página -> evitamos “ver la página detrás”
     e.preventDefault();
-    closeDrawer();
+
+    // cerramos pero mantenemos backdrop/scroll para que no se vea el fondo
+    closeDrawer({ keepBackdrop: true, keepScroll: true });
+
+    // navegar cuando ya casi terminó la animación
     setTimeout(() => {
       window.location.href = href;
-    }, TRANSITION_MS);
+    }, 220);
+  });
+
+  // ✅ si vuelven a desktop, aseguramos cerrar
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 900 && isOpen) closeDrawer();
   });
 }
 
@@ -347,10 +414,7 @@ function toHashtags(tagsLike, fallbackName) {
         } catch (_) {}
       }
       if (!tags.length) {
-        tags = raw
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean);
+        tags = raw.split(",").map((t) => t.trim()).filter(Boolean);
       }
     }
   }
@@ -571,8 +635,7 @@ function renderSlides() {
 
     const labelA = getHeroDayLabel(ev);
     const labelB = String(ev?.timeRange || "").trim().toUpperCase() || "19:00";
-    const labelC =
-      String(ev?.location || "").trim().toUpperCase() || "COSTA RICA";
+    const labelC = String(ev?.location || "").trim().toUpperCase() || "COSTA RICA";
 
     slide.innerHTML = `
       <div class="container heroCard">
@@ -581,9 +644,7 @@ function renderSlides() {
             <!-- ✅ LEFT -->
             <div class="heroLeft">
               <div class="heroMeta">
-                <span class="pill">${escapeHtml(
-                  soldOut ? "AGOTADO" : ev.type || "EXPERIENCIA"
-                )}</span>
+                <span class="pill">${escapeHtml(soldOut ? "AGOTADO" : (ev.type || "EXPERIENCIA"))}</span>
               </div>
 
               <h1 class="heroTitle heroTitle--wix">${escapeHtml(ev.title)}</h1>
@@ -771,9 +832,7 @@ window.addEventListener("ecn:events-updated", () => {
   setLoading(true);
 
   try {
-    // ✅ drawer toggle listo desde el inicio
     initMobileDrawer();
-
     await refreshFromSupabase();
   } finally {
     setLoading(false);
@@ -785,13 +844,6 @@ window.addEventListener("ecn:events-updated", () => {
 
   setTimeout(() => toast("Bienvenido", "Revisá los próximos eventos."), 800);
 })();
-
-// ✅ Backup: si este script carga antes del header, reintenta al DOM listo
-document.addEventListener("DOMContentLoaded", () => {
-  try {
-    initMobileDrawer();
-  } catch (_) {}
-});
 
 // Siempre iniciar arriba al cargar/recargar
 if ("scrollRestoration" in history) {
