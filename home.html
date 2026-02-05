@@ -153,8 +153,42 @@
         </div>
       </div>
 
+      <!-- Anclas/selección de meses (se mantiene igual para no romper JS) -->
       <div class="months" id="monthAnchors" aria-label="Meses"></div>
-      <div class="grid" id="monthGrid" aria-label="Eventos por mes"></div>
+
+      <!-- ✅ NUEVO: contenedor pro para listado (ID se mantiene: #monthGrid) -->
+      <div class="eventsPanel" aria-label="Listado de eventos">
+        <div class="eventsPanelHead">
+          <div class="eventsPanelLeft">
+            <p class="eventsKicker">RESUMEN DEL MES</p>
+            <h3 class="eventsTitle">Eventos disponibles</h3>
+            <p class="eventsSub">
+              Formato tipo listado (sin foto) con acciones a la derecha. Seleccioná un evento para ver detalle o inscribirte.
+            </p>
+          </div>
+
+          <!-- Este bloque lo dejamos listo por si luego querés filtros/orden -->
+          <div class="eventsPanelRight" aria-label="Opciones del listado" hidden>
+            <button class="btn" type="button">Ordenar</button>
+          </div>
+        </div>
+
+        <!--
+          ✅ IMPORTANTE:
+          - Se mantiene el ID "monthGrid" para que el JS actual siga funcionando.
+          - Cambiamos la intención visual a "lista", no "grid".
+          - El JS luego lo ajustamos para renderizar filas tipo:
+            <div class="eventRow" role="listitem"> ... botones a la derecha ... </div>
+        -->
+        <div class="eventsList" id="monthGrid" aria-label="Eventos por mes" role="list"></div>
+
+        <!-- Estado vacío (opcional para luego; el JS puede mostrar/ocultar) -->
+        <div class="eventsEmpty" id="monthEmpty" hidden>
+          <p class="sub" style="margin:0;">
+            No hay eventos para este mes por ahora. Probá otro mes o volvé pronto.
+          </p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -317,18 +351,6 @@
             <li><a href="./gallery.html">Ver galería</a></li>
           </ul>
         </div>
-
-        <div>
-          <h4 class="fTitle">Follow</h4>
-          <ul class="fList">
-            <li><a href="https://instagram.com/entrecopasynotas" target="_blank" rel="noopener">Instagram</a></li>
-            <li>
-              <a href="https://wa.me/50688323801?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
-                target="_blank" rel="noopener">WhatsApp</a>
-            </li>
-          </ul>
-        </div>
-
       </div>
 
       <div class="footerBottom">

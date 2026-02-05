@@ -449,8 +449,9 @@ body.is-loading .pageLoader{
 
 .footerCols{
   display:grid;
-  grid-template-columns: 1.2fr 1fr 1fr 1fr;
-  gap: 22px;
+  grid-template-columns: 1.4fr 1.4fr 1.4fr;
+  justify-content: center;
+  gap: 50px;
 }
 
 .fTitle{
@@ -465,6 +466,7 @@ body.is-loading .pageLoader{
   color: var(--muted);
   line-height: 1.7;
   font-size: var(--fs-14);
+  padding-right: 40px;
 }
 
 .fContact{

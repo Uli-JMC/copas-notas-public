@@ -8,6 +8,7 @@
    - ✅ mantiene tu supabase events + dates + gallery + newsletter
    - ✅ FIX 2026-02: Drawer toggle visible (X) + navegación sin flash
    - ✅ Quote rotator: animación moderna + altura estable (CSS)
+   - ✅ PATCH 2026-02: Resumen por mes en LISTADO PRO (sin foto, botones derecha)
 ============================================================ */
 
 // ============================================================
@@ -670,7 +671,6 @@ function renderSlides() {
         </div>
       </div>
     `;
-
     slidesEl.appendChild(slide);
 
     const dot = document.createElement("button");
@@ -746,34 +746,58 @@ function renderMonths() {
 function renderMonthGrid() {
   if (!monthGrid) return;
 
+  // Soporte para HTML nuevo (eventsPanel) si existe
+  const emptyEl = document.getElementById("monthEmpty");
+
   monthGrid.innerHTML = "";
   const list = EVENTS.filter((e) => e.monthKey === activeMonth);
 
   if (!list.length) {
-    monthGrid.innerHTML = `<div class="emptyMonth">No hay eventos para <b>${escapeHtml(
-      activeMonth
-    )}</b>.</div>`;
+    if (emptyEl) {
+      emptyEl.hidden = false;
+      monthGrid.innerHTML = "";
+    } else {
+      monthGrid.innerHTML = `<div class="emptyMonth">No hay eventos para <b>${escapeHtml(
+        activeMonth
+      )}</b>.</div>`;
+    }
     return;
   }
 
+  if (emptyEl) emptyEl.hidden = true;
+
+  // ✅ LISTADO PRO (sin foto) — filas con acciones a la derecha
   list.forEach((ev) => {
     const soldOut = ev.seats <= 0;
 
-    const card = document.createElement("article");
-    card.className = "eventCard" + (soldOut ? " isSoldOut" : "");
-    card.style.setProperty("--cardimg", `url('${safeCssUrl(ev.img)}')`);
+    const datesText = ev?.dates?.length ? ev.dates.join(" • ") : "Por definir";
+    const loc = String(ev?.location || "").trim();
+    const time = String(ev?.timeRange || "").trim();
 
-    card.innerHTML = `
-      ${soldOut ? `<div class="soldOutTag">AGOTADO</div>` : ""}
-      <div class="eventBody">
-        <p class="eventDate">
-          <span class="badge">${escapeHtml(ev.type)}</span>
-          ${escapeHtml(ev.dates.join(" • ") || "Por definir")}
-        </p>
+    const metaParts = [];
+    if (loc) metaParts.push(loc);
+    if (time) metaParts.push(time);
+    const metaText = metaParts.join(" • ");
 
-        <h3 class="eventName">${escapeHtml(ev.title)}</h3>
+    const row = document.createElement("article");
+    row.className = "eventRow" + (soldOut ? " isSoldOut" : "");
+    row.setAttribute("role", "listitem");
 
-        <div class="eventActions">
+    row.innerHTML = `
+      <div class="eventRowMain">
+        <div class="eventRowLeft">
+          <div class="eventRowTop">
+            <span class="eventPill">${escapeHtml(ev.type || "Experiencia")}</span>
+            ${soldOut ? `<span class="eventPill eventPill--danger">Agotado</span>` : ""}
+            <span class="eventDates">${escapeHtml(datesText)}</span>
+          </div>
+
+          <h3 class="eventRowTitle">${escapeHtml(ev.title)}</h3>
+
+          ${metaText ? `<p class="eventRowMeta">${escapeHtml(metaText)}</p>` : ""}
+        </div>
+
+        <div class="eventRowRight" aria-label="Acciones">
           <button class="btn" data-action="info" data-id="${ev.id}">Más info</button>
 
           <button class="btn primary" data-action="register" data-id="${ev.id}"
@@ -784,7 +808,7 @@ function renderMonthGrid() {
       </div>
     `;
 
-    monthGrid.appendChild(card);
+    monthGrid.appendChild(row);
   });
 }
 
