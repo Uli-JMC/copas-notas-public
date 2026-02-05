@@ -350,75 +350,57 @@
 }
 
 /* ============================================================
-   ✅ Events Panel / Listado PRO (Resumen mensual)
-   - No rompe el grid viejo: lo dejamos abajo por compatibilidad.
+   ✅ LISTADO PRO (sin header redundante)
 ============================================================ */
 .eventsPanel{
-  margin-top: 10px;
-  border: 1px solid rgba(18,18,18,.10);
-  background: rgba(18,18,18,.02);
-  border-radius: 18px;
-  padding: 16px;
+  margin-top: 6px;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
 }
 
+/* ✅ Ocultamos el header interno del panel (lo que te sobra) */
 .eventsPanelHead{
-  display:flex;
-  gap: 14px;
-  align-items:flex-end;
-  justify-content:space-between;
-  padding-bottom: 12px;
-  border-bottom: 1px solid rgba(18,18,18,.08);
+  display: none !important;
 }
 
-.eventsPanelLeft{ min-width:0; }
-
-.eventsKicker{
-  margin: 0;
-  font-weight: 900;
-  letter-spacing: .22em;
-  text-transform: uppercase;
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.eventsTitle{
-  margin: 8px 0 0;
-  font-weight: 900;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  font-size: 16px;
-}
-
-.eventsSub{
-  margin: 10px 0 0;
-  color: var(--muted);
-  line-height: 1.7;
-  font-size: var(--fs-14);
-  max-width: 80ch;
-}
-
+/* List container */
 .eventsList{
-  margin-top: 12px;
+  margin-top: 0;
   display:flex;
   flex-direction:column;
-  gap: 10px;
-}
-
-/* ✅ Fila */
-.eventRow{
-  border: 1px solid rgba(18,18,18,.10);
-  background: rgba(255,255,255,.86);
+  gap: 0;
+  border-top: 1px solid rgba(18,18,18,.10);
+  border-bottom: 1px solid rgba(18,18,18,.10);
+  background: #fff;
   border-radius: 16px;
   overflow:hidden;
-  box-shadow: 0 14px 40px rgba(0,0,0,.04);
+}
+
+/* Fila tipo “lista pro” (flat) */
+.eventRow{
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.eventRow + .eventRow{
+  border-top: 1px solid rgba(18,18,18,.08);
 }
 
 .eventRowMain{
   display:flex;
-  gap: 14px;
+  gap: 18px;
   align-items: center;
   justify-content: space-between;
-  padding: 14px;
+  padding: 16px 16px;
+  transition: background .15s ease;
+}
+
+.eventRow:hover .eventRowMain{
+  background: rgba(18,18,18,.02);
 }
 
 .eventRowLeft{ min-width:0; }
@@ -430,13 +412,14 @@
   flex-wrap:wrap;
 }
 
+/* pills */
 .eventPill{
   display:inline-flex;
   align-items:center;
   padding: 7px 10px;
   border-radius: 999px;
   border: 1px solid rgba(18,18,18,.12);
-  background: rgba(18,18,18,.04);
+  background: rgba(18,18,18,.03);
   color: rgba(18,18,18,.86);
   font-weight: 900;
   letter-spacing: .12em;
@@ -474,7 +457,7 @@
   line-height: 1.6;
 }
 
-/* ✅ Acciones derecha */
+/* Acciones derecha */
 .eventRowRight{
   display:flex;
   align-items:center;
@@ -483,40 +466,38 @@
   flex-shrink:0;
 }
 
-/* estados */
+/* estado */
 .eventRow.isSoldOut{
   opacity: .92;
   filter: saturate(.92);
 }
 
-/* Mobile: botones bajan ordenados */
+/* Mobile */
 @media (max-width: 760px){
-  .eventsPanel{ padding: 14px; }
-  .eventsPanelHead{ align-items:flex-start; }
+  .eventsList{
+    border-radius: 14px;
+  }
 
   .eventRowMain{
     flex-direction: column;
     align-items: flex-start;
+    padding: 14px;
   }
 
   .eventRowRight{
     width: 100%;
     justify-content: flex-start;
-    padding-top: 8px;
-  }
-
-  .eventRowRight .btn{
-    width: auto;
+    padding-top: 10px;
   }
 }
 
-/* Estado vacío panel (si se usa monthEmpty) */
+/* Estado vacío (si se usa monthEmpty) */
 .eventsEmpty{
   margin-top: 12px;
   padding: 14px;
   border-radius: 14px;
   border: 1px dashed rgba(18,18,18,.14);
-  background: rgba(255,255,255,.70);
+  background: rgba(18,18,18,.02);
   color: var(--muted);
 }
 
@@ -815,7 +796,7 @@
    Testimonial ✅ MODERNO (altura estable + animación suave)
 ============================================================ */
 .testimonial{
-  padding: 84px 0; /* ✅ más aire y consistente */
+  padding: 84px 0;
   border-top: 1px solid rgba(18,18,18,.08);
   border-bottom: 1px solid rgba(18,18,18,.08);
   background: rgba(18,18,18,.02);
@@ -829,7 +810,6 @@
   font-size: 12px;
 }
 
-/* ✅ altura estable (no empuja layout) */
 .quote{
   margin: 18px auto 0;
   max-width: 60ch;
@@ -838,15 +818,12 @@
   line-height: 1.45;
   color: rgba(18,18,18,.88);
   font-weight: 650;
-
-  /* evita saltos por frases distintas */
-  min-height: 4.6em;            /* ~3 líneas */
+  min-height: 4.6em;
   display: grid;
   place-items: center;
   padding: 0 10px;
 }
 
-/* ✅ animación moderna */
 .quote.is-anim{
   animation: quoteIn .95s cubic-bezier(.16,1,.3,1);
   will-change: transform, opacity, filter;
@@ -858,7 +835,6 @@
   100% { opacity: 1; transform: translateY(0);    filter: blur(0); }
 }
 
-/* reduce motion */
 @media (prefers-reduced-motion: reduce){
   .quote.is-anim{ animation: none; }
 }
