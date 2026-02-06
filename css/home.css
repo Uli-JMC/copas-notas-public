@@ -281,7 +281,7 @@
 
 .sub{
   margin: 12px auto 0;
-  color: var(--muted);
+  color: #ffff;
   line-height:1.7;
   max-width: 70ch;
   font-size: var(--fs-14);
