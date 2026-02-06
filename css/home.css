@@ -581,6 +581,11 @@
   margin-top: 26px;
 }
 
+/* ABOUT – título en blanco sobre fondo oscuro */
+#about .h2{
+  color: rgba(255,255,255,.95);
+}
+
 #about.section::before{
   content:"";
   position:absolute;
