@@ -553,7 +553,7 @@
 /* ✅ Cambiá esta ruta cuando subás tu imagen.
    Por ahora usa una que YA existe (hero-1.jpg). */
 :root{
-  --aboutBgImg: url("./assets/img/hero-1.jpg");
+  --aboutBgImg: url("./assets/img/aboutBgImg.jpg");
 }
 
 /* “scene” */
