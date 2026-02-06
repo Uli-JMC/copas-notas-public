@@ -546,59 +546,60 @@
 }
 
 /* ============================================================
-   ✅ About (con imagen detrás tipo “video”)
-   - Imagen profunda + blur + overlay
-   - Panels “flotan” arriba con glass suave
+   ✅ About (con imagen detrás tipo “video”) — FIX ✅ (ya se ve)
+   CLAVE: usamos RUTA RELATIVA (./assets/...) para que funcione en Netlify
 ============================================================ */
 
-/* ✅ Cambiá esta imagen cuando subás la tuya */
+/* ✅ Cambiá esta ruta cuando subás tu imagen.
+   Por ahora usa una que YA existe (hero-1.jpg). */
 :root{
-  --aboutBgImg: url("/assets/img/aboutBgImg.jpg");
+  --aboutBgImg: url("./assets/img/hero-1.jpg");
 }
 
-/* El section #about ya tiene class="section", aquí lo convertimos en “scene” */
+/* “scene” */
 #about.section{
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  /* más aire como el video */
   padding: 86px 0;
 }
 
-/* capa de imagen detrás */
+/* 1) imagen profunda (siempre visible) */
 #about.section::before{
   content:"";
   position:absolute;
-  inset:-18%;
+  inset:-22%;
   background-image: var(--aboutBgImg);
   background-size: cover;
   background-position: center;
-  transform: scale(1.06);
-  filter: blur(10px) saturate(1.05) contrast(1.02);
-  opacity: .32;
+  transform: scale(1.08);
+  /* look “detrás” como el video */
+  filter: blur(12px) saturate(1.08) contrast(1.03);
+  opacity: .55; /* ✅ subido (antes quedaba muy tenue) */
   z-index: 0;
-  pointer-events: none;
+  pointer-events:none;
 }
 
-/* overlay para que se sienta “detrás” y no ensucie */
+/* 2) overlay suave (NO tapa la foto) */
 #about.section::after{
   content:"";
   position:absolute;
   inset:0;
+  /* en vez de blanco sólido, usamos velos sutiles */
   background:
-    radial-gradient(60% 55% at 50% 32%, rgba(255,255,255,.82), rgba(255,255,255,0) 60%),
-    linear-gradient(180deg, rgba(255,255,255,.86) 0%, rgba(255,255,255,.96) 55%, rgba(255,255,255,1) 100%);
+    radial-gradient(70% 60% at 50% 30%, rgba(255,255,255,.62), rgba(255,255,255,0) 62%),
+    linear-gradient(180deg, rgba(255,255,255,.68) 0%, rgba(255,255,255,.88) 58%, rgba(255,255,255,.96) 100%);
   z-index: 1;
   pointer-events:none;
 }
 
-/* contenido arriba de todo */
+/* 3) contenido arriba */
 #about.section > .container{
   position: relative;
   z-index: 2;
 }
 
-/* grid cards */
+/* grid */
 .aboutGrid{
   display:grid;
   grid-template-columns: repeat(3, 1fr);
