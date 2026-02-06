@@ -2,7 +2,7 @@
    home.css ✅ HOME ONLY (2026) — DEPURADO (SIN MENU)
    - Hero carrusel estilo Wix (texto + panel derecha)
    - Meses + listado pro (sin foto, acciones derecha)
-   - About ✅ con imagen “detrás” tipo video (blur + overlay + depth)
+   - About ✅ efecto tipo video: FOTO FIJA “detrás” + panels al frente (parallax)
    - Galería preview ✅ cuadrada + hover overlay + texto aparece
    - Testimonial + Newsletter
    ⚠️ IMPORTANTE:
@@ -326,9 +326,6 @@
 /* ============================================================
    ✅ LISTADO PRO (Eventbrite/Meetup style) + REGLAS PEDIDAS
 ============================================================ */
-
-/* ✅ IMPORTANTE:
-   En tu HTML, #monthGrid tiene class="grid". Esto lo forzamos a lista. */
 #monthGrid.grid{
   display:flex !important;
   flex-direction:column;
@@ -546,60 +543,55 @@
 }
 
 /* ============================================================
-   ✅ About (con imagen detrás tipo “video”) — FIX ✅ (ya se ve)
-   CLAVE: usamos RUTA RELATIVA (./assets/...) para que funcione en Netlify
+   ✅ ABOUT — EFECTO COMO EL VIDEO (FOTO “FIJA” DETRÁS + PANELES AL FRENTE)
+   Clave del efecto:
+   1) Background con attachment: fixed (parallax simple)
+   2) Velos (overlay) para que no se sienta “encima”
+   3) Cards con glass suave para profundidad
+   Nota: en iOS el fixed puede degradar; igual se ve bien (solo sin parallax).
 ============================================================ */
 
-/* ✅ Cambiá esta ruta cuando subás tu imagen.
-   Por ahora usa una que YA existe (hero-1.jpg). */
+/* ✅ Por ahora usa una imagen que YA existe en assets */
 :root{
-  --aboutBgImg: url("./assets/img/aboutBgImg.jpg");
+  --aboutBgImg: url("./assets/img/hero-1.jpg");
 }
 
-/* “scene” */
+/* scene */
 #about.section{
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  padding: 86px 0;
-}
-
-/* 1) imagen profunda (siempre visible) */
-#about.section::before{
-  content:"";
-  position:absolute;
-  inset:-22%;
+  padding: 96px 0;                 /* más aire como el video */
   background-image: var(--aboutBgImg);
   background-size: cover;
   background-position: center;
-  transform: scale(1.08);
-  /* look “detrás” como el video */
-  filter: blur(12px) saturate(1.08) contrast(1.03);
-  opacity: .55; /* ✅ subido (antes quedaba muy tenue) */
+  background-repeat: no-repeat;
+  background-attachment: fixed;    /* ✅ EFECTO “se queda detrás” */
+}
+
+/* velo + blur SOLO al fondo (parallax se mantiene) */
+#about.section::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  /* backdrop-filter blurea lo que está detrás (la foto) */
+  backdrop-filter: blur(10px) saturate(1.05) contrast(1.02);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05) contrast(1.02);
+  /* un velo suave para que la foto no “pelee” con el texto */
+  background:
+    radial-gradient(70% 60% at 50% 28%, rgba(255,255,255,.55), rgba(255,255,255,0) 62%),
+    linear-gradient(180deg, rgba(255,255,255,.52) 0%, rgba(255,255,255,.78) 58%, rgba(255,255,255,.92) 100%);
   z-index: 0;
   pointer-events:none;
 }
 
-/* 2) overlay suave (NO tapa la foto) */
-#about.section::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  /* en vez de blanco sólido, usamos velos sutiles */
-  background:
-    radial-gradient(70% 60% at 50% 30%, rgba(255,255,255,.62), rgba(255,255,255,0) 62%),
-    linear-gradient(180deg, rgba(255,255,255,.68) 0%, rgba(255,255,255,.88) 58%, rgba(255,255,255,.96) 100%);
-  z-index: 1;
-  pointer-events:none;
-}
-
-/* 3) contenido arriba */
+/* contenido arriba */
 #about.section > .container{
   position: relative;
-  z-index: 2;
+  z-index: 1;
 }
 
-/* grid */
+/* grid cards */
 .aboutGrid{
   display:grid;
   grid-template-columns: repeat(3, 1fr);
@@ -614,16 +606,17 @@
 /* cards flotando (glass) */
 .aboutCard{
   border: 1px solid rgba(18,18,18,.10);
-  background: rgba(255,255,255,.78);
+  background: rgba(255,255,255,.80);
   border-radius: 18px;
   padding: 18px;
   box-shadow:
     0 18px 60px rgba(0,0,0,.06),
     0 1px 0 rgba(255,255,255,.55) inset;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
+/* si el user prefiere menos transparencia */
 @media (prefers-reduced-transparency: reduce){
   .aboutCard{ background: rgba(255,255,255,.96); backdrop-filter: none; }
 }
@@ -649,6 +642,11 @@
   color: var(--muted);
   line-height: 1.7;
   font-size: var(--fs-14);
+}
+
+/* Ajuste mobile: más compacto */
+@media (max-width: 640px){
+  #about.section{ padding: 72px 0; background-attachment: scroll; } /* iOS-friendly */
 }
 
 /* ============================================================
