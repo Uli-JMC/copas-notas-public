@@ -498,7 +498,9 @@ function initQuoteRotator() {
     quotes = [];
   }
 
-  quotes = Array.isArray(quotes) ? quotes.map((q) => String(q || "").trim()).filter(Boolean) : [];
+  quotes = Array.isArray(quotes)
+    ? quotes.map((q) => String(q || "").trim()).filter(Boolean)
+    : [];
   if (!quotes.length) return;
 
   let i = 0;
@@ -524,7 +526,9 @@ function initQuoteRotator() {
   window.addEventListener(
     "beforeunload",
     () => {
-      try { clearInterval(t); } catch (_) {}
+      try {
+        clearInterval(t);
+      } catch (_) {}
     },
     { once: true }
   );
@@ -633,10 +637,7 @@ function renderSlides() {
 
     const slide = document.createElement("article");
     slide.className = "slide";
-    slide.style.setProperty(
-      "--bgimg",
-      `url('${safeCssUrl(ev.img || getDefaultHero())}')`
-    );
+    slide.style.setProperty("--bgimg", `url('${safeCssUrl(ev.img || getDefaultHero())}')`);
 
     const labelA = getHeroDayLabel(ev);
     const labelB = String(ev?.timeRange || "").trim().toUpperCase() || "19:00";
@@ -686,9 +687,7 @@ function renderSlides() {
 function updateTransform() {
   if (!slidesEl || !dotsEl) return;
   slidesEl.style.transform = `translateX(-${idx * 100}%)`;
-  [...dotsEl.children].forEach((d, i) =>
-    d.setAttribute("aria-current", i === idx)
-  );
+  [...dotsEl.children].forEach((d, i) => d.setAttribute("aria-current", i === idx));
 }
 
 function goTo(next, user) {
@@ -705,16 +704,15 @@ function restartAuto() {
 }
 
 // ============================================================
-// Months + Grid
+// Months + Listado PRO
 // ============================================================
 const monthAnchors = qs("#monthAnchors");
 const monthGrid = qs("#monthGrid");
+const monthEmpty = qs("#monthEmpty"); // ✅ usa el bloque de estado vacío del HTML
 let activeMonth = null;
 
 function getThreeMonthWindow() {
-  return window.ECN?.getMonths3
-    ? ECN.getMonths3(new Date())
-    : ["ENERO", "FEBRERO", "MARZO"];
+  return window.ECN?.getMonths3 ? ECN.getMonths3(new Date()) : ["ENERO", "FEBRERO", "MARZO"];
 }
 
 function renderMonths() {
@@ -743,38 +741,47 @@ function renderMonths() {
   renderMonthGrid();
 }
 
+/**
+ * ✅ LISTADO PRO (sin foto)
+ * - Tipo pequeño (pill)
+ * - Título grande
+ * - Meta abajo: Lugar • Fecha • Horario
+ * - Botón Inscribirme NEGRO (clase inviteBlack en CSS / base)
+ */
 function renderMonthGrid() {
   if (!monthGrid) return;
 
   monthGrid.innerHTML = "";
+
   const list = EVENTS.filter((e) => e.monthKey === activeMonth);
 
+  // Estado vacío usa tu #monthEmpty (no metemos texto redundante dentro del listado)
   if (!list.length) {
-    monthGrid.innerHTML = `<div class="emptyMonth">No hay eventos para <b>${escapeHtml(
-      activeMonth
-    )}</b>.</div>`;
+    if (monthEmpty) monthEmpty.hidden = false;
     return;
   }
+  if (monthEmpty) monthEmpty.hidden = true;
 
   list.forEach((ev) => {
     const soldOut = ev.seats <= 0;
 
-    // Fecha: usamos la primera etiqueta si existe, o "Por definir"
+    // ✅ Fecha: 1ra etiqueta si existe
     const dateLabel = String(ev?.dates?.[0] || "").trim() || "Por definir";
 
-    // Meta: Lugar • Fecha • Horario
+    // ✅ Meta: Lugar • Fecha • Horario
     const place = String(ev?.location || "").trim() || "Costa Rica";
     const time = String(ev?.timeRange || "").trim() || "Horario por definir";
 
-    const row = document.createElement("article");
+    const row = document.createElement("div");
     row.className = "eventRow" + (soldOut ? " isSoldOut" : "");
+    row.setAttribute("role", "listitem");
 
     row.innerHTML = `
       <div class="eventRowMain">
         <div class="eventRowLeft">
           <div class="eventRowTop">
             <span class="eventPill">${escapeHtml(ev.type || "Experiencia")}</span>
-            ${soldOut ? `<span class="eventPill eventPill--danger">Agotado</span>` : ""}
+            ${soldOut ? `<span class="eventPill eventPill--danger">AGOTADO</span>` : ""}
           </div>
 
           <h3 class="eventRowTitle">${escapeHtml(ev.title)}</h3>
