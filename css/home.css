@@ -573,9 +573,6 @@
   background-size: cover;
   background-position: center;
   transform: scale(1.08);
-  /* look “detrás” como el video */
-  filter: blur(12px) saturate(1.08) contrast(1.03);
-  opacity: .55; /* ✅ subido (antes quedaba muy tenue) */
   z-index: 0;
   pointer-events:none;
 }
