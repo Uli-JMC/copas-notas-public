@@ -323,70 +323,54 @@
 }
 
 /* ============================================================
-   ✅ LISTADO PRO (Eventbrite/Meetup style)
-   - Flat list con separadores
-   - Hover + focus (UX)
-   - Desktop: acciones derecha
-   - Mobile: acciones en grid 2 columnas (tap targets)
+   ✅ LISTADO PRO (Eventbrite/Meetup style) + REGLAS PEDIDAS
+   - Fecha abajo en meta: Lugar • Fecha • Horario
+   - Tipo (“Cata de vino / Maridajes”) más pequeño
+   - CTA “Inscribirme” en negro
+   - Mobile ordenado
 ============================================================ */
-.eventsPanel{
-  margin-top: 6px;
-  border: none;
-  background: transparent;
-  border-radius: 0;
-  padding: 0;
-}
 
-/* Ocultar header redundante dentro del panel */
-.eventsPanelHead{ display: none !important; }
-
-/* Contenedor del listado */
-.eventsList{
-  margin-top: 0;
-  display:flex;
+/* ✅ IMPORTANTE:
+   En tu HTML, #monthGrid tiene class="grid". Esto lo forzamos a lista. */
+#monthGrid.grid{
+  display:flex !important;
   flex-direction:column;
-  gap: 0;
-  border: 1px solid rgba(18,18,18,.10);
-  background: #fff;
-  border-radius: 18px;
-  overflow:hidden;
+  gap: 0 !important;
 }
 
-/* Cada fila */
+/* fila principal */
 .eventRow{
-  border: none;
-  background: transparent;
-  border-radius: 0;
-  box-shadow: none;
+  border: 1px solid rgba(18,18,18,.10);
+  border-radius: 18px;
+  background:#fff;
+  overflow:hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,.04);
+  margin-bottom: 12px;
 }
 
-.eventRow + .eventRow{
-  border-top: 1px solid rgba(18,18,18,.08);
-}
-
-/* Layout principal */
+/* layout */
 .eventRowMain{
   display:flex;
   gap: 18px;
   align-items: center;
   justify-content: space-between;
   padding: 16px 16px;
-  transition: background .15s ease, transform .15s ease;
+  transition: background .15s ease;
 }
 
-/* Hover / UX */
 .eventRow:hover .eventRowMain{
   background: rgba(18,18,18,.02);
 }
 
-/* Focus visible (accesibilidad pro) */
+/* Focus visible */
 .eventRow:focus-within .eventRowMain{
   box-shadow: 0 0 0 3px rgba(75,110,255,.18);
   background: rgba(75,110,255,.04);
 }
 
-/* Izquierda */
+/* izquierda */
 .eventRowLeft{ min-width:0; }
+
 .eventRowTop{
   display:flex;
   align-items:center;
@@ -394,42 +378,35 @@
   flex-wrap:wrap;
 }
 
-/* Pill del tipo */
+/* ✅ pill del tipo más pequeño */
 .eventPill{
   display:inline-flex;
   align-items:center;
-  padding: 7px 10px;
+  padding: 6px 10px;
   border-radius: 999px;
   border: 1px solid rgba(18,18,18,.12);
   background: rgba(18,18,18,.03);
-  color: rgba(18,18,18,.86);
+  color: rgba(18,18,18,.82);
   font-weight: 900;
   letter-spacing: .12em;
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: 10.5px; /* ✅ más pequeño */
   white-space: nowrap;
 }
 
-/* Pill agotado */
 .eventPill--danger{
   border-color: rgba(215, 44, 44, .18);
   background: rgba(215, 44, 44, .10);
   color: rgba(215, 44, 44, .92);
 }
 
-.eventDates{
-  color: var(--muted);
-  font-size: 13px;
-  letter-spacing: .04em;
-}
-
-/* Título pro (con clamp para que no rompa layout) */
+/* título */
 .eventRowTitle{
   margin: 10px 0 0;
   font-weight: 900;
   letter-spacing: .06em;
   text-transform: uppercase;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.2;
   color: rgba(18,18,18,.92);
 
@@ -439,15 +416,25 @@
   overflow: hidden;
 }
 
-/* Meta */
+/* ✅ meta abajo: Lugar • Fecha • Horario */
 .eventRowMeta{
   margin: 10px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 1.6;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Derecha */
+.dotSep{
+  display:inline-block;
+  margin: 0 8px;
+  opacity: .55;
+}
+
+/* derecha */
 .eventRowRight{
   display:flex;
   align-items:center;
@@ -456,10 +443,6 @@
   flex-shrink:0;
 }
 
-/* ✅ Botones “pro” estilo tickets (sin tocar base.css):
-   - hacemos el secundario más light
-   - hacemos el primary más “ticket”
-*/
 .eventRowRight .btn{
   min-height: 42px;
   padding: 10px 14px;
@@ -471,22 +454,29 @@
   border-color: rgba(18,18,18,.10);
 }
 
-.eventRowRight .btn.primary{
+/* ✅ CTA NEGRO */
+.eventRowRight .btn.primary.inviteBlack{
+  background: #000 !important;
+  border-color: #000 !important;
+  color: #fff !important;
   border-width: 2px;
 }
 
-/* Sold out: reduce saturación */
+.eventRowRight .btn.primary.inviteBlack:hover{
+  filter: brightness(1.06);
+}
+
 .eventRow.isSoldOut{
   opacity: .92;
   filter: saturate(.92);
 }
 
 /* =============== MOBILE FIX (ordenado + UX) =============== */
-@media (max-width: 820px){
-  .eventsList{ border-radius: 16px; }
-}
-
 @media (max-width: 760px){
+  .eventRow{
+    border-radius: 16px;
+  }
+
   .eventRowMain{
     flex-direction: column;
     align-items: stretch;
@@ -494,16 +484,19 @@
     gap: 12px;
   }
 
-  .eventRowRight{
-    width: 100%;
-    justify-content: stretch;
-    gap: 10px;
+  /* meta se vuelve multilínea si no cabe */
+  .eventRowMeta{
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
   }
 
-  /* ✅ patrón pro: acciones en 2 columnas para tap targets */
+  /* acciones en 2 columnas */
   .eventRowRight{
     display:grid;
     grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
   }
 
   .eventRowRight .btn{
@@ -512,7 +505,7 @@
   }
 }
 
-/* súper móvil: si no hay espacio, apila */
+/* súper móvil: apila */
 @media (max-width: 420px){
   .eventRowRight{
     grid-template-columns: 1fr;

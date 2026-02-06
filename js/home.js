@@ -746,42 +746,28 @@ function renderMonths() {
 function renderMonthGrid() {
   if (!monthGrid) return;
 
-  // Soporte para HTML nuevo (eventsPanel) si existe
-  const emptyEl = document.getElementById("monthEmpty");
-
   monthGrid.innerHTML = "";
   const list = EVENTS.filter((e) => e.monthKey === activeMonth);
 
   if (!list.length) {
-    if (emptyEl) {
-      emptyEl.hidden = false;
-      monthGrid.innerHTML = "";
-    } else {
-      monthGrid.innerHTML = `<div class="emptyMonth">No hay eventos para <b>${escapeHtml(
-        activeMonth
-      )}</b>.</div>`;
-    }
+    monthGrid.innerHTML = `<div class="emptyMonth">No hay eventos para <b>${escapeHtml(
+      activeMonth
+    )}</b>.</div>`;
     return;
   }
 
-  if (emptyEl) emptyEl.hidden = true;
-
-  // ✅ LISTADO PRO (sin foto) — filas con acciones a la derecha
   list.forEach((ev) => {
     const soldOut = ev.seats <= 0;
 
-    const datesText = ev?.dates?.length ? ev.dates.join(" • ") : "Por definir";
-    const loc = String(ev?.location || "").trim();
-    const time = String(ev?.timeRange || "").trim();
+    // Fecha: usamos la primera etiqueta si existe, o "Por definir"
+    const dateLabel = String(ev?.dates?.[0] || "").trim() || "Por definir";
 
-    const metaParts = [];
-    if (loc) metaParts.push(loc);
-    if (time) metaParts.push(time);
-    const metaText = metaParts.join(" • ");
+    // Meta: Lugar • Fecha • Horario
+    const place = String(ev?.location || "").trim() || "Costa Rica";
+    const time = String(ev?.timeRange || "").trim() || "Horario por definir";
 
     const row = document.createElement("article");
     row.className = "eventRow" + (soldOut ? " isSoldOut" : "");
-    row.setAttribute("role", "listitem");
 
     row.innerHTML = `
       <div class="eventRowMain">
@@ -789,19 +775,26 @@ function renderMonthGrid() {
           <div class="eventRowTop">
             <span class="eventPill">${escapeHtml(ev.type || "Experiencia")}</span>
             ${soldOut ? `<span class="eventPill eventPill--danger">Agotado</span>` : ""}
-            <span class="eventDates">${escapeHtml(datesText)}</span>
           </div>
 
           <h3 class="eventRowTitle">${escapeHtml(ev.title)}</h3>
 
-          ${metaText ? `<p class="eventRowMeta">${escapeHtml(metaText)}</p>` : ""}
+          <p class="eventRowMeta">
+            ${escapeHtml(place)}
+            <span class="dotSep">•</span>
+            ${escapeHtml(dateLabel)}
+            <span class="dotSep">•</span>
+            ${escapeHtml(time)}
+          </p>
         </div>
 
-        <div class="eventRowRight" aria-label="Acciones">
-          <button class="btn" data-action="info" data-id="${ev.id}">Más info</button>
+        <div class="eventRowRight">
+          <button class="btn" data-action="info" data-id="${ev.id}">
+            Más info
+          </button>
 
-          <button class="btn primary" data-action="register" data-id="${ev.id}"
-            ${soldOut ? "disabled style='opacity:.55'" : ""}>
+          <button class="btn primary inviteBlack" data-action="register" data-id="${ev.id}"
+            ${soldOut ? "disabled" : ""}>
             Inscribirme
           </button>
         </div>
