@@ -553,7 +553,7 @@
 
 /* ✅ Cambiá esta imagen cuando subás la tuya */
 :root{
-  --aboutBgImg: url("./assets/img/hero-2.jpg");
+  --aboutBgImg: url("/assets/img/aboutBgImg.jpg");
 }
 
 /* El section #about ya tiene class="section", aquí lo convertimos en “scene” */
