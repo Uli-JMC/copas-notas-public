@@ -631,6 +631,25 @@
   #about.section{ padding: 72px 0; background-attachment: scroll; } /* iOS-friendly */
 }
 
+#about.section::before{
+  content:"";
+  position:absolute;
+  inset:0;
+
+  /* blur del fondo */
+  backdrop-filter: blur(10px) saturate(1.05) contrast(1.02);
+  -webkit-backdrop-filter: blur(10px) saturate(1.05) contrast(1.02);
+
+  /* ✅ velo oscuro suave (no mucho) */
+  background:
+    radial-gradient(70% 60% at 50% 28%, rgba(0,0,0,.10), rgba(0,0,0,0) 62%),
+    linear-gradient(180deg, rgba(0,0,0,.06) 0%, rgba(0,0,0,.12) 58%, rgba(0,0,0,.18) 100%);
+
+  z-index: 0;
+  pointer-events:none;
+}
+
+
 /* ============================================================
    Gallery preview ✅ CUADRADA + HOVER OSCURECER + TEXTO APARECE
 ============================================================ */
