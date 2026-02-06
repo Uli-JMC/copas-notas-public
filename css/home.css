@@ -577,19 +577,6 @@
   pointer-events:none;
 }
 
-/* 2) overlay suave (NO tapa la foto) */
-#about.section::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  /* en vez de blanco sólido, usamos velos sutiles */
-  background:
-    radial-gradient(70% 60% at 50% 30%, rgba(255,255,255,.62), rgba(255,255,255,0) 62%),
-    linear-gradient(180deg, rgba(255,255,255,.68) 0%, rgba(255,255,255,.88) 58%, rgba(255,255,255,.96) 100%);
-  z-index: 1;
-  pointer-events:none;
-}
-
 /* 3) contenido arriba */
 #about.section > .container{
   position: relative;
