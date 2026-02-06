@@ -553,7 +553,7 @@
 
 /* ✅ Por ahora usa una imagen que YA existe en assets */
 :root{
-  --aboutBgImg: url("/assets/img/hero-1.jpg");
+  --aboutBgImg: url("/assets/img/aboutBgImg.jpg");
 }
 
 /* scene */
