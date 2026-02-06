@@ -2,7 +2,8 @@
    home.css ✅ HOME ONLY (2026) — DEPURADO (SIN MENU)
    - Hero carrusel estilo Wix (texto + panel derecha)
    - Meses + listado pro (sin foto, acciones derecha)
-   - About, Galería preview ✅ cuadrada + hover overlay + texto aparece
+   - About con fondo ambient (imagen detrás de panels) ✅ NUEVO
+   - Galería preview ✅ cuadrada + hover overlay + texto aparece
    - Testimonial + Newsletter
    ⚠️ IMPORTANTE:
    - El menú móvil (hamburger/drawer/backdrop) vive SOLO en base.css
@@ -562,11 +563,50 @@
   .aboutGrid{ grid-template-columns: 1fr; }
 }
 
+/* ✅ fondo ambient detrás del About (efecto pro) */
+#about{
+  position: relative;
+  overflow: hidden;
+}
+
+/* Imagen de fondo “detrás” (blur + overlay claro) */
+#about::before{
+  content:"";
+  position:absolute;
+  inset:0;
+
+  /* 👉 TEMP: cambiá esta ruta cuando subás tu imagen final */
+  background-image:
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,.92) 0%,
+      rgba(255,255,255,.75) 40%,
+      rgba(255,255,255,.92) 100%
+    ),
+    url("/assets/img/hero-1.jpg");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+
+  filter: blur(14px) saturate(.95);
+  transform: scale(1.1);
+  z-index: 0;
+}
+
+/* Contenido arriba del fondo */
+#about > .container{
+  position: relative;
+  z-index: 1;
+}
+
 .aboutCard{
   border: 1px solid rgba(18,18,18,.10);
-  background: rgba(18,18,18,.02);
+  background: rgba(255,255,255,.92); /* ✅ cards flotando */
+  backdrop-filter: blur(6px);
   border-radius: 16px;
   padding: 18px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.08);
 }
 
 .aboutIcon{
@@ -590,6 +630,11 @@
   color: var(--muted);
   line-height: 1.7;
   font-size: var(--fs-14);
+}
+
+/* Mobile: menos blur (mejor performance) */
+@media (max-width: 768px){
+  #about::before{ filter: blur(8px) saturate(.95); }
 }
 
 /* ============================================================
