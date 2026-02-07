@@ -14,9 +14,13 @@
    - ✅ NO toca el comportamiento mobile (solo corrige el row desktop)
 ============================================================ */
 
+:root{
+  --newsletterImg: url("/assets/img/form-img.jpg");
+
 /* ============================================================
    HERO / CARRUSEL
 ============================================================ */
+
 .hero{
   position: relative;
   min-height: calc(95vh - 72px);
@@ -801,9 +805,6 @@
   content:"";
   position:absolute;
   inset:0;
-  background-image:
-    linear-gradient(180deg, rgba(0,0,0,.20) 0%, rgba(0,0,0,.62) 100%),
-    var(--nimg);
   background-size: cover;
   background-position:center;
   transform: scale(1.02);
@@ -818,7 +819,7 @@
   text-transform: uppercase;
   font-size: 16px;
 }
-
+.newsLeft{ --nimg: var(--newsletterImg); }
 .newsLeft p{
   margin-top: 10px;
   color: rgba(255,255,255,.86);
