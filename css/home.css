@@ -805,6 +805,9 @@
   content:"";
   position:absolute;
   inset:0;
+  background-image:
+    linear-gradient(180deg, rgba(0,0,0,.20) 0%, rgba(0,0,0,.62) 100%),
+    var(--newsletterImg);
   background-size: cover;
   background-position:center;
   transform: scale(1.02);
@@ -819,7 +822,7 @@
   text-transform: uppercase;
   font-size: 16px;
 }
-.newsLeft{ --nimg: var(--newsletterImg); }
+
 .newsLeft p{
   margin-top: 10px;
   color: rgba(255,255,255,.86);
