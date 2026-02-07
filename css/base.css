@@ -1,11 +1,12 @@
 /* ============================================================
    base.css ✅ GLOBAL (2026) — MOBILE MENU PRO (DEPURADO)
-   - Sistema de spacing consistente (desktop/móvil)
+   - Tipografía + spacing consistente
    - Header nítido en mobile (sin blur feo)
-   - Hamburger top-right (animación a X por aria-expanded)
+   - Hamburger top-right (animación X por aria-expanded)
    - Drawer full-screen desde la derecha (sin gaps)
    - Backdrop + scroll lock friendly
    - Botones, footer, toasts, modals, promo modal, loader
+   - ✅ Forms global: labels / inputs con ritmo uniforme
 ============================================================ */
 
 :root{
@@ -15,9 +16,7 @@
   --line: rgba(18,18,18,.12);
 
   --max: 1120px;
-
-  /* ✅ gutter responsivo (evita descuadres en móvil) */
-  --gutter: clamp(16px, 4vw, 22px);
+  --gutter: 20px;
 
   --radius: 10px;
   --radius-xl: 14px;
@@ -43,9 +42,12 @@
   --header-z: 50;
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; }
-html,body{ overflow-x:hidden; } /* ✅ evita scroll horizontal accidental */
+@media (max-width: 420px){
+  :root{ --gutter: 16px; }
+}
+
+*{ box-sizing:border-box }
+html,body{ height:100% }
 
 body{
   margin:0;
@@ -55,20 +57,37 @@ body{
   letter-spacing:.2px;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  line-height: 1.5; /* ✅ ritmo vertical más consistente */
+  overflow-x: hidden;
 }
 
-a{ color:inherit; }
+a{ color:inherit }
 a:focus-visible{ box-shadow: var(--focusRing); outline:none; border-radius: 10px; }
 button:focus-visible{ box-shadow: var(--focusRing); outline:none; }
 
-img{ max-width:100%; display:block; }
-p{ margin:0; }
-h1,h2,h3,h4{ margin:0; }
+img{ max-width:100%; display:block }
+p{ margin:0 }
+h1,h2,h3,h4{ margin:0 }
 
 .container{
   width: min(var(--max), calc(100% - (var(--gutter) * 2)));
   margin: 0 auto;
+}
+
+/* ============================================================
+   ✅ Forms global (para corregir labels pegados / spacing desigual)
+============================================================ */
+label{
+  display:block;
+  margin: 0 0 8px;
+}
+
+input, textarea, select{
+  margin: 0;
+  font: inherit;
+}
+
+input::placeholder, textarea::placeholder{
+  color: rgba(18,18,18,.45);
 }
 
 /* ============================================================
@@ -119,7 +138,6 @@ body.is-loading .pageLoader{
 /* ============================================================
    ✅ HEADER + NAV (ÚNICO SISTEMA)
 ============================================================ */
-
 .siteHeader{
   position: sticky;
   top: 0;
@@ -130,7 +148,6 @@ body.is-loading .pageLoader{
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* ✅ FIX: en mobile se percibe “borroso” -> sólido y sin blur */
 @media (max-width: 900px){
   .siteHeader{
     background: #fff;
@@ -145,6 +162,11 @@ body.is-loading .pageLoader{
   justify-content:space-between;
   gap: 16px;
   min-height: 72px;
+  padding: 0;
+}
+
+@media (max-width: 900px){
+  .headerRow{ min-height: 64px; }
 }
 
 /* Brand */
@@ -189,9 +211,8 @@ body.is-loading .pageLoader{
 /* ============================================================
    ✅ Hamburguesa (SOLO MÓVIL)
 ============================================================ */
-
 .hamburgerFab{
-  display:none; /* desktop: oculto */
+  display:none;
   width: 44px;
   height: 44px;
   border: 0;
@@ -236,16 +257,14 @@ body.is-loading .pageLoader{
   transform: rotate(-45deg);
 }
 
-/* Responsive: mobile muestra hamburguesa y oculta navDesktop */
 @media (max-width: 900px){
   .navDesktop{ display:none; }
   .hamburgerFab{ display:inline-flex; }
 }
 
 /* ============================================================
-   Drawer Backdrop + Drawer (full-screen desde la derecha)
+   Drawer Backdrop + Drawer
 ============================================================ */
-
 .drawerBackdrop{
   position: fixed;
   inset: 0;
@@ -255,18 +274,15 @@ body.is-loading .pageLoader{
   z-index: var(--drawer-z-backdrop);
 }
 
-/* Drawer full-screen */
 .mobileDrawer{
   position: fixed;
   top: 0;
   right: 0;
   height: 100dvh;
   width: 100vw;
-
   background: var(--drawer-bg);
   color: #fff;
   z-index: var(--drawer-z);
-
   transform: translateX(100%);
   transition: transform .30s cubic-bezier(.2,.9,.25,1);
 
@@ -280,16 +296,8 @@ body.is-loading .pageLoader{
 }
 
 .mobileDrawer.is-open{ transform: translateX(0); }
-
-/* ✅ Ocultar X izquierda (solo usamos la X del hamburguesa) */
 .drawerClose{ display:none !important; }
 
-/* Safe area iOS */
-@supports(padding: env(safe-area-inset-bottom)){
-  .mobileDrawer{ padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
-}
-
-/* Links grandes centrados */
 .drawerNav{
   width: min(520px, 92vw);
   display:flex;
@@ -496,6 +504,7 @@ body.is-loading .pageLoader{
   text-decoration:none;
   color: var(--muted);
 }
+
 .fList a:hover{ color: var(--text); }
 
 .footerBottom{
@@ -516,7 +525,8 @@ body.is-loading .pageLoader{
 }
 
 @media (max-width: 980px){
-  .footerCols{ grid-template-columns: 1fr 1fr; }
+  .footerCols{ grid-template-columns: 1fr 1fr; gap: 28px; }
+  .fText{ padding-right: 0; }
 }
 
 @media (max-width: 560px){
