@@ -9,6 +9,13 @@
    - El menú móvil (hamburger/drawer/backdrop) vive SOLO en base.css
 ============================================================ */
 
+/* ============================================================
+   Home vars (solo home)
+============================================================ */
+:root{
+  --heroShift: 50px;
+  --aboutBgImg: url("/assets/img/aboutBgImg.jpg");
+}
 
 /* ============================================================
    HERO / CARRUSEL
@@ -84,16 +91,8 @@
   align-items: center;
 }
 
-.heroLeft{ min-width:0; }
-.heroRight{ display:flex; justify-content:flex-end; }
-
-/* ============================================================
-   ✅ Ajuste: centrar un poco el texto y el panel (Wix-like)
-============================================================ */
-:root{ --heroShift: 50px; }
-
-.heroLeft{ transform: translateX(var(--heroShift)); }
-.heroRight{ transform: translateX(calc(var(--heroShift) * -1)); }
+.heroLeft{ min-width:0; transform: translateX(var(--heroShift)); }
+.heroRight{ display:flex; justify-content:flex-end; transform: translateX(calc(var(--heroShift) * -1)); }
 
 .heroMeta{
   display:flex;
@@ -200,7 +199,7 @@
   position:absolute;
   left:0;
   right:0;
-  bottom: 18px;
+  bottom: calc(14px + env(safe-area-inset-bottom, 0px));
   z-index: 5;
 }
 
@@ -247,8 +246,9 @@
 
 @media (max-width: 640px){
   .hero{ min-height: calc(92vh - 64px); }
-  .slide{ padding: 54px var(--gutter); }
+  .slide{ padding: 44px var(--gutter); }
   .heroTitle--wix{ font-size: clamp(34px, 10vw, 60px); line-height: .96; }
+  .heroDesc--wix{ font-size: 15px; line-height: 1.65; }
 }
 
 /* ============================================================
@@ -277,11 +277,13 @@
   text-transform: uppercase;
   font-size: clamp(18px, 2.2vw, 22px);
   line-height: 1.2;
+  color: var(--text);
 }
 
+/* ✅ sub global (no blanco, evita que se rompa móvil en otras secciones) */
 .sub{
   margin: 12px auto 0;
-  color: #ffff;
+  color: var(--muted);
   line-height:1.7;
   max-width: 70ch;
   font-size: var(--fs-14);
@@ -324,12 +326,14 @@
 }
 
 /* ============================================================
-   ✅ LISTADO PRO (Eventbrite/Meetup style) + REGLAS PEDIDAS
+   ✅ LISTADO PRO (Eventbrite/Meetup style)
 ============================================================ */
+
+/* ✅ Forzamos lista y el gap lo controla el contenedor */
 #monthGrid.grid{
   display:flex !important;
   flex-direction:column;
-  gap: 0 !important;
+  gap: 12px !important;
 }
 
 /* fila principal */
@@ -339,7 +343,6 @@
   background:#fff;
   overflow:hidden;
   box-shadow: 0 10px 30px rgba(0,0,0,.04);
-  margin-bottom: 12px;
 }
 
 /* layout */
@@ -372,7 +375,7 @@
   flex-wrap:wrap;
 }
 
-/* ✅ pill del tipo más pequeño */
+/* pill tipo */
 .eventPill{
   display:inline-flex;
   align-items:center;
@@ -410,7 +413,7 @@
   overflow: hidden;
 }
 
-/* ✅ meta abajo: Lugar • Fecha • Horario */
+/* meta abajo */
 .eventRowMeta{
   margin: 10px 0 0;
   color: var(--muted);
@@ -448,29 +451,20 @@
   border-color: rgba(18,18,18,.10);
 }
 
-/* ✅ CTA NEGRO */
+/* CTA negro */
 .eventRowRight .btn.primary.inviteBlack{
   background: #000 !important;
   border-color: #000 !important;
   color: #fff !important;
   border-width: 2px;
 }
+.eventRowRight .btn.primary.inviteBlack:hover{ filter: brightness(1.06); }
 
-.eventRowRight .btn.primary.inviteBlack:hover{
-  filter: brightness(1.06);
-}
+.eventRow.isSoldOut{ opacity: .92; filter: saturate(.92); }
 
-.eventRow.isSoldOut{
-  opacity: .92;
-  filter: saturate(.92);
-}
-
-/* =============== MOBILE FIX (ordenado + UX) =============== */
+/* mobile */
 @media (max-width: 760px){
-  .eventRow{
-    border-radius: 16px;
-  }
-
+  .eventRow{ border-radius: 16px; }
   .eventRowMain{
     flex-direction: column;
     align-items: stretch;
@@ -478,14 +472,12 @@
     gap: 12px;
   }
 
-  /* meta se vuelve multilínea si no cabe */
   .eventRowMeta{
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
   }
 
-  /* acciones en 2 columnas */
   .eventRowRight{
     display:grid;
     grid-template-columns: 1fr 1fr;
@@ -499,11 +491,8 @@
   }
 }
 
-/* súper móvil: apila */
 @media (max-width: 420px){
-  .eventRowRight{
-    grid-template-columns: 1fr;
-  }
+  .eventRowRight{ grid-template-columns: 1fr; }
 }
 
 /* Estado vacío */
@@ -543,34 +532,49 @@
 }
 
 /* ============================================================
-   ✅ ABOUT — EFECTO COMO EL VIDEO (FOTO “FIJA” DETRÁS + PANELES AL FRENTE)
-   Clave del efecto:
-   1) Background con attachment: fixed (parallax simple)
-   2) Velos (overlay) para que no se sienta “encima”
-   3) Cards con glass suave para profundidad
-   Nota: en iOS el fixed puede degradar; igual se ve bien (solo sin parallax).
+   ✅ ABOUT — EFECTO COMO VIDEO (FOTO FIJA DETRÁS + PANELES AL FRENTE)
 ============================================================ */
-
-/* ✅ Por ahora usa una imagen que YA existe en assets */
-:root{
-  --aboutBgImg: url("/assets/img/aboutBgImg.jpg");
-}
-
-/* scene */
 #about.section{
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  padding: 96px 0;                 /* más aire como el video */
+  padding: 96px 0;
+
   background-image: var(--aboutBgImg);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-attachment: fixed;    /* ✅ EFECTO “se queda detrás” */
+  background-attachment: fixed;
 }
+
 #about.section > .container{
   position: relative;
   z-index: 1;
+}
+
+/* Título y subtítulo claros SOLO en About */
+#about .h2{
+  color: rgba(255,255,255,.95);
+  text-shadow: 0 10px 30px rgba(0,0,0,.28);
+}
+#about .sub{
+  color: rgba(255,255,255,.88);
+  text-shadow: 0 10px 30px rgba(0,0,0,.28);
+}
+
+/* velo oscuro suave + blur */
+#about.section::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  backdrop-filter: blur(5px) saturate(1.05) contrast(1.02);
+  -webkit-backdrop-filter: blur(5px) saturate(1.05) contrast(1.02);
+
+  background:
+    radial-gradient(70% 60% at 50% 28%, rgba(0,0,0,.12), rgba(0,0,0,0) 62%),
+    linear-gradient(180deg, rgba(0,0,0,.08) 0%, rgba(0,0,0,.14) 58%, rgba(0,0,0,.20) 100%);
+  z-index: 0;
+  pointer-events:none;
 }
 
 /* grid cards */
@@ -579,29 +583,6 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 14px;
   margin-top: 26px;
-}
-
-/* ABOUT – título en blanco sobre fondo oscuro */
-#about .h2{
-  color: rgba(255,255,255,.95);
-}
-
-#about.section::before{
-  content:"";
-  position:absolute;
-  inset:0;
-
-  /* blur del fondo */
-  backdrop-filter: blur(5px) saturate(1.05) contrast(1.02);
-  -webkit-backdrop-filter: blur(5px) saturate(1.05) contrast(1.02);
-
-  /* ✅ velo oscuro suave (no mucho) */
-  background:
-    radial-gradient(70% 60% at 50% 28%, rgba(0,0,0,.10), rgba(0,0,0,0) 62%),
-    linear-gradient(180deg, rgba(0,0,0,.06) 0%, rgba(0,0,0,.12) 58%, rgba(0,0,0,.18) 100%);
-
-  z-index: 0;
-  pointer-events:none;
 }
 
 @media (max-width: 980px){
@@ -621,7 +602,6 @@
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* si el user prefiere menos transparencia */
 @media (prefers-reduced-transparency: reduce){
   .aboutCard{ background: rgba(255,255,255,.96); backdrop-filter: none; }
 }
@@ -649,9 +629,14 @@
   font-size: var(--fs-14);
 }
 
-/* Ajuste mobile: más compacto */
+/* iOS-friendly */
 @media (max-width: 640px){
-  #about.section{ padding: 72px 0; background-attachment: scroll; } /* iOS-friendly */
+  #about.section{
+    padding: 68px 0;
+    background-attachment: scroll;
+  }
+  .aboutCard{ padding: 16px; border-radius: 16px; }
+  .aboutGrid{ gap: 12px; }
 }
 
 /* ============================================================
@@ -683,7 +668,6 @@
 @media (max-width: 980px){
   .galleryPreviewGrid{ grid-template-columns: repeat(3, 1fr); }
 }
-
 @media (max-width: 620px){
   .galleryPreviewGrid{ grid-template-columns: repeat(2, 1fr); }
 }
