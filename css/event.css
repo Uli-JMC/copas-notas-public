@@ -1,6 +1,7 @@
 /* ============================================================
    event.css ✅ EVENT PAGE (2026) — ALINEADO A base.css/home.css
    ✅ FULL UPDATE (TIPO + ESPACIADOS + RESPONSIVE PRO)
+   ✅ BOTONES ACCIONES = ESTILO HOME (pill outline + primary suave)
    - Mantiene tu HTML/JS intactos
    - Tipografía igual “feel” que home (sans + uppercase + tracking)
    - Hero overlay suave + card glass
@@ -147,59 +148,79 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
 /* ============================================================
    Botones (fallback si base.css no estuviera)
+   ✅ Ajustados para que "Ver otros eventos" e "Inscribirme"
+      se vean como los del home (pill, outline suave + primary)
 ============================================================ */
 .btn{
-  border: 1px solid rgba(18,18,18,.12);
-  background: transparent;
-  color: var(--event-text);
-  padding: 11px 14px;
+  border: 1px solid rgba(18,18,18,.16);
+  background: rgba(18,18,18,.02);
+  color: rgba(18,18,18,.88);
+  padding: 12px 18px;
   border-radius: 999px;
-  font-size: 13px;
-  letter-spacing:.12em;
+  font-size: 12px;
+  letter-spacing:.18em;
   text-transform: uppercase;
   text-decoration:none;
   display:inline-flex;
   align-items:center;
   justify-content:center;
   gap:10px;
-  transition: transform .15s ease, background .15s ease, border-color .15s ease;
+
+  transition: transform .15s ease, background .15s ease, border-color .15s ease, filter .15s ease;
   outline:none;
   cursor:pointer;
   user-select:none;
   white-space:nowrap;
-  min-height: 44px;
+  min-height: 46px;
+  line-height: 1;
+
+  /* ✅ que se sientan más “home” */
+  font-weight: 900;
 }
 
 .btn:hover{
   transform: translateY(-1px);
-  border-color: rgba(18,18,18,.22);
+  border-color: rgba(18,18,18,.24);
   background: rgba(18,18,18,.04);
 }
 
-.btn:focus-visible{ box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28)); }
+.btn:active{
+  transform: translateY(0);
+}
 
+.btn:focus-visible{
+  box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28));
+}
+
+/* ✅ Primary estilo home: relleno claro + borde un poco más fuerte */
 .btn.primary{
-  background: rgba(18,18,18,.06);
-  border-color: rgba(18,18,18,.16);
+  background: rgba(18,18,18,.08);
+  border-color: rgba(18,18,18,.22);
+  color: rgba(18,18,18,.92);
 }
 
 .btn.primary:hover{
-  background: rgba(18,18,18,.08);
-  border-color: rgba(18,18,18,.22);
+  background: rgba(18,18,18,.10);
+  border-color: rgba(18,18,18,.28);
+  filter: brightness(1.02);
 }
 
-.btn[aria-disabled="true"]{
+.btn[aria-disabled="true"],
+.btn:disabled{
   opacity:.55;
   pointer-events:none;
 }
 
+/* ============================================================
+   Icon buttons (footer)
+============================================================ */
 .icon-btn{
   width:44px; height:44px;
   border-radius: 999px;
-  border:1px solid rgba(18,18,18,.12);
+  border:1px solid rgba(18,18,18,.14);
   display:grid;
   place-items:center;
-  background: transparent;
+  background: rgba(18,18,18,.02);
   color: var(--event-text);
   text-decoration:none;
   transition: transform .15s ease, background .15s ease, border-color .15s ease;
@@ -213,7 +234,9 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   transform: translateY(-1px);
 }
 
-.icon-btn:focus-visible{ box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28)); }
+.icon-btn:focus-visible{
+  box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28));
+}
 
 /* ============================================================
    Hero
@@ -297,6 +320,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   text-transform: uppercase;
   white-space:nowrap;
   max-width: 100%;
+  font-weight: 900;
 }
 
 .dot{
@@ -407,23 +431,23 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
 .datePick{
   border-radius: 999px;
-  border:1px solid rgba(18,18,18,.12);
-  background: rgba(18,18,18,.04);
-  color: rgba(18,18,18,.92);
-  padding: 10px 12px;
+  border:1px solid rgba(18,18,18,.14);
+  background: rgba(18,18,18,.02);
+  color: rgba(18,18,18,.88);
+  padding: 12px 18px;
   font-size: 12px;
   font-weight: 900;
-  letter-spacing:.14em;
+  letter-spacing:.18em;
   text-transform: uppercase;
   cursor:pointer;
   flex: 0 0 auto;
   white-space: nowrap;
-  min-height: 44px;
+  min-height: 46px;
 }
 
 .datePick:hover{
-  background: rgba(18,18,18,.06);
-  border-color: rgba(18,18,18,.18);
+  background: rgba(18,18,18,.04);
+  border-color: rgba(18,18,18,.22);
 }
 
 .datePick:focus-visible{
@@ -450,7 +474,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
 /* para el cambio que pediste (leyenda abajo) */
 .noticeLegend{
-  margin: 0 0;
+  margin: 0;
   color: rgba(18,18,18,.68);
   line-height: 1.55;
   font-size: 14px;
@@ -516,12 +540,18 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   text-align:right;
 }
 
-/* Actions */
+/* Actions (botones del panel de Detalles) */
 .actions{
   margin-top: 14px;
   display:flex;
-  gap:10px;
+  gap:12px;
   flex-wrap:wrap;
+}
+
+.actions .btn{
+  /* ✅ para que se parezcan al home: más “aire” y tamaño consistente */
+  min-height: 48px;
+  padding: 12px 20px;
 }
 
 .fine{
@@ -606,23 +636,17 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   .miniCards{ grid-template-columns: 1fr; }
 }
 
-/* ✅ breakpoint extra para tablets (botones/kv más estables) */
+/* ✅ tablets: acciones en 2 columnas */
 @media (max-width: 760px){
   .actions{
     display:grid;
     grid-template-columns: 1fr 1fr;
-    gap:10px;
+    gap:12px;
   }
-  .actions .btn{
-    width:100%;
-  }
+  .actions .btn{ width:100%; }
 
-  .kvRow{
-    align-items:flex-start;
-  }
-  .kvValue{
-    text-align:right;
-  }
+  .kvRow{ align-items:flex-start; }
+  .kvValue{ text-align:right; }
 }
 
 @media (max-width: 640px){
@@ -642,7 +666,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   }
 
   .desc{ font-size: 14px; }
-
   .panel{ padding: 14px; }
 
   .dateItem{
@@ -652,7 +675,8 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
   .datePick{
     width: 100%;
-    padding: 12px 12px;
+    padding: 12px 20px;
+    min-height: 48px;
   }
 
   .actions{
