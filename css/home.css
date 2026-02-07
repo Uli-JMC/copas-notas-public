@@ -521,7 +521,7 @@
    ✅ ABOUT — EFECTO COMO VIDEO (fondo fijo + overlay oscuro suave)
 ============================================================ */
 :root{
-  --aboutBgImg: url("/assets/img/aboutBgImg.jpg");
+  --aboutImg: url("/assets/img/about-img.jpg");
 }
 
 #about.section{
@@ -529,7 +529,7 @@
   overflow: hidden;
   isolation: isolate;
   padding: 96px 0;
-  background-image: var(--aboutBgImg);
+  background-image: var(--aboutImg);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
