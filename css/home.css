@@ -7,6 +7,11 @@
    - Testimonial + Newsletter
    ⚠️ IMPORTANTE:
    - El menú móvil (hamburger/drawer/backdrop) vive SOLO en base.css
+
+   ✅ PATCH 2026-02-07:
+   - FIX #1: separación real entre eventos (tu HTML NO tiene .grid en #monthGrid)
+   - FIX #2: desktop Nombre/Apellido alineados (evita margin-top heredado en .formField dentro de .formRow)
+   - ✅ NO toca el comportamiento mobile (solo corrige el row desktop)
 ============================================================ */
 
 /* ============================================================
@@ -330,23 +335,14 @@
 
 /* ============================================================
    ✅ LISTADO PRO (Eventbrite/Meetup style)
-   ✅ FIX REAL: tu HTML NO tiene .grid → aplicamos al ID directo
+   ✅ FIX separación real entre eventos (desktop + mobile)
+   ⚠️ Tu HTML: <div class="eventsList" id="monthGrid"...> (NO tiene clase .grid)
 ============================================================ */
-
-/* ✅ ESTE ES EL FIX CLAVE (y no rompe nada) */
 #monthGrid{
-  display:flex;
-  flex-direction:column;
-  gap: 16px;            /* ✅ separación real */
-  padding-top: 6px;     /* ✅ respira del selector */
-}
-
-/* Por si en algún punto volvés a usar .grid */
-#monthGrid.grid{
   display:flex !important;
   flex-direction:column;
-  gap: 16px !important;
-  padding-top: 6px;
+  gap: 14px !important;            /* ✅ separación real */
+  padding-top: 6px;                 /* ✅ respira del selector */
 }
 
 .eventRow{
@@ -355,7 +351,7 @@
   background:#fff;
   overflow:hidden;
   box-shadow: 0 10px 30px rgba(0,0,0,.04);
-  margin: 0;
+  margin: 0;                        /* ✅ evita inconsistencias */
 }
 
 .eventRowMain{
@@ -363,7 +359,7 @@
   gap: 18px;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 18px;
+  padding: 18px 18px;               /* ✅ más pro */
   transition: background .15s ease;
 }
 
@@ -474,7 +470,7 @@
 
 /* Mobile */
 @media (max-width: 760px){
-  #monthGrid{ gap: 12px; }
+  #monthGrid{ gap: 12px !important; }
 
   .eventRow{ border-radius: 16px; }
 
@@ -771,7 +767,6 @@
 
 /* ============================================================
    Newsletter (y base de formularios tipo contacto)
-   ✅ FIX: espaciado real entre label/input y entre campos
 ============================================================ */
 .newsletter{ padding: 72px 0; }
 
@@ -847,26 +842,34 @@
   font-size: 16px;
 }
 
-/* ✅ FIX: más aire entre bloques del form */
-.newsForm .formRow{ margin-top: 16px; }
-.newsForm .formField{ margin-top: 16px; }
-.newsForm .formField:first-child{ margin-top: 0; }
-
 .formRow{
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+  margin-top: 14px;
+  align-items: start; /* ✅ evita “bajar” una columna por diferencias de alto */
 }
 
 @media (max-width: 520px){
   .formRow{ grid-template-columns: 1fr; }
 }
 
-/* ✅ FIX: label separado del input (más pro) */
+/* ✅ FIX desktop: si algún CSS global te mete margin-top en .formField,
+   lo anulamos SOLO dentro del row (Nombre/Apellido) */
+.formRow .formField{
+  margin-top: 0 !important;
+  align-self: start;
+}
+
+/* Espaciado para campos sueltos (Correo/Mensaje) sin afectar el row */
+.newsForm > .formField{
+  margin-top: 14px;
+}
+
 .formField{
   display:flex;
   flex-direction:column;
-  gap: 10px; /* antes 8px */
+  gap: 8px;
 }
 
 .formField label{
@@ -882,7 +885,7 @@
   border: 1px solid rgba(18,18,18,.14);
   background: #fff;
   border-radius: 14px;
-  padding: 12px 14px; /* un toque más pro */
+  padding: 12px 12px;
   font-size: var(--fs-14);
   outline:none;
 }
@@ -894,14 +897,14 @@
 }
 
 .formField textarea{
-  min-height: 124px;
+  min-height: 118px;
   resize: vertical;
 }
 
 .formActions{
   display:flex;
   justify-content:flex-end;
-  margin-top: 16px;
+  margin-top: 14px;
 }
 
 .formBtn{
