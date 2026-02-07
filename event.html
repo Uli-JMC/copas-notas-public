@@ -8,6 +8,7 @@
   <title>Evento | Entre Copas & Notas</title>
   <meta name="description" content="Detalle del evento: fechas, cupos y descripción." />
 
+  <link rel="stylesheet" href="./css/base.css" />
   <link rel="stylesheet" href="./css/event.css" />
 </head>
 
@@ -18,10 +19,16 @@
   <!-- ✅ Loader suave -->
   <div id="pageLoader" aria-hidden="true"
     style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);backdrop-filter: blur(6px);z-index:9999;opacity:0;pointer-events:none;transition:opacity .2s ease;">
-    <div style="width:54px;height:54px;border-radius:999px;border:3px solid rgba(255,255,255,.18);border-top-color:rgba(255,255,255,.75);animation:spin 1s linear infinite;"></div>
+    <div
+      style="width:54px;height:54px;border-radius:999px;border:3px solid rgba(255,255,255,.18);border-top-color:rgba(255,255,255,.75);animation:spin 1s linear infinite;">
+    </div>
   </div>
   <style>
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
   </style>
 
   <!-- Header -->
@@ -61,7 +68,8 @@
 
             <!-- ✅ Estado: disponible -->
             <div class="notice" id="availNotice" hidden>
-              <span class="badge" style="background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);">Cupos disponibles</span>
+              <span class="badge" style="background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);">Cupos
+                disponibles</span>
               <span>Inscribite y disfrutá de esta experiencia.</span>
             </div>
 
@@ -73,7 +81,8 @@
 
             <!-- ✅ Estado: por confirmar -->
             <div class="notice" id="pendingNotice" hidden>
-              <span class="badge" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);">Cupos por confirmar</span>
+              <span class="badge" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);">Cupos
+                por confirmar</span>
               <span>Estamos actualizando las fechas y cupos. Probá en unos segundos.</span>
             </div>
           </div>
@@ -130,8 +139,8 @@
             href="https://wa.me/50688323801?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
             target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
 
-          <a class="icon-btn" href="https://instagram.com/entrecopasynotas"
-            target="_blank" rel="noopener" aria-label="Instagram">IG</a>
+          <a class="icon-btn" href="https://instagram.com/entrecopasynotas" target="_blank" rel="noopener"
+            aria-label="Instagram">IG</a>
         </div>
       </div>
     </div>
