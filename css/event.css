@@ -1,7 +1,7 @@
 /* ============================================================
    event.css ✅ EVENT PAGE (2026) — ALINEADO A base.css/home.css
    ✅ FULL UPDATE (TIPO + ESPACIADOS + RESPONSIVE PRO)
-   ✅ BOTONES ACCIONES = ESTILO HOME (pill outline + primary suave)
+   ✅ BOTONES ACCIONES = ESTILO HOME (outline suave + primary negro tipo inviteBlack)
    - Mantiene tu HTML/JS intactos
    - Tipografía igual “feel” que home (sans + uppercase + tracking)
    - Hero overlay suave + card glass
@@ -148,8 +148,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
 /* ============================================================
    Botones (fallback si base.css no estuviera)
-   ✅ Ajustados para que "Ver otros eventos" e "Inscribirme"
-      se vean como los del home (pill, outline suave + primary)
+   ✅ Base neutra
 ============================================================ */
 .btn{
   border: 1px solid rgba(18,18,18,.16);
@@ -173,8 +172,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   white-space:nowrap;
   min-height: 46px;
   line-height: 1;
-
-  /* ✅ que se sientan más “home” */
   font-weight: 900;
 }
 
@@ -184,15 +181,12 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   background: rgba(18,18,18,.04);
 }
 
-.btn:active{
-  transform: translateY(0);
-}
+.btn:active{ transform: translateY(0); }
 
 .btn:focus-visible{
   box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28));
 }
 
-/* ✅ Primary estilo home: relleno claro + borde un poco más fuerte */
 .btn.primary{
   background: rgba(18,18,18,.08);
   border-color: rgba(18,18,18,.22);
@@ -548,10 +542,34 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   flex-wrap:wrap;
 }
 
+/* ============================================================
+   ✅ BOTONES ACTIONS = IGUAL A HOME (eventRowRight)
+   - secundario gris suave
+   - primary NEGRO tipo .primary.inviteBlack
+============================================================ */
 .actions .btn{
-  /* ✅ para que se parezcan al home: más “aire” y tamaño consistente */
-  min-height: 48px;
-  padding: 12px 20px;
+  min-height: 44px;
+  padding: 11px 16px;
+  border-radius: 14px;
+}
+
+/* secundario (igual a home) */
+.actions .btn:not(.primary){
+  background: rgba(18, 18, 18, .03);
+  border-color: rgba(18, 18, 18, .10);
+  color: rgba(18,18,18,.88);
+}
+
+/* primary negro (igual a home inviteBlack) */
+.actions .btn.primary{
+  background: #000 !important;
+  border-color: #000 !important;
+  color: #fff !important;
+  border-width: 2px;
+}
+
+.actions .btn.primary:hover{
+  filter: brightness(1.06);
 }
 
 .fine{
@@ -679,9 +697,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
     min-height: 48px;
   }
 
-  .actions{
-    grid-template-columns: 1fr;
-  }
+  .actions{ grid-template-columns: 1fr; }
 
   .footerRow{
     flex-direction: column;
