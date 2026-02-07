@@ -1,13 +1,15 @@
 /* ============================================================
    event.css ✅ EVENT PAGE (2026) — ALINEADO A base.css/home.css
+   ✅ FULL UPDATE (TIPO + ESPACIADOS + RESPONSIVE PRO)
    - Mantiene tu HTML/JS intactos
-   - Fondo claro + cards suaves + sombras consistentes
-   - Header sticky limpio
-   - Hero con overlay elegante (sin “negro pesado”)
+   - Tipografía igual “feel” que home (sans + uppercase + tracking)
+   - Hero overlay suave + card glass
+   - Grid/panels con espaciado consistente
+   - Responsive más estable (760/980/640/420)
 ============================================================ */
 
 :root{
-  /* Hereda tokens de base.css, pero definimos fallback por si falta */
+  /* Hereda tokens de base.css, fallback si falta */
   --event-bg: var(--bg, #ffffff);
   --event-text: var(--text, rgba(18,18,18,.92));
   --event-muted: var(--muted, rgba(18,18,18,.62));
@@ -16,6 +18,10 @@
   --event-radius: var(--radius-xl, 18px);
   --event-shadow: var(--shadow-mid, 0 22px 60px rgba(0,0,0,.20));
   --event-shadow-soft: var(--shadow-soft, 0 18px 50px rgba(0,0,0,.12));
+
+  /* espaciados consistentes */
+  --event-pad: 20px;
+  --event-gap: 14px;
 }
 
 /* ============================================================
@@ -42,14 +48,12 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Header (tu topbar)
+   Header (topbar)
 ============================================================ */
 .topbar{
   position: sticky;
   top:0;
   z-index: 60;
-
-  /* estilo tipo base.css */
   background: rgba(255,255,255,.92);
   border-bottom: 1px solid rgba(18,18,18,.10);
   backdrop-filter: blur(10px);
@@ -91,7 +95,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   border: 1px solid rgba(18,18,18,.14);
   background: rgba(18,18,18,.04);
   flex: 0 0 auto;
-  transition: .15s ease;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease;
 }
 
 .brand:hover .backIcon{
@@ -108,7 +112,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   white-space: nowrap;
 }
 
-/* right brand */
+/* right brand (texto sin logo si lo quitás en HTML) */
 .brandRight{
   display:flex;
   align-items:center;
@@ -117,6 +121,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   min-width: 0;
 }
 
+/* si el img existe (por si lo reactivás) */
 .brandRight img{
   width: 34px;
   height: 34px;
@@ -125,21 +130,23 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   filter: drop-shadow(0 8px 20px rgba(0,0,0,.08));
 }
 
+/* ✅ Tipografía alineada a home (no serif) */
 .brandRight span{
-  font-family: ui-serif, Georgia, "Times New Roman", Times, serif;
-  letter-spacing:.05em;
-  font-weight:600;
-  font-size: 16px;
+  font-family: inherit;
+  letter-spacing:.10em;
+  font-weight: 900;
+  font-size: 13px;
+  text-transform: uppercase;
   line-height:1;
   white-space:nowrap;
   overflow:hidden;
   text-overflow: ellipsis;
   max-width: 44vw;
+  color: rgba(18,18,18,.86);
 }
 
 /* ============================================================
-   Botones (si base.css no estuviera cargado)
-   - Si base.css sí está, esto solo complementa en event
+   Botones (fallback si base.css no estuviera)
 ============================================================ */
 .btn{
   border: 1px solid rgba(18,18,18,.12);
@@ -195,7 +202,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   background: transparent;
   color: var(--event-text);
   text-decoration:none;
-  transition: .15s ease;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease;
   outline:none;
   flex: 0 0 auto;
 }
@@ -220,16 +227,14 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   background: #fff;
 }
 
+/* background overlay */
 .heroBg{
   position:absolute;
   inset:0;
-
-  /* Overlay tipo home (suave + premium) */
   background:
     radial-gradient(70% 55% at 35% 35%, rgba(0,0,0,.18), rgba(0,0,0,0) 62%),
     linear-gradient(180deg, rgba(0,0,0,.18) 0%, rgba(0,0,0,.32) 55%, rgba(0,0,0,.44) 100%),
     var(--bgimg);
-
   background-size: cover;
   background-position: center;
   transform: scale(1.02);
@@ -242,13 +247,13 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   padding: 34px 0 58px;
 }
 
-/* Card principal */
+/* card principal */
 .heroCard{
   border-radius: calc(var(--event-radius) + 6px);
   border: 1px solid rgba(255,255,255,.16);
   background: rgba(255,255,255,.92);
   box-shadow: var(--event-shadow);
-  padding: 20px;
+  padding: var(--event-pad);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -261,11 +266,10 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   }
 }
 
-/* Sold-out */
-.heroCard.isSoldOut{
-  filter: saturate(.92);
-}
+/* sold out */
+.heroCard.isSoldOut{ filter: saturate(.92); }
 
+/* meta pills */
 .heroMeta{
   display:flex;
   align-items:center;
@@ -302,16 +306,19 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   display:inline-block;
 }
 
+/* ✅ TÍTULO igual feel home */
 .title{
   margin: 12px 0 6px;
-  font-family: ui-serif, Georgia, "Times New Roman", Times, serif;
-  font-weight: 700;
-  letter-spacing:.02em;
+  font-family: inherit;
+  font-weight: 900;
+  letter-spacing: .02em;
+  text-transform: uppercase;
   font-size: clamp(30px, 4.4vw, 54px);
-  line-height: 1.05;
+  line-height: 1.02;
   color: rgba(18,18,18,.92);
 }
 
+/* descripción */
 .desc{
   margin: 0 0 18px;
   color: rgba(18,18,18,.68);
@@ -326,7 +333,8 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 .grid{
   display:grid;
   grid-template-columns: 1.05fr .95fr;
-  gap: 14px;
+  gap: var(--event-gap);
+  align-items: start;
 }
 
 .panel{
@@ -337,20 +345,23 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   box-shadow: var(--event-shadow-soft);
 }
 
+/* ✅ H2 alineado a home */
 .h2{
   margin:0;
-  font-family: ui-serif, Georgia, "Times New Roman", Times, serif;
-  font-weight:700;
-  letter-spacing:.02em;
-  font-size: 22px;
+  font-family: inherit;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: clamp(18px, 2.2vw, 22px);
+  line-height: 1.2;
   color: rgba(18,18,18,.92);
 }
 
 .sub{
-  margin: 8px 0 14px;
+  margin: 10px 0 14px;
   color: rgba(18,18,18,.62);
-  line-height: 1.6;
-  font-size: 14px;
+  line-height: 1.7;
+  font-size: var(--fs-14, 14px);
 }
 
 /* ============================================================
@@ -383,6 +394,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
 .dateMain{
   font-size: 12px;
+  font-weight: 900;
   letter-spacing:.14em;
   text-transform: uppercase;
   color: rgba(18,18,18,.90);
@@ -401,6 +413,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   color: rgba(18,18,18,.92);
   padding: 10px 12px;
   font-size: 12px;
+  font-weight: 900;
   letter-spacing:.14em;
   text-transform: uppercase;
   cursor:pointer;
@@ -419,7 +432,9 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   outline: none;
 }
 
-/* Notices */
+/* ============================================================
+   Notices (con leyenda opcional debajo)
+============================================================ */
 .notice{
   margin-top: 14px;
   display:flex;
@@ -434,6 +449,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   line-height: 1.55;
 }
 
+/* para el cambio que pediste (leyenda abajo) */
 .noticeLegend{
   margin: 8px 0 0;
   color: rgba(18,18,18,.68);
@@ -450,6 +466,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   border:1px solid rgba(18,18,18,.12);
   background: rgba(18,18,18,.04);
   font-size: 11px;
+  font-weight: 900;
   letter-spacing:.14em;
   text-transform: uppercase;
   color: rgba(18,18,18,.92);
@@ -486,6 +503,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 .kvLabel{
   color: rgba(18,18,18,.62);
   font-size: 12px;
+  font-weight: 900;
   letter-spacing:.14em;
   text-transform: uppercase;
 }
@@ -493,6 +511,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 .kvValue{
   color: rgba(18,18,18,.92);
   font-size: 12px;
+  font-weight: 900;
   letter-spacing:.10em;
   text-transform: uppercase;
   text-align:right;
@@ -526,7 +545,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 .miniCards{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: var(--event-gap);
 }
 
 .miniCard{
@@ -540,6 +559,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 .miniTitle{
   margin:0 0 10px;
   font-size: 12px;
+  font-weight: 900;
   letter-spacing:.18em;
   text-transform: uppercase;
   color: rgba(18,18,18,.92);
@@ -554,7 +574,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Footer (tu footer simple)
+   Footer
 ============================================================ */
 .footer{
   border-top: 1px solid rgba(18,18,18,.10);
@@ -580,21 +600,51 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Responsive
+   Responsive (mejor escalado)
 ============================================================ */
 @media (max-width: 980px){
   .grid{ grid-template-columns: 1fr; }
   .miniCards{ grid-template-columns: 1fr; }
 }
 
+/* ✅ breakpoint extra para tablets (botones/kv más estables) */
+@media (max-width: 760px){
+  .actions{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:10px;
+  }
+  .actions .btn{
+    width:100%;
+  }
+
+  .kvRow{
+    align-items:flex-start;
+  }
+  .kvValue{
+    text-align:right;
+  }
+}
+
 @media (max-width: 640px){
   .container{ width: calc(100% - 28px); }
+
+  .nav{ padding: 12px 0; }
+  .backIcon{ width: 40px; height: 40px; }
 
   .heroWrap{ padding: 22px 0 46px; }
   .heroCard{ padding: 14px; }
 
-  .brandRight span{ max-width: 48vw; font-size: 15px; }
+  .brandRight span{ max-width: 56vw; font-size: 12px; }
+
+  .title{
+    font-size: clamp(26px, 9vw, 44px);
+    line-height: 1.02;
+  }
+
   .desc{ font-size: 14px; }
+
+  .panel{ padding: 14px; }
 
   .dateItem{
     flex-direction: column;
@@ -606,16 +656,26 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
     padding: 12px 12px;
   }
 
+  .actions{
+    grid-template-columns: 1fr;
+  }
+
   .footerRow{
     flex-direction: column;
     align-items: center;
     text-align: center;
+    gap: 10px;
   }
 
   .footerRow .social{
     width: 100%;
     justify-content: center;
   }
+}
+
+@media (max-width: 420px){
+  .backText{ display:none; }
+  .brandRight span{ max-width: 62vw; }
 }
 
 /* ✅ Hard rule: hidden siempre oculta */
