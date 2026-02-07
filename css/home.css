@@ -603,7 +603,7 @@
   border: 1px solid rgba(18,18,18,.10);
   background: rgba(255,255,255,.55);
   margin-bottom: 12px;
-  text-align: center;
+  
 }
 
 .aboutTitle{
@@ -612,6 +612,7 @@
   text-transform: uppercase;
   font-size: 13px;
   color: rgba(18,18,18,.90);
+  text-align: center;
 }
 
 .aboutText{
