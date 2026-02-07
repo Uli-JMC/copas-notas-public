@@ -330,13 +330,23 @@
 
 /* ============================================================
    ✅ LISTADO PRO (Eventbrite/Meetup style)
-   ✅ FIX separación real entre eventos (desktop + mobile)
+   ✅ FIX REAL: tu HTML NO tiene .grid → aplicamos al ID directo
 ============================================================ */
+
+/* ✅ ESTE ES EL FIX CLAVE (y no rompe nada) */
+#monthGrid{
+  display:flex;
+  flex-direction:column;
+  gap: 16px;            /* ✅ separación real */
+  padding-top: 6px;     /* ✅ respira del selector */
+}
+
+/* Por si en algún punto volvés a usar .grid */
 #monthGrid.grid{
   display:flex !important;
   flex-direction:column;
-  gap: 14px !important;            /* ✅ separación real */
-  padding-top: 6px;                 /* ✅ respira del selector */
+  gap: 16px !important;
+  padding-top: 6px;
 }
 
 .eventRow{
@@ -345,7 +355,7 @@
   background:#fff;
   overflow:hidden;
   box-shadow: 0 10px 30px rgba(0,0,0,.04);
-  margin: 0;                        /* ✅ evita inconsistencias */
+  margin: 0;
 }
 
 .eventRowMain{
@@ -353,7 +363,7 @@
   gap: 18px;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 18px;               /* ✅ más pro */
+  padding: 18px 18px;
   transition: background .15s ease;
 }
 
@@ -464,7 +474,7 @@
 
 /* Mobile */
 @media (max-width: 760px){
-  #monthGrid.grid{ gap: 12px !important; }
+  #monthGrid{ gap: 12px; }
 
   .eventRow{ border-radius: 16px; }
 
@@ -761,6 +771,7 @@
 
 /* ============================================================
    Newsletter (y base de formularios tipo contacto)
+   ✅ FIX: espaciado real entre label/input y entre campos
 ============================================================ */
 .newsletter{ padding: 72px 0; }
 
@@ -836,18 +847,27 @@
   font-size: 16px;
 }
 
+/* ✅ FIX: más aire entre bloques del form */
+.newsForm .formRow{ margin-top: 16px; }
+.newsForm .formField{ margin-top: 16px; }
+.newsForm .formField:first-child{ margin-top: 0; }
+
 .formRow{
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin-top: 14px;
 }
 
 @media (max-width: 520px){
   .formRow{ grid-template-columns: 1fr; }
 }
 
-.formField{ display:flex; flex-direction:column; gap: 8px; }
+/* ✅ FIX: label separado del input (más pro) */
+.formField{
+  display:flex;
+  flex-direction:column;
+  gap: 10px; /* antes 8px */
+}
 
 .formField label{
   font-size: 12px;
@@ -862,7 +882,7 @@
   border: 1px solid rgba(18,18,18,.14);
   background: #fff;
   border-radius: 14px;
-  padding: 12px 12px;
+  padding: 12px 14px; /* un toque más pro */
   font-size: var(--fs-14);
   outline:none;
 }
@@ -874,14 +894,14 @@
 }
 
 .formField textarea{
-  min-height: 118px;
+  min-height: 124px;
   resize: vertical;
 }
 
 .formActions{
   display:flex;
   justify-content:flex-end;
-  margin-top: 14px;
+  margin-top: 16px;
 }
 
 .formBtn{
