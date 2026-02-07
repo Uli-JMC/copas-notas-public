@@ -604,6 +604,12 @@
   background: rgba(255,255,255,.55);
   margin-bottom: 12px;
   
+    /* NUEVO */
+  background-image: var(--aicon);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  
 }
 
 .aboutTitle{
