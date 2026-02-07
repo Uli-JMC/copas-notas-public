@@ -1,12 +1,11 @@
 /* ============================================================
    base.css ✅ GLOBAL (2026) — MOBILE MENU PRO (DEPURADO)
-   - Tipografía + spacing consistente
    - Header nítido en mobile (sin blur feo)
-   - Hamburger top-right (animación X por aria-expanded)
+   - Hamburger top-right (animación a X por aria-expanded)
    - Drawer full-screen desde la derecha (sin gaps)
    - Backdrop + scroll lock friendly
    - Botones, footer, toasts, modals, promo modal, loader
-   - ✅ Forms global: labels / inputs con ritmo uniforme
+   - ✅ Normalización + spacing consistente (forms incluidos)
 ============================================================ */
 
 :root{
@@ -18,8 +17,8 @@
   --max: 1120px;
   --gutter: 20px;
 
-  --radius: 10px;
-  --radius-xl: 14px;
+  --radius: 12px;
+  --radius-xl: 18px;
 
   --fs-12: 12px;
   --fs-13: 13px;
@@ -35,6 +34,22 @@
   --shadow-soft: 0 18px 50px rgba(0,0,0,.12);
   --shadow-mid: 0 22px 60px rgba(0,0,0,.20);
 
+  /* Vertical rhythm */
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-16: 16px;
+  --space-18: 18px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-28: 28px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+
   /* Drawer */
   --drawer-bg: #7b55ff;
   --drawer-z-backdrop: 1100;
@@ -42,12 +57,13 @@
   --header-z: 50;
 }
 
-@media (max-width: 420px){
-  :root{ --gutter: 16px; }
-}
-
+/* ============================================================
+   Reset / Base
+============================================================ */
 *{ box-sizing:border-box }
 html,body{ height:100% }
+
+html{ scroll-behavior:smooth; }
 
 body{
   margin:0;
@@ -57,37 +73,25 @@ body{
   letter-spacing:.2px;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
 }
 
-a{ color:inherit }
+a{ color:inherit; text-decoration:none; }
 a:focus-visible{ box-shadow: var(--focusRing); outline:none; border-radius: 10px; }
 button:focus-visible{ box-shadow: var(--focusRing); outline:none; }
 
 img{ max-width:100%; display:block }
-p{ margin:0 }
-h1,h2,h3,h4{ margin:0 }
+
+p{ margin:0; }
+h1,h2,h3,h4{ margin:0; }
 
 .container{
   width: min(var(--max), calc(100% - (var(--gutter) * 2)));
   margin: 0 auto;
 }
 
-/* ============================================================
-   ✅ Forms global (para corregir labels pegados / spacing desigual)
-============================================================ */
-label{
-  display:block;
-  margin: 0 0 8px;
-}
-
-input, textarea, select{
-  margin: 0;
-  font: inherit;
-}
-
-input::placeholder, textarea::placeholder{
-  color: rgba(18,18,18,.45);
+/* Reduce gutter en pantallas pequeñas para que “calce” mejor */
+@media (max-width: 520px){
+  :root{ --gutter: 16px; }
 }
 
 /* ============================================================
@@ -162,10 +166,9 @@ body.is-loading .pageLoader{
   justify-content:space-between;
   gap: 16px;
   min-height: 72px;
-  padding: 0;
 }
 
-@media (max-width: 900px){
+@media (max-width: 520px){
   .headerRow{ min-height: 64px; }
 }
 
@@ -263,7 +266,7 @@ body.is-loading .pageLoader{
 }
 
 /* ============================================================
-   Drawer Backdrop + Drawer
+   Drawer Backdrop + Drawer (full-screen)
 ============================================================ */
 .drawerBackdrop{
   position: fixed;
@@ -280,9 +283,11 @@ body.is-loading .pageLoader{
   right: 0;
   height: 100dvh;
   width: 100vw;
+
   background: var(--drawer-bg);
   color: #fff;
   z-index: var(--drawer-z);
+
   transform: translateX(100%);
   transition: transform .30s cubic-bezier(.2,.9,.25,1);
 
@@ -403,6 +408,33 @@ body.is-loading .pageLoader{
 }
 
 /* ============================================================
+   ✅ Form base (para que no queden “pegados” labels/inputs)
+============================================================ */
+label{
+  display:block;
+  font-size: 12px;
+  letter-spacing:.10em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+input, textarea, select, button{
+  font: inherit;
+}
+
+input, textarea{
+  width: 100%;
+}
+
+input::placeholder,
+textarea::placeholder{
+  color: rgba(18,18,18,.40);
+}
+
+textarea{ resize: vertical; }
+
+/* ============================================================
    Toasts
 ============================================================ */
 .toasts{
@@ -500,11 +532,7 @@ body.is-loading .pageLoader{
   gap: 10px;
 }
 
-.fList a{
-  text-decoration:none;
-  color: var(--muted);
-}
-
+.fList a{ text-decoration:none; color: var(--muted); }
 .fList a:hover{ color: var(--text); }
 
 .footerBottom{
@@ -525,12 +553,12 @@ body.is-loading .pageLoader{
 }
 
 @media (max-width: 980px){
-  .footerCols{ grid-template-columns: 1fr 1fr; gap: 28px; }
+  .footerCols{ grid-template-columns: 1fr 1fr; }
   .fText{ padding-right: 0; }
 }
 
 @media (max-width: 560px){
-  .footerCols{ grid-template-columns: 1fr; }
+  .footerCols{ grid-template-columns: 1fr; gap: 26px; }
   .footerBottom{ flex-direction:column; align-items:flex-start; }
 }
 
