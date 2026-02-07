@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="es">
-
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,7 +7,7 @@
 
   <title>Entre Copas & Notas | Experiencias en vino y coctelería</title>
   <meta name="description"
-    content="Catas de vino y experiencias de coctelería. Descubrí próximos eventos, fechas y cupos disponibles." />
+        content="Catas de vino y experiencias de coctelería. Descubrí próximos eventos, fechas y cupos disponibles." />
 
   <link rel="stylesheet" href="./css/base.css" />
   <link rel="stylesheet" href="./css/home.css" />
@@ -97,12 +96,12 @@
         <a class="navLink" href="./about.html">ABOUT</a>
       </nav>
 
-      <!-- ✅ Hamburguesa SOLO móvil, arriba derecha dentro del header -->
+      <!-- ✅ Hamburguesa SOLO móvil -->
       <button class="hamburgerFab" id="hamburgerFab"
-        aria-label="Abrir menú"
-        aria-controls="mobileDrawer"
-        aria-expanded="false"
-        type="button">
+              aria-label="Abrir menú"
+              aria-controls="mobileDrawer"
+              aria-expanded="false"
+              type="button">
         <span></span><span></span><span></span>
       </button>
     </div>
@@ -111,8 +110,6 @@
     <div class="drawerBackdrop" id="drawerBackdrop" hidden></div>
 
     <aside class="mobileDrawer" id="mobileDrawer" aria-hidden="true">
-      <!-- ❌ Quitamos la X izquierda (drawerClose) -->
-
       <nav class="drawerNav" aria-label="Menú móvil">
         <a class="drawerLink" href="./index.html">INICIO</a>
         <a class="drawerLink" href="./events.html">EVENTOS</a>
@@ -153,29 +150,24 @@
         </div>
       </div>
 
-      <!-- Anclas/selección de meses (se mantiene igual para no romper JS) -->
+      <!-- Meses (ID se mantiene para JS) -->
       <div class="months" id="monthAnchors" aria-label="Meses"></div>
 
-      <!-- ✅ NUEVO: contenedor pro para listado (ID se mantiene: #monthGrid) -->
+      <!-- Panel listado -->
       <div class="eventsPanel" aria-label="Listado de eventos">
         <div class="eventsPanelHead">
           <div class="eventsPanelLeft">
-          <!-- Este bloque lo dejamos listo por si luego querés filtros/orden -->
+            <!-- reservado para filtros/títulos si luego querés -->
+          </div>
+
           <div class="eventsPanelRight" aria-label="Opciones del listado" hidden>
             <button class="btn" type="button">Ordenar</button>
           </div>
         </div>
 
-        <!--
-          ✅ IMPORTANTE:
-          - Se mantiene el ID "monthGrid" para que el JS actual siga funcionando.
-          - Cambiamos la intención visual a "lista", no "grid".
-          - El JS luego lo ajustamos para renderizar filas tipo:
-            <div class="eventRow" role="listitem"> ... botones a la derecha ... </div>
-        -->
+        <!-- ✅ IMPORTANTE: mantenemos el ID monthGrid -->
         <div class="eventsList" id="monthGrid" aria-label="Eventos por mes" role="list"></div>
 
-        <!-- Estado vacío (opcional para luego; el JS puede mostrar/ocultar) -->
         <div class="eventsEmpty" id="monthEmpty" hidden>
           <p class="sub" style="margin:0;">
             No hay eventos para este mes por ahora. Probá otro mes o volvé pronto.
@@ -270,9 +262,7 @@
       <div class="newsGrid">
         <div class="newsLeft" style="--nimg:url('./assets/img/hero-1.jpg');">
           <h3>Suscribite</h3>
-          <p>
-            Recibí fechas nuevas, promos y experiencias destacadas. Sin spam, solo lo bueno.
-          </p>
+          <p>Recibí fechas nuevas, promos y experiencias destacadas. Sin spam, solo lo bueno.</p>
         </div>
 
         <form class="newsForm" aria-label="Formulario de contacto">
@@ -289,15 +279,14 @@
             </div>
           </div>
 
-          <div class="formField" style="margin-bottom:12px;">
+          <div class="formField">
             <label for="nfEmail">Correo *</label>
             <input id="nfEmail" name="email" type="email" placeholder="hola@ejemplo.com" required />
           </div>
 
           <div class="formField">
             <label for="nfMsg">Mensaje *</label>
-            <textarea id="nfMsg" name="message" placeholder="Contanos qué te gustaría vivir o consultar…"
-              required></textarea>
+            <textarea id="nfMsg" name="message" placeholder="Contanos qué te gustaría vivir o consultar…" required></textarea>
           </div>
 
           <div class="formActions">
@@ -350,10 +339,11 @@
         <div>© 2026 Entre Copas &amp; Notas</div>
         <div class="social">
           <a class="icon-btn"
-            href="https://wa.me/50688323801?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
-            target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
-          <a class="icon-btn" href="https://instagram.com/entrecopasynotas" target="_blank" rel="noopener"
-            aria-label="Instagram">IG</a>
+             href="https://wa.me/50688323801?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
+             target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
+          <a class="icon-btn"
+             href="https://instagram.com/entrecopasynotas"
+             target="_blank" rel="noopener" aria-label="Instagram">IG</a>
         </div>
       </div>
     </div>
@@ -367,5 +357,4 @@
   <script src="./js/home-promos.js" defer></script>
 
 </body>
-
 </html>
