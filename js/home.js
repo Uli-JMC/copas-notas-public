@@ -664,7 +664,7 @@ function renderSlides() {
 
                 <button class="heroPanelBtn" data-action="register" data-id="${ev.id}"
                   ${soldOut ? "disabled style='opacity:.55'" : ""}>
-                  ENTRADAS
+                  INSCRIBIRME
                 </button>
               </div>
             </div>
