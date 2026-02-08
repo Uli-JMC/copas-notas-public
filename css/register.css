@@ -1,89 +1,61 @@
 /* ============================================================
-   register.css ✅ REGISTER PAGE (2026) — ALINEADO A base.css/home.css
-   ✅ UPDATE 1:1 (SOLO ESTILO / SIN TOCAR HTML/JS)
-   ✅ ESPACIADOS CONSISTENTES (gutter/tap/radius/shadow)
-   ✅ BOTÓN "INSCRIBIRME" = MISMO FEEL QUE HOME/EVENT (pill radius 14 + sizing)
-   - Mantiene tu estructura intacta (cardTop + metaBox + formWrap)
+   register.css ✅ REGISTER (2026) — ALINEADO A base.css
+   - Mantiene tu HTML/JS intactos
+   - Usa tokens globales: --bg --text --muted --line --radius-xl --shadow-*
+   - Espaciado por --space-* + --gutter
+   - ✅ Botón “Inscribirme” = estilo HOME (pill + radius 14 + outline suave)
 ============================================================ */
 
-:root{
-  /* ✅ Usa tokens de base.css; deja fallback por si register carga solo */
-  --bg: var(--bg, #0b0b0c);
-  --text: var(--text, rgba(255,255,255,.92));
-  --muted: var(--muted, rgba(255,255,255,.62));
-  --line: var(--line, rgba(255,255,255,.14));
+/* ============================================================
+   Layout
+============================================================ */
+html, body { height: 100%; }
 
-  --focus: var(--focus, rgba(120,170,255,.42));
-  --focusRing: var(--focusRing, 0 0 0 4px var(--focus));
-
-  --max: var(--max, 920px);
-  --gutter: var(--gutter, 20px);
-  --tap: var(--tap, 44px);
-
-  --radius: var(--radius, 18px);
-  --shadow: var(--shadow, 0 18px 60px rgba(0,0,0,.55));
-
-  --cardBg: var(--cardBg, rgba(0,0,0,.55));
-  --cardBorder: var(--cardBorder, rgba(255,255,255,.10));
-
-  --inputBg: var(--inputBg, rgba(0,0,0,.30));
-  --inputBorder: var(--inputBorder, rgba(255,255,255,.10));
-  --inputBorderHover: var(--inputBorderHover, rgba(255,255,255,.16));
-
-  /* MetaBox */
-  --metaBg: var(--metaBg, rgba(0,0,0,.22));
-  --metaBorder: var(--metaBorder, rgba(255,255,255,.10));
-  --metaLine: var(--metaLine, rgba(255,255,255,.08));
+.page{
+  padding: var(--space-28) 0 var(--space-48);
 }
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; }
-
-body{
-  margin:0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue", Helvetica, sans-serif;
-  letter-spacing:.2px;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  overflow-x:hidden;
-}
-
-a{ color:inherit; }
+/* Mantener wrap seguro para textos largos */
 p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
-.container{
-  width: min(var(--max), calc(100% - (var(--gutter) * 2)));
-  margin: 0 auto;
-}
-
 /* ============================================================
-   Header
+   Header (register usa .topbar/.nav, no .siteHeader)
+   -> lo alineamos visualmente al header global
 ============================================================ */
 .topbar{
   position: sticky;
-  top:0;
-  z-index: 50;
+  top: 0;
+  z-index: var(--header-z, 50);
+
+  background: rgba(255,255,255,.92);
+  border-bottom: 1px solid rgba(18,18,18,.10);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  background: rgba(0,0,0,.55);
-  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+@media (max-width: 900px){
+  .topbar{
+    background: #fff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 .nav{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:14px;
+  gap: var(--space-14);
   padding: 14px 0;
 }
 
+/* Brand left */
 .brand{
   display:flex;
   align-items:center;
-  gap:10px;
+  gap: 10px;
   text-decoration:none;
+  color: var(--text);
   min-width: 0;
 }
 
@@ -93,29 +65,30 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   border-radius: 999px;
   display:grid;
   place-items:center;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(18,18,18,.14);
+  background: rgba(18,18,18,.04);
   transition: transform .15s ease, background .15s ease, border-color .15s ease;
 }
 
-.backIcon:hover{
+.brand:hover .backIcon{
   transform: translateY(-1px);
-  background: rgba(255,255,255,.07);
-  border-color: rgba(255,255,255,.18);
+  background: rgba(18,18,18,.06);
+  border-color: rgba(18,18,18,.20);
 }
 
 .backText{
   color: var(--muted);
-  font-size: 13px;
-  letter-spacing:.14em;
+  font-size: 12px;
+  letter-spacing:.18em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
+/* Brand right */
 .brandRight{
   display:flex;
   align-items:center;
-  gap:10px;
+  gap: 10px;
   text-decoration:none;
   min-width: 0;
 }
@@ -124,107 +97,118 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   width: 34px;
   height: 34px;
   object-fit: contain;
-  flex: 0 0 auto;
-  filter: drop-shadow(0 10px 22px rgba(0,0,0,.35));
+  filter: drop-shadow(0 8px 20px rgba(0,0,0,.08));
 }
 
 .brandRight span{
-  font-family: ui-serif, Georgia, "Times New Roman", Times, serif;
-  letter-spacing:.05em;
-  font-weight:650;
-  font-size: 16px;
-  white-space:nowrap;
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 13px;
+  letter-spacing:.10em;
+  text-transform: uppercase;
+  white-space: nowrap;
   overflow:hidden;
   text-overflow: ellipsis;
-  max-width: 54vw;
+  max-width: 50vw;
+  color: rgba(18,18,18,.86);
 }
 
 /* ============================================================
-   Page / Card
+   Card (contenedor)
 ============================================================ */
-.page{ padding: 28px 0 58px; }
-
 .card{
-  border-radius: calc(var(--radius) + 6px);
-  border: 1px solid var(--cardBorder);
-  background: var(--cardBg);
-  box-shadow: var(--shadow);
-  overflow:hidden;
-  padding: 0;
+  border-radius: calc(var(--radius-xl) + 6px);
+  border: 1px solid rgba(18,18,18,.10);
+  background: #fff;
+  box-shadow: var(--shadow-mid);
+  overflow: hidden;
 }
 
-/* Top (imagen full + overlay) */
+/* ============================================================
+   Top (imagen / hero del registro)
+============================================================ */
 .cardTop{
-  padding: 22px 22px 18px;
+  padding: var(--space-20) var(--space-20) var(--space-18);
+
   background:
-    radial-gradient(1100px 520px at 20% 0%, rgba(255,255,255,.10), rgba(255,255,255,0) 60%),
-    linear-gradient(180deg, rgba(0,0,0,.16), rgba(0,0,0,.60)),
+    radial-gradient(1100px 520px at 20% 0%, rgba(255,255,255,.12), rgba(255,255,255,0) 60%),
+    linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.50)),
     url("/assets/img/register.png");
+
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
 
-/* Row superior */
+/* Row superior: kicker + badge */
 .cardTopRow{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap: 12px;
-  margin-bottom: 14px;
+  gap: var(--space-12);
+  margin-bottom: var(--space-14);
 }
 
 .kicker{
   margin:0;
-  color: rgba(255,255,255,.70);
-  font-size: 12px;
+  color: rgba(255,255,255,.80);
+  font-size: var(--fs-12);
   letter-spacing:.18em;
   text-transform: uppercase;
+  font-weight: 900;
 }
 
+/* Badge cupos */
 .cuposBadge{
   display:inline-flex;
   align-items:center;
   justify-content:center;
   min-height: 36px;
   padding: 9px 14px;
+
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.16);
+  border: 1px solid rgba(255,255,255,.18);
   background: rgba(0,0,0,.26);
-  color: rgba(255,255,255,.86);
+  color: rgba(255,255,255,.92);
+
   font-size: 12px;
+  font-weight: 900;
   letter-spacing:.16em;
   text-transform: uppercase;
   white-space: nowrap;
+
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
+/* Título y sub */
 .title{
   margin:0;
-  font-family: ui-serif, Georgia, "Times New Roman", Times, serif;
-  font-weight: 700;
+  font-family: inherit;
+  font-weight: 900;
   letter-spacing:.02em;
-  font-size: clamp(30px, 4.2vw, 46px);
+  text-transform: uppercase;
+  font-size: clamp(28px, 4.2vw, 46px);
   line-height: 1.06;
+  color: rgba(255,255,255,.96);
 }
 
 .sub{
-  margin: 12px 0 0;
-  color: rgba(255,255,255,.78);
+  margin-top: var(--space-12);
+  color: rgba(255,255,255,.82);
   line-height: 1.7;
   max-width: 72ch;
-  font-size: 15px;
+  font-size: var(--fs-15);
 }
 
 /* ============================================================
-   MetaBox
+   MetaBox (inyectado por JS)
 ============================================================ */
 .metaBox{
-  margin-top: 18px;
-  border-radius: 18px;
-  border: 1px solid var(--metaBorder);
-  background: var(--metaBg);
+  margin-top: var(--space-18);
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(0,0,0,.22);
   overflow: hidden;
 }
 
@@ -232,27 +216,31 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap: 12px;
+  gap: var(--space-12);
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(255,255,255,.10);
+  border-bottom: 1px solid rgba(255,255,255,.14);
 }
 
 .mHead .mLabel{
-  color: rgba(255,255,255,.62);
+  color: rgba(255,255,255,.70);
   font-size: 12px;
   letter-spacing:.16em;
   text-transform: uppercase;
+  font-weight: 900;
 }
 
 .mHead .mValue{
-  color: rgba(255,255,255,.90);
+  color: rgba(255,255,255,.92);
   font-size: 12px;
   letter-spacing:.12em;
   text-transform: uppercase;
   text-align:right;
+  font-weight: 900;
 }
 
-.mBody{ padding: 8px 10px 10px; }
+.mBody{
+  padding: 8px 10px 10px;
+}
 
 .mRow{
   display:flex;
@@ -260,113 +248,116 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   justify-content:space-between;
   gap: 10px;
   padding: 12px 10px;
-  border-bottom: 1px solid var(--metaLine);
+  border-bottom: 1px solid rgba(255,255,255,.10);
 }
-
-.mRow:last-child{ border-bottom:0; }
+.mRow:last-child{ border-bottom: 0; }
 
 .mRow .mLabel{
-  color: rgba(255,255,255,.62);
+  color: rgba(255,255,255,.70);
   font-size: 12px;
   letter-spacing:.14em;
   text-transform: uppercase;
+  font-weight: 900;
 }
 
 .mRow .mValue{
-  color: rgba(255,255,255,.90);
+  color: rgba(255,255,255,.92);
   font-size: 12px;
   letter-spacing:.10em;
   text-transform: uppercase;
   text-align:right;
+  font-weight: 900;
 }
 
-/* Desktop: 2 columnas debajo de TIPO */
+/* Desktop: 2 columnas bajo header */
 @media (min-width: 861px){
   .mBody{
     display:grid;
     grid-template-columns: 1fr 1fr;
     padding: 0;
   }
-
   .mRow{
-    border-bottom: 1px solid var(--metaLine);
     padding: 16px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.10);
   }
-
   .mRow:nth-child(1),
   .mRow:nth-child(2){
-    border-right: 1px solid var(--metaLine);
+    border-right: 1px solid rgba(255,255,255,.10);
   }
-
   .mRow:nth-last-child(-n + 2){
     border-bottom: 0;
   }
 }
 
 /* ============================================================
-   Form wrap / Grid
+   Form wrap
 ============================================================ */
 .formWrap{
-  padding: 18px 18px 18px;
+  padding: var(--space-18);
 }
 
+/* Form grid */
 .grid{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: var(--space-12);
 }
 
 .field{
-  padding: 6px 2px;
+  padding: 0;
   border: none;
   background: transparent;
 }
 
 .field.full{ grid-column: 1 / -1; }
 
-label{
-  display:block;
-  margin:0 0 8px;
-  color: var(--muted);
-  font-size: 12px;
-  letter-spacing:.14em;
-  text-transform: uppercase;
+/* Labels: base ya define label, aquí solo ajustamos spacing */
+.field > label{
+  margin: 0 0 var(--space-8);
 }
 
-/* Inputs */
+/* Inputs: alineado a base (light) */
 input, select, textarea{
-  width:100%;
+  width: 100%;
   border-radius: 14px;
-  border: 1px solid var(--inputBorder);
-  background: var(--inputBg);
+  border: 1px solid rgba(18,18,18,.12);
+  background: rgba(18,18,18,.02);
   color: var(--text);
+
   padding: 13px 12px;
-  outline:none;
-  font-size: 14px;
   min-height: var(--tap);
+
+  outline: none;
+  font-size: var(--fs-14);
+
   transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
 
 input:hover, select:hover, textarea:hover{
-  border-color: var(--inputBorderHover);
-  background: rgba(0,0,0,.34);
+  border-color: rgba(18,18,18,.18);
+  background: rgba(18,18,18,.03);
 }
 
-textarea{ resize: vertical; min-height: 96px; }
+textarea{
+  resize: vertical;
+  min-height: 96px;
+}
 
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible{
   box-shadow: var(--focusRing);
-  border-color: rgba(140,190,255,.45);
+  border-color: rgba(75,110,255,.30);
+  background: rgba(18,18,18,.02);
 }
 
+/* Select caret (igual que antes, pero en light) */
 select{
   appearance: none;
   -webkit-appearance: none;
   background-image:
-    linear-gradient(45deg, transparent 50%, rgba(255,255,255,.75) 50%),
-    linear-gradient(135deg, rgba(255,255,255,.75) 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, rgba(18,18,18,.72) 50%),
+    linear-gradient(135deg, rgba(18,18,18,.72) 50%, transparent 50%);
   background-position:
     calc(100% - 18px) calc(50% - 2px),
     calc(100% - 12px) calc(50% - 2px);
@@ -375,24 +366,26 @@ select{
   padding-right: 40px;
 }
 
-/* Hint / Error */
+/* Hint / errors */
 .hint{
-  margin: 6px 0 0;
-  color: rgba(255,255,255,.62);
+  margin: var(--space-6) 0 0;
+  color: rgba(18,18,18,.55);
   font-size: 12px;
   line-height: 1.45;
 }
 
 .err{
-  margin: 10px 0 0;
-  color: rgba(255,255,255,.92);
+  margin: var(--space-10) 0 0;
+  display:none;
+
+  color: rgba(18,18,18,.88);
   font-size: 12px;
   line-height: 1.45;
-  display:none;
+
   padding: 10px 12px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(18,18,18,.12);
+  background: rgba(18,18,18,.04);
 }
 
 .field.invalid .err{ display:block; }
@@ -400,120 +393,99 @@ select{
 .field.invalid input,
 .field.invalid select,
 .field.invalid textarea{
-  border-color: rgba(255,255,255,.28);
-  box-shadow: 0 0 0 4px rgba(255,255,255,.06);
+  border-color: rgba(18,18,18,.24);
+  box-shadow: 0 0 0 4px rgba(18,18,18,.06);
 }
 
+/* Counter */
 .counter{
-  margin-top: 6px;
+  margin-top: var(--space-6);
   display:flex;
   justify-content:flex-end;
-  color: rgba(255,255,255,.62);
+  color: rgba(18,18,18,.55);
   font-size: 12px;
   letter-spacing:.08em;
 }
 
-/* Check */
+/* Checkbox */
 .check{
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   gap: 10px;
   cursor:pointer;
   user-select:none;
-  color: rgba(255,255,255,.78);
-  line-height:1.35;
+  color: rgba(18,18,18,.72);
+  line-height: 1.45;
 
   text-transform:none;
   letter-spacing: 0;
-  margin:0;
+  margin: 0;
 }
 
 .check input{
-  width:18px;
-  height:18px;
-  margin:0;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
   flex: 0 0 18px;
 }
 
 .check span{ display:block; margin:0; }
 
 /* ============================================================
-   ✅ Botones (ALINEADOS A LO QUE HICIMOS EN EVENT/HOME)
-   - Misma altura/spacing/radius 14
-   - Primary (en register) con alto contraste sobre dark: WHITE pill
+   ✅ Botones (solo para register: igual HOME)
+   - No tocamos el .btn global; solo en .btnsub/.actions
 ============================================================ */
 .btnsub{
-  margin-top: 16px;
+  margin-top: var(--space-16);
   display:flex;
-  gap:10px;
+  gap: var(--space-12);
   flex-wrap:wrap;
 }
 
-.btn{
-  min-height: 44px;            /* ✅ home */
-  padding: 11px 16px;          /* ✅ home */
-  border-radius: 14px;         /* ✅ home */
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.06);
-  color: rgba(255,255,255,.92);
-
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing:.18em;
-  text-transform: uppercase;
-
-  text-decoration:none;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:10px;
-
-  transition: transform .15s ease, background .15s ease, border-color .15s ease, filter .15s ease;
-  outline:none;
-  cursor:pointer;
-  user-select:none;
-  white-space:nowrap;
-  line-height: 1;
+/* Igual a tu bloque HOME (pill + radius 14) */
+.btnsub .btn{
+  min-height: 44px;
+  padding: 11px 16px;
+  border-radius: 14px;
 }
 
-.btn:hover{
-  transform: translateY(-1px);
-  background: rgba(255,255,255,.08);
-  border-color: rgba(255,255,255,.20);
+/* No primary: fondo suave + borde suave */
+.btnsub .btn:not(.primary){
+  background: rgba(18, 18, 18, .03);
+  border-color: rgba(18, 18, 18, .10);
 }
 
-.btn:active{ transform: translateY(0); }
-.btn:focus-visible{ box-shadow: var(--focusRing); }
+/* Primary “home”: por defecto suave */
+.btnsub .btn.primary{
+  background: rgba(18, 18, 18, .08);
+  border-color: rgba(18, 18, 18, .18);
+}
 
-.btn.primary{
-  background: #fff !important;         /* ✅ contraste en dark */
-  border-color: #fff !important;
-  color: #000 !important;
+/* ✅ Si querés el CTA negro como el home (inviteBlack), solo agregá esa clase al botón */
+.btnsub .btn.primary.inviteBlack{
+  background: #000 !important;
+  border-color: #000 !important;
+  color: #fff !important;
   border-width: 2px;
 }
-
-.btn.primary:hover{ filter: brightness(1.06); }
-
-.btn[disabled]{
-  opacity:.55;
-  cursor:not-allowed;
-  transform:none;
+.btnsub .btn.primary.inviteBlack:hover{
+  filter: brightness(1.06);
 }
 
-/* Texto legal */
+/* Fine text */
 .fine{
-  margin: 12px 0 0;
-  color: rgba(255,255,255,.62);
+  margin-top: var(--space-12);
+  color: rgba(18,18,18,.55);
   font-size: 12px;
   line-height: 1.55;
 }
 
 /* ============================================================
-   Footer
+   Footer (tu footer simple en register)
 ============================================================ */
 .footer{
-  border-top: 1px solid rgba(255,255,255,.06);
-  background: rgba(0,0,0,.45);
+  border-top: 1px solid rgba(18,18,18,.10);
+  background: #fff;
   padding: 18px 0;
 }
 
@@ -521,103 +493,12 @@ select{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:14px;
-  color: var(--muted);
-  font-size: 13px;
-  letter-spacing:.10em;
-  text-transform: uppercase;
-  line-height: 1.4;
-}
-
-.footerRow .social{ gap:10px; display:flex; flex-wrap:wrap; }
-
-.icon-btn{
-  width: var(--tap);
-  height: var(--tap);
-  border-radius: 999px;
-  border:1px solid var(--line);
-  display:grid;
-  place-items:center;
-  background: transparent;
-  color: var(--text);
-  text-decoration:none;
-  transition: transform .15s ease, background .15s ease, border-color .15s ease;
-  outline:none;
-}
-
-.icon-btn:hover{
-  background: rgba(255,255,255,.06);
-  border-color: rgba(255,255,255,.28);
-  transform: translateY(-1px);
-}
-
-.icon-btn:focus-visible{ box-shadow: var(--focusRing); }
-
-/* ============================================================
-   Toasts
-============================================================ */
-.toasts{
-  position: fixed;
-  right: 14px;
-  top: 76px;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-  z-index: 999;
-  pointer-events:none;
-}
-
-.toast{
-  pointer-events:auto;
-  min-width: 280px;
-  max-width: 360px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,.12);
-  background: rgba(0,0,0,.72);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  padding: 12px 12px;
-  box-shadow: 0 20px 60px rgba(0,0,0,.55);
-  display:flex;
-  gap:10px;
-  align-items:flex-start;
-  transform: translateY(-6px);
-  opacity:0;
-  animation: toastIn .22s ease forwards;
-}
-
-@keyframes toastIn{ to{ transform: translateY(0); opacity:1; } }
-
-.toast .tTitle{
-  margin:0;
+  gap: var(--space-14);
+  color: rgba(18,18,18,.62);
   font-size: 12px;
-  letter-spacing:.14em;
+  letter-spacing:.12em;
   text-transform: uppercase;
-  color: var(--text);
-  line-height: 1.2;
 }
-
-.toast .tMsg{
-  margin:6px 0 0;
-  color: rgba(255,255,255,.76);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.toast .close{
-  margin-left:auto;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgba(255,255,255,.06);
-  color: var(--text);
-  border-radius: 999px;
-  width: 34px; height: 34px;
-  display:grid;
-  place-items:center;
-  cursor:pointer;
-}
-
-.toast .close:hover{ background: rgba(255,255,255,.10); }
-.toast .close:focus-visible{ box-shadow: var(--focusRing); }
 
 /* ============================================================
    Responsive
@@ -627,12 +508,13 @@ select{
 }
 
 @media (max-width: 640px){
-  :root{ --gutter: 16px; }
+  .page{ padding: var(--space-20) 0 var(--space-40); }
+
+  .nav{ padding: 12px 0; }
+  .brandRight span{ max-width: 62vw; font-size: 12px; }
 
   .cardTop{ padding: 18px 16px 16px; }
-  .formWrap{ padding: 16px 16px 16px; }
-
-  .brandRight span{ max-width: 62vw; }
+  .formWrap{ padding: 16px; }
 
   .footerRow{
     flex-direction: column;
@@ -644,15 +526,16 @@ select{
     justify-content: center;
     width: 100%;
   }
-
-  .btnsub .btn{ width: 100%; }
 }
 
 @media (max-width: 420px){
   .backText{ display:none; }
+  .brandRight span{ max-width: 72vw; }
 }
 
-/* Reduce motion */
+/* ============================================================
+   Reduce motion
+============================================================ */
 @media (prefers-reduced-motion: reduce){
   *{
     animation-duration: 0.001ms !important;
@@ -660,5 +543,8 @@ select{
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
-  .btn:hover, .icon-btn:hover, .backIcon:hover{ transform:none; }
+  .backIcon:hover{ transform:none; }
 }
+
+/* ✅ Hard rule: hidden siempre oculta */
+[hidden]{ display:none !important; }
