@@ -456,7 +456,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   margin-top: 14px;
   display:flex;
   align-items:flex-start;
-  gap:10px;
+  gap: 40px;
   padding: 12px 12px;
   border-radius: 14px;
   border: 1px solid rgba(18,18,18,.10);
@@ -686,6 +686,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   .desc{ font-size: 14px; }
   .panel{ padding: 14px; }
 
+  /* ✅ Dates: stack */
   .dateItem{
     flex-direction: column;
     align-items: stretch;
@@ -698,6 +699,20 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   }
 
   .actions{ grid-template-columns: 1fr; }
+
+  /* ✅ FIX: notice en móvil = columna (badge arriba, texto abajo) */
+  .notice{
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .notice .badge{
+    align-self: flex-start;
+  }
+  .notice > *{
+    width: 100%;
+    margin-left: 0 !important;
+  }
 
   .footerRow{
     flex-direction: column;
