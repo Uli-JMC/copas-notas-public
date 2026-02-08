@@ -7,7 +7,7 @@
    - Grid IG: render limpio y quita skeletons
    - Reviews: LocalStorage (por ahora), pero:
      ✅✅ Select de eventos: Supabase events + event_dates
-     ✅ Reseñas SOLO si el evento YA TERMINÓ (ends_at < now)
+     ✅ Reseñas SOLO si el evento YA TERMINÓ (última fecha finalizó)
 
    ✅ FIX 2026-01-21:
    - Evita errores 400 por "embedded relationships" (events/event_dates) en gallery_items
@@ -22,6 +22,10 @@
    - Nuevo select Tipo (#filterType) al lado de Fecha (ya no botones)
    - En pageKey "all": el select Tipo controla el filtro sin recargar
    - Reviews renderiza en #reviewItems y actualiza #reviewMeta/#reviewEmpty
+
+   ✅ PATCH 2026-02-08 (FIX gating real):
+   - Elegible SOLO cuando la ÚLTIMA fecha terminó (max end < now)
+   - end efectivo = ends_at || (start_at + duration_hours)
 ============================================================ */
 
 (function () {
@@ -91,6 +95,12 @@
     if (!s) return NaN;
     const t = Date.parse(s);
     return Number.isFinite(t) ? t : NaN;
+  }
+
+  function addHoursMs(startMs, hours) {
+    const h = Number(hours || 0);
+    if (!Number.isFinite(startMs) || !Number.isFinite(h) || h <= 0) return NaN;
+    return startMs + h * 60 * 60 * 1000;
   }
 
   function uid(prefix = "id") {
@@ -184,7 +194,6 @@
   // Supabase availability (PUBLIC client)
   // ------------------------------------------------------------
   function sb() {
-    // ✅ Prioriza publicSb si existe (evita choques admin/public)
     try {
       if (window.APP && APP.publicSb) return APP.publicSb;
       if (window.APP && (APP.supabase || APP.sb)) return APP.supabase || APP.sb;
@@ -200,7 +209,6 @@
   }
 
   async function ensureSessionOptional() {
-    // Public pages normalmente NO requieren sesión; esto es por si tu RLS pide auth.
     try {
       const client = sb();
       if (!client?.auth?.getSession) return null;
@@ -225,8 +233,6 @@
   // ------------------------------------------------------------
   // SELECTS (ÚNICA DEFINICIÓN)
   // ------------------------------------------------------------
-
-  // ✅ Base SIN joins (evita 400/joins y pinta igual)
   const SELECT_GALLERY_BASE = `
     id,
     type,
@@ -275,7 +281,6 @@
   }
 
   function pickDateISO(row) {
-    // Sin joins: usamos created_at (para que filtro por fecha no rompa)
     const c = safeStr(row?.created_at || "");
     return c || "";
   }
@@ -310,12 +315,7 @@
 
   async function fetchUsing(table, selectStr) {
     const client = sb();
-    const { data, error } = await client
-      .from(table)
-      .select(selectStr)
-      .order("created_at", { ascending: false })
-      .limit(1000);
-
+    const { data, error } = await client.from(table).select(selectStr).order("created_at", { ascending: false }).limit(1000);
     if (error) throw error;
     return Array.isArray(data) ? data : [];
   }
@@ -328,12 +328,9 @@
 
     await ensureSessionOptional();
 
-    // 1) gallery_items (BASE)
     try {
       const rows = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_BASE);
-      return rows
-        .map(normalizeGalleryRow)
-        .filter((x) => x.img && (!x.target || x.target === "home"));
+      return rows.map(normalizeGalleryRow).filter((x) => x.img && (!x.target || x.target === "home"));
     } catch (e1) {
       if (!isMissingTable(e1)) {
         if (isRLSError(e1)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
@@ -341,12 +338,9 @@
       }
     }
 
-    // 2) fallback promos (BASE)
     try {
       const rowsP = await fetchUsing(DB.GALLERY_FALLBACK, SELECT_PROMOS_BASE);
-      return rowsP
-        .map(normalizeGalleryRow)
-        .filter((x) => x.img && (!x.target || x.target === "home"));
+      return rowsP.map(normalizeGalleryRow).filter((x) => x.img && (!x.target || x.target === "home"));
     } catch (eP) {
       if (isMissingTable(eP)) toast("No existe tabla gallery_items ni promos.");
       else if (isRLSError(eP)) toast("Acceso bloqueado (RLS) leyendo promos.");
@@ -357,7 +351,7 @@
   }
 
   // ------------------------------------------------------------
-  // ✅ Reseñas: gating por evento finalizado (ends_at)
+  // ✅ Reseñas: gating por evento FINALIZADO (última fecha terminó)
   // ------------------------------------------------------------
   let REVIEW_EVENTS = [];
   let REVIEW_ELIGIBLE = new Map(); // eventId -> { eligible, reason, endedAtMs, nextEndMs }
@@ -415,55 +409,72 @@
     }
   }
 
- function computeEligibilityForEvent(dates) {
-  const now = nowMs();
+  /**
+   * ✅ Elegible SOLO cuando la ÚLTIMA fecha terminó:
+   * - end efectivo = endsAt || (startAt + durationHours)
+   * - elegible si: todos los end son calculables Y maxEnd < now
+   * - si hay fecha futura: no elegible y da la próxima fecha
+   * - si falta info: no elegible y pide configurar start_at/ends_at/duration_hours
+   */
+  function computeEligibilityForEvent(dates, durationHours) {
+    const now = nowMs();
 
-  const parsed = (Array.isArray(dates) ? dates : []).map((d) => {
-    // prioridad: ends_at -> start_at -> date -> created_at
-    const endMs = toMs(d.endsAt) || toMs(d.startAt) || toMs(d.date) || toMs(d.createdAt);
-    const startMs = toMs(d.startAt) || toMs(d.date) || toMs(d.createdAt);
-    return { ...d, startMs, endMs };
-  });
+    const parsed = (Array.isArray(dates) ? dates : []).map((d) => {
+      const startMs = toMs(d.startAt) || toMs(d.createdAt);
+      const endDirect = toMs(d.endsAt);
+      const endMs = Number.isFinite(endDirect) ? endDirect : addHoursMs(startMs, durationHours);
 
-  // Si tenemos endMs válido y ya pasó => elegible
-  const ended = parsed.filter((d) => Number.isFinite(d.endMs) && d.endMs < now);
-  if (ended.length) {
-    ended.sort((a, b) => a.endMs - b.endMs);
-    const last = ended[ended.length - 1];
-    return { eligible: true, reason: "", endedAtMs: last.endMs, nextEndMs: NaN };
-  }
+      return { ...d, startMs, endMs };
+    });
 
-  // Si hay fin futuro => no elegible aún
-  const futureEnds = parsed.filter((d) => Number.isFinite(d.endMs) && d.endMs >= now);
-  if (futureEnds.length) {
-    futureEnds.sort((a, b) => a.endMs - b.endMs);
-    const next = futureEnds[0];
+    if (!parsed.length) {
+      return {
+        eligible: false,
+        reason: "Aún no hay fechas para este evento.",
+        endedAtMs: NaN,
+        nextEndMs: NaN,
+      };
+    }
+
+    const ends = parsed.map((x) => x.endMs).filter((x) => Number.isFinite(x));
+    const canJudgeFinal = ends.length === parsed.length; // todas calculables
+
+    // Próxima fecha (end>=now) para hint
+    const future = parsed
+      .filter((x) => Number.isFinite(x.endMs) && x.endMs >= now)
+      .sort((a, b) => a.endMs - b.endMs);
+
+    if (future.length) {
+      return {
+        eligible: false,
+        reason: "Las reseñas se habilitan cuando el evento finaliza.",
+        endedAtMs: NaN,
+        nextEndMs: future[0].endMs,
+      };
+    }
+
+    // Si no hay future, todas (calculables) deberían estar < now
+    if (!canJudgeFinal) {
+      return {
+        eligible: false,
+        reason: "Este evento no tiene una fecha/hora válida de finalización. Configurá start_at/ends_at o duration_hours.",
+        endedAtMs: NaN,
+        nextEndMs: NaN,
+      };
+    }
+
+    const maxEnd = Math.max(...ends);
+    if (Number.isFinite(maxEnd) && maxEnd < now) {
+      return { eligible: true, reason: "", endedAtMs: maxEnd, nextEndMs: NaN };
+    }
+
     return {
       eligible: false,
       reason: "Las reseñas se habilitan cuando el evento finaliza.",
       endedAtMs: NaN,
-      nextEndMs: next.endMs,
-    };
-  }
-
-  // Si hay fechas pero no parsean, mensaje claro
-  if (parsed.length) {
-    return {
-      eligible: false,
-      reason: "Este evento no tiene una fecha/hora válida de finalización. Configurá start_at/ends_at.",
-      endedAtMs: NaN,
       nextEndMs: NaN,
     };
   }
-
-  return {
-    eligible: false,
-    reason: "Aún no hay fechas para este evento.",
-    endedAtMs: NaN,
-    nextEndMs: NaN,
-  };
-}
-
 
   async function fetchEventsForSelect() {
     if (!hasSupabase()) return [];
@@ -473,9 +484,10 @@
     const datesByEvent = await fetchEventDatesByEvent();
 
     try {
+      // ✅ traemos duration_hours para poder calcular ends_at si está null
       const { data, error } = await client
         .from(DB.EVENTS)
-        .select("id,title,type,created_at")
+        .select("id,title,type,duration_hours,created_at")
         .order("created_at", { ascending: false })
         .limit(250);
 
@@ -486,12 +498,14 @@
           const id = safeStr(ev?.id || "");
           const title = cleanSpaces(ev?.title || "Evento") || "Evento";
           const type = safeStr(ev?.type || "");
+          const durationHours = Number(ev?.duration_hours || 0);
+
           const ok = !!(id && title && eventTypeMatches(pageKey, type));
 
           const dates = datesByEvent.get(id) || [];
           const labels = dates.map((d) => d?.label).filter(Boolean).slice(0, 3);
 
-          const eligibility = computeEligibilityForEvent(dates);
+          const eligibility = computeEligibilityForEvent(dates, durationHours);
           REVIEW_ELIGIBLE.set(id, eligibility);
 
           return {
@@ -649,7 +663,6 @@
   let allItems = [];
 
   function getTypeFromUI() {
-    // prioridad: select Tipo (si existe). fallback: pageKey
     const v = selType ? String(selType.value || "") : "";
     if (!v) return pageKey;
     if (v === "all") return "all";
@@ -660,7 +673,6 @@
 
   function mountTypeFilter() {
     if (!selType) return;
-    // si el HTML ya lo trae armado, no lo pisamos
     if (selType.options && selType.options.length >= 3) return;
 
     selType.innerHTML = `
@@ -669,7 +681,6 @@
       <option value="maridajes">Maridajes</option>
     `;
 
-    // default según pageKey
     selType.value = pageKey === "cocteles" ? "cocteles" : pageKey === "maridajes" ? "maridajes" : "all";
   }
 
@@ -688,13 +699,11 @@
     const typeWanted = getTypeFromUI();
 
     const filtered = allItems.filter((x) => {
-      // type
       const okType =
         typeWanted === "all"
           ? (x.type === "cocteles" || x.type === "maridajes")
           : x.type === typeWanted;
 
-      // date
       const okDate = !fDate || String(x.dateISO || "") === fDate;
 
       if (!q) return okType && okDate;
@@ -708,7 +717,6 @@
     renderGallery(filtered);
   }
 
-  // Si cambiás tipo, recomputamos fechas válidas para ese tipo
   function onTypeChange() {
     if (!selDate) {
       applyGalleryFilters();
@@ -720,7 +728,6 @@
         ? allItems.filter((x) => x.type === "cocteles" || x.type === "maridajes")
         : allItems.filter((x) => x.type === typeWanted);
 
-    // reset fecha si queda inválida
     const current = String(selDate.value || "");
     mountDateFilter(pool);
     if (current && !pool.some((x) => String(x.dateISO || "") === current)) {
@@ -801,7 +808,6 @@
 
     if (!itemsWrap) return;
 
-    // limpia cards
     $$(".reviewCard", itemsWrap).forEach((n) => n.remove());
 
     const sorted = (Array.isArray(list) ? list.slice() : []).sort(
@@ -988,10 +994,8 @@
     try {
       allItems = await fetchGallery();
 
-      // ✅ Monta tipo (si existe) y aplica defaults
       mountTypeFilter();
 
-      // ✅ Fechas basadas en tipo actual (para que el select Fecha sea coherente)
       const typeWanted = getTypeFromUI();
       const pool =
         typeWanted === "all"
@@ -1000,7 +1004,6 @@
 
       mountDateFilter(pool);
 
-      // Render inicial con filtros
       applyGalleryFilters();
 
       if (selDate) selDate.addEventListener("change", applyGalleryFilters);
