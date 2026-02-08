@@ -2,10 +2,13 @@
 
 /* ============================================================
    home.js ✅ PRO (Carrusel tipo Wix: título izquierda + panel derecha)
-   - ✅ Estado correcto: FINALIZADO vs AGOTADO
-   - ✅ FINALIZADO: ends_at < now (fallback start_at + duration_hours)
-   - ✅ AGOTADO: seats_available <= 0 (solo si NO finalizado)
-   - ✅ Botones bloqueados SOLO en finalizado o agotado
+   - ✅ estructura heroRow: Left(title) + Right(info panel)
+   - ✅ panel blanco con bloques negros
+   - ✅ SIN flecha
+   - ✅ mantiene tu supabase events + dates + gallery + newsletter
+   - ✅ FIX 2026-02: Drawer toggle visible (X) + navegación sin flash
+   - ✅ Quote rotator: animación moderna + altura estable (CSS)
+   - ✅ PATCH 2026-02: Resumen por mes en LISTADO PRO (sin foto, botones derecha)
 ============================================================ */
 
 // ============================================================
@@ -21,17 +24,6 @@ function escapeHtml(str) {
 }
 
 const qs = (sel) => document.querySelector(sel);
-
-function nowMs() {
-  return Date.now();
-}
-
-function toMs(v) {
-  const s = String(v ?? "").trim();
-  if (!s) return NaN;
-  const t = Date.parse(s);
-  return Number.isFinite(t) ? t : NaN;
-}
 
 // ============================================================
 // Loading gate (evita flash)
@@ -111,12 +103,8 @@ function goEvent(id) {
   window.location.href = `./event.html?event=${encodeURIComponent(id)}`;
 }
 
-function goRegister(id, lockedReason) {
-  if (lockedReason === "finalizado") {
-    toast("Evento finalizado", "Este evento ya terminó.");
-    return;
-  }
-  if (lockedReason === "agotado") {
+function goRegister(id, soldOut) {
+  if (soldOut) {
     toast("Evento agotado", "Este evento no tiene cupos.");
     return;
   }
@@ -124,9 +112,13 @@ function goRegister(id, lockedReason) {
 }
 
 // ============================================================
-// ✅ Drawer / Mobile Menu
+// ✅ Drawer / Mobile Menu (Hamburger = abre/cierra + X visible)
+// - FIX 1: el botón queda arriba del drawer (fixed + zIndex alto)
+// - FIX 2: al hacer click en link, cerramos y navegamos después (sin flash)
+// - FIX extra: clona botón/backdrop para eliminar listeners previos (script inline viejo)
 // ============================================================
 function initMobileDrawer() {
+  // anti doble bind
   if (document.documentElement.dataset.drawerBound === "true") return;
   document.documentElement.dataset.drawerBound = "true";
 
@@ -135,6 +127,7 @@ function initMobileDrawer() {
   const backdrop0 = document.getElementById("drawerBackdrop");
   if (!fab0 || !drawer || !backdrop0) return;
 
+  // ✅ mata listeners viejos (por ejemplo el script inline del HTML)
   const fab = fab0.cloneNode(true);
   fab0.parentNode.replaceChild(fab, fab0);
 
@@ -142,6 +135,15 @@ function initMobileDrawer() {
   backdrop0.parentNode.replaceChild(backdrop, backdrop0);
 
   let isOpen = false;
+
+  // guardar estilos originales por si acaso
+  const fabOrig = {
+    position: fab.style.position || "",
+    top: fab.style.top || "",
+    right: fab.style.right || "",
+    left: fab.style.left || "",
+    zIndex: fab.style.zIndex || "",
+  };
 
   const spans = Array.from(fab.querySelectorAll("span"));
   const spanOrigBg = spans.map((s) => s.style.backgroundColor || "");
@@ -152,19 +154,23 @@ function initMobileDrawer() {
   };
 
   const setFabOverDrawer = (on) => {
+    // ✅ ponemos el botón arriba del drawer para que se vea la X
     if (on) {
       fab.style.position = "fixed";
       fab.style.top = "14px";
       fab.style.right = "14px";
       fab.style.left = "";
-      fab.style.zIndex = "2000";
+      fab.style.zIndex = "2000"; // arriba del drawer/backdrop
+
+      // ✅ las líneas blancas sobre el drawer morado
       spans.forEach((s) => (s.style.backgroundColor = "#fff"));
     } else {
-      fab.style.position = "";
-      fab.style.top = "";
-      fab.style.right = "";
-      fab.style.left = "";
-      fab.style.zIndex = "";
+      fab.style.position = fabOrig.position;
+      fab.style.top = fabOrig.top;
+      fab.style.right = fabOrig.right;
+      fab.style.left = fabOrig.left;
+      fab.style.zIndex = fabOrig.zIndex;
+
       spans.forEach((s, i) => (s.style.backgroundColor = spanOrigBg[i] || ""));
     }
   };
@@ -172,11 +178,15 @@ function initMobileDrawer() {
   const openDrawer = () => {
     if (isOpen) return;
     isOpen = true;
+
     backdrop.hidden = false;
+
     drawer.classList.add("is-open");
     drawer.setAttribute("aria-hidden", "false");
+
     fab.setAttribute("aria-expanded", "true");
     fab.setAttribute("aria-label", "Cerrar menú");
+
     setFabOverDrawer(true);
     lockScroll(true);
   };
@@ -184,15 +194,18 @@ function initMobileDrawer() {
   const closeDrawer = (opts = {}) => {
     const keepBackdrop = !!opts.keepBackdrop;
     const keepScroll = !!opts.keepScroll;
+
     if (!isOpen) return;
     isOpen = false;
 
     drawer.classList.remove("is-open");
     drawer.setAttribute("aria-hidden", "true");
+
     fab.setAttribute("aria-expanded", "false");
     fab.setAttribute("aria-label", "Abrir menú");
 
     if (!keepScroll) lockScroll(false);
+
     setFabOverDrawer(false);
 
     if (!keepBackdrop) {
@@ -202,14 +215,19 @@ function initMobileDrawer() {
     }
   };
 
-  const toggleDrawer = () => (isOpen ? closeDrawer() : openDrawer());
+  const toggleDrawer = () => {
+    if (isOpen) closeDrawer();
+    else openDrawer();
+  };
 
   fab.addEventListener("click", toggleDrawer);
   backdrop.addEventListener("click", () => closeDrawer());
+
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeDrawer();
   });
 
+  // ✅ cerrar + navegación SIN flash
   drawer.addEventListener("click", (e) => {
     const a = e.target.closest("a[href]");
     if (!a) return;
@@ -217,9 +235,12 @@ function initMobileDrawer() {
     const href = a.getAttribute("href") || "";
     if (!href) return;
 
+    // Anchors dentro de la misma página
     if (href.startsWith("#")) {
       e.preventDefault();
+
       closeDrawer();
+
       setTimeout(() => {
         try {
           const target = document.querySelector(href);
@@ -227,16 +248,21 @@ function initMobileDrawer() {
           history.replaceState(null, "", href);
         } catch (_) {}
       }, 280);
+
       return;
     }
 
+    // Link a otra página: evita ver el contenido “detrás”
     e.preventDefault();
+
     closeDrawer({ keepBackdrop: true, keepScroll: true });
+
     setTimeout(() => {
       window.location.href = href;
     }, 220);
   });
 
+  // si vuelven a desktop, cerramos
   window.addEventListener("resize", () => {
     if (window.innerWidth > 900 && isOpen) closeDrawer();
   });
@@ -255,58 +281,6 @@ function hasSupabase() {
   return !!(window.APP && APP.supabase);
 }
 
-/**
- * ✅ Estado de un evento (finalizado / agotado / activo)
- * - finalizado si: ends_at < now
- * - fallback si ends_at null: start_at + duration_hours
- * - agotado si: NO finalizado y seats_available_total <= 0
- */
-function computeEventState(ev, evDates) {
-  const now = nowMs();
-
-  // 1) buscamos el "mejor" end: el mayor ends_at válido
-  const endCandidates = (evDates || [])
-    .map((d) => toMs(d?.ends_at))
-    .filter((x) => Number.isFinite(x));
-
-  let bestEnd = endCandidates.length ? Math.max(...endCandidates) : NaN;
-
-  // 2) fallback: si no hay ends_at, usamos start_at + duration_hours (si existe)
-  if (!Number.isFinite(bestEnd)) {
-    const startCandidates = (evDates || [])
-      .map((d) => toMs(d?.start_at))
-      .filter((x) => Number.isFinite(x));
-
-    const bestStart = startCandidates.length ? Math.max(...startCandidates) : NaN;
-
-    const dh = Number(ev?.durationHours ?? ev?.duration_hours ?? 0);
-    const durMs = Number.isFinite(dh) && dh > 0 ? dh * 60 * 60 * 1000 : NaN;
-
-    if (Number.isFinite(bestStart) && Number.isFinite(durMs)) {
-      bestEnd = bestStart + durMs;
-    }
-  }
-
-  const isFinished = Number.isFinite(bestEnd) ? bestEnd < now : false;
-
-  const seatsAvailableTotal = (evDates || []).reduce(
-    (acc, d) => acc + (Number(d?.seats_available ?? 0) || 0),
-    0
-  );
-
-  const isSoldOut = !isFinished && seatsAvailableTotal <= 0;
-
-  // lockedReason: null | "finalizado" | "agotado"
-  const lockedReason = isFinished ? "finalizado" : isSoldOut ? "agotado" : null;
-
-  return {
-    isFinished,
-    isSoldOut,
-    lockedReason,
-    seatsAvailableTotal,
-  };
-}
-
 async function fetchEventsFromSupabase() {
   if (!hasSupabase()) {
     hardFail(
@@ -315,7 +289,7 @@ async function fetchEventsFromSupabase() {
     return [];
   }
 
-  // 1) Traer eventos (incluimos duration_hours para fallback)
+  // 1) Traer eventos
   const evRes = await APP.supabase
     .from("events")
     .select(
@@ -332,11 +306,11 @@ async function fetchEventsFromSupabase() {
   const events = Array.isArray(evRes.data) ? evRes.data : [];
   if (!events.length) return [];
 
-  // 2) Traer fechas (incluimos start_at y ends_at ✅)
+  // 2) Traer fechas
   const datesRes = await APP.supabase
     .from("event_dates")
-    .select("id,event_id,label,seats_total,seats_available,created_at,start_at,ends_at")
-    .order("start_at", { ascending: true });
+    .select("id,event_id,label,seats_total,seats_available,created_at")
+    .order("created_at", { ascending: true });
 
   if (datesRes.error) {
     console.error(datesRes.error);
@@ -355,9 +329,6 @@ async function fetchEventsFromSupabase() {
       label: d?.label,
       seats_available: Number(d?.seats_available ?? 0),
       seats_total: Number(d?.seats_total ?? 0),
-      start_at: d?.start_at || null,
-      ends_at: d?.ends_at || null,
-      created_at: d?.created_at || null,
     });
   });
 
@@ -366,9 +337,9 @@ async function fetchEventsFromSupabase() {
     const evDates = byEvent.get(ev.id) || [];
     const labels = evDates.map((x) => x.label).filter(Boolean);
 
-    const state = computeEventState(
-      { durationHours: ev?.duration_hours },
-      evDates
+    const seats = evDates.reduce(
+      (acc, x) => acc + (Number(x.seats_available) || 0),
+      0
     );
 
     return {
@@ -378,16 +349,11 @@ async function fetchEventsFromSupabase() {
       dates: labels,
       title: ev?.title || "Evento",
       desc: ev?.desc || "",
+      seats,
       img: normalizeImgPath(ev?.img),
       location: ev?.location || "",
       timeRange: ev?.time_range || "",
       durationHours: ev?.duration_hours || "",
-      // estado
-      isFinished: state.isFinished,
-      isSoldOut: state.isSoldOut,
-      lockedReason: state.lockedReason,
-      seatsAvailableTotal: state.seatsAvailableTotal,
-      _datesRaw: evDates,
     };
   });
 }
@@ -508,7 +474,8 @@ async function renderHomeGalleryPreview() {
 }
 
 // ============================================================
-// ✅ Testimonial rotator
+// ✅ Testimonial rotator (MODERNO)
+// - Usa clase .is-anim (CSS) para animación suave
 // ============================================================
 function initQuoteRotator() {
   const el = qs("#quoteRotator");
@@ -542,8 +509,9 @@ function initQuoteRotator() {
     const q = quotes[idx];
     if (!q) return;
 
+    // reinicia animación
     el.classList.remove("is-anim");
-    void el.offsetWidth;
+    void el.offsetWidth; // reflow
     el.textContent = "“" + q + "”";
     el.classList.add("is-anim");
   };
@@ -651,12 +619,6 @@ function renderEmptyState() {
   if (dotsEl) dotsEl.innerHTML = "";
 }
 
-function heroStatusLabel(ev) {
-  if (ev.isFinished) return "FINALIZADO";
-  if (ev.isSoldOut) return "AGOTADO";
-  return (ev.type || "EXPERIENCIA");
-}
-
 function renderSlides() {
   if (!slidesEl || !dotsEl) return;
 
@@ -671,21 +633,15 @@ function renderSlides() {
   idx = Math.min(idx, EVENTS.length - 1);
 
   EVENTS.forEach((ev, i) => {
-    const labelA = getHeroDayLabel(ev);
-    const labelB = String(ev?.timeRange || "").trim().toUpperCase() || "19:00";
-    const labelC = String(ev?.location || "").trim().toUpperCase() || "COSTA RICA";
-
-    const status = heroStatusLabel(ev);
-    const pillClass =
-      ev.isFinished ? "pill pill--ok" :
-      ev.isSoldOut ? "pill pill--danger" :
-      "pill";
-
-    const btnDisabled = ev.isFinished || ev.isSoldOut;
+    const soldOut = ev.seats <= 0;
 
     const slide = document.createElement("article");
     slide.className = "slide";
     slide.style.setProperty("--bgimg", `url('${safeCssUrl(ev.img || getDefaultHero())}')`);
+
+    const labelA = getHeroDayLabel(ev);
+    const labelB = String(ev?.timeRange || "").trim().toUpperCase() || "19:00";
+    const labelC = String(ev?.location || "").trim().toUpperCase() || "COSTA RICA";
 
     slide.innerHTML = `
       <div class="container heroCard">
@@ -693,7 +649,7 @@ function renderSlides() {
           <div class="heroRow">
             <div class="heroLeft">
               <div class="heroMeta">
-                <span class="${pillClass}">${escapeHtml(status)}</span>
+                <span class="pill">${escapeHtml(soldOut ? "AGOTADO" : (ev.type || "EXPERIENCIA"))}</span>
               </div>
 
               <h1 class="heroTitle heroTitle--wix">${escapeHtml(ev.title)}</h1>
@@ -707,8 +663,8 @@ function renderSlides() {
                 <div class="heroTag">${escapeHtml(labelC)}</div>
 
                 <button class="heroPanelBtn" data-action="register" data-id="${ev.id}"
-                  ${btnDisabled ? "disabled style='opacity:.55'" : ""}>
-                  ${ev.isFinished ? "FINALIZADO" : (ev.isSoldOut ? "AGOTADO" : "INSCRIBIRME")}
+                  ${soldOut ? "disabled style='opacity:.55'" : ""}>
+                  INSCRIBIRME
                 </button>
               </div>
             </div>
@@ -752,7 +708,7 @@ function restartAuto() {
 // ============================================================
 const monthAnchors = qs("#monthAnchors");
 const monthGrid = qs("#monthGrid");
-const monthEmpty = qs("#monthEmpty");
+const monthEmpty = qs("#monthEmpty"); // ✅ usa el bloque de estado vacío del HTML
 let activeMonth = null;
 
 function getThreeMonthWindow() {
@@ -785,6 +741,13 @@ function renderMonths() {
   renderMonthGrid();
 }
 
+/**
+ * ✅ LISTADO PRO (sin foto)
+ * - Tipo pequeño (pill)
+ * - Título grande
+ * - Meta abajo: Lugar • Fecha • Horario
+ * - Botón Inscribirme NEGRO (clase inviteBlack en CSS / base)
+ */
 function renderMonthGrid() {
   if (!monthGrid) return;
 
@@ -792,6 +755,7 @@ function renderMonthGrid() {
 
   const list = EVENTS.filter((e) => e.monthKey === activeMonth);
 
+  // Estado vacío usa tu #monthEmpty (no metemos texto redundante dentro del listado)
   if (!list.length) {
     if (monthEmpty) monthEmpty.hidden = false;
     return;
@@ -799,35 +763,25 @@ function renderMonthGrid() {
   if (monthEmpty) monthEmpty.hidden = true;
 
   list.forEach((ev) => {
+    const soldOut = ev.seats <= 0;
+
+    // ✅ Fecha: 1ra etiqueta si existe
     const dateLabel = String(ev?.dates?.[0] || "").trim() || "Por definir";
+
+    // ✅ Meta: Lugar • Fecha • Horario
     const place = String(ev?.location || "").trim() || "Costa Rica";
     const time = String(ev?.timeRange || "").trim() || "Horario por definir";
 
     const row = document.createElement("div");
-    row.className =
-      "eventRow" +
-      (ev.isSoldOut ? " isSoldOut" : "") +
-      (ev.isFinished ? " isFinished" : "");
-
+    row.className = "eventRow" + (soldOut ? " isSoldOut" : "");
     row.setAttribute("role", "listitem");
-
-    // pills
-    const pillLeft = `<span class="eventPill">${escapeHtml(ev.type || "Experiencia")}</span>`;
-
-    const pillStatus = ev.isFinished
-      ? `<span class="eventPill eventPill--ok">FINALIZADO</span>`
-      : ev.isSoldOut
-        ? `<span class="eventPill eventPill--danger">AGOTADO</span>`
-        : "";
-
-    const btnDisabled = ev.isFinished || ev.isSoldOut;
 
     row.innerHTML = `
       <div class="eventRowMain">
         <div class="eventRowLeft">
           <div class="eventRowTop">
-            ${pillLeft}
-            ${pillStatus}
+            <span class="eventPill">${escapeHtml(ev.type || "Experiencia")}</span>
+            ${soldOut ? `<span class="eventPill eventPill--danger">AGOTADO</span>` : ""}
           </div>
 
           <h3 class="eventRowTitle">${escapeHtml(ev.title)}</h3>
@@ -847,8 +801,8 @@ function renderMonthGrid() {
           </button>
 
           <button class="btn primary inviteBlack" data-action="register" data-id="${ev.id}"
-            ${btnDisabled ? "disabled" : ""}>
-            ${ev.isFinished ? "Finalizado" : (ev.isSoldOut ? "Agotado" : "Inscribirme")}
+            ${soldOut ? "disabled" : ""}>
+            Inscribirme
           </button>
         </div>
       </div>
@@ -869,13 +823,15 @@ document.addEventListener("click", (e) => {
   const ev = EVENTS.find((x) => x.id === id);
   if (!ev) return;
 
+  const soldOut = ev.seats <= 0;
+
   if (btn.dataset.action === "info") {
     goEvent(ev.id);
     return;
   }
 
   if (btn.dataset.action === "register") {
-    goRegister(ev.id, ev.lockedReason);
+    goRegister(ev.id, soldOut);
     return;
   }
 });
@@ -890,6 +846,7 @@ async function refreshFromSupabase() {
   renderMonths();
 }
 
+// Hook opcional
 window.addEventListener("ecn:events-updated", () => {
   refreshFromSupabase().catch(() => {});
 });
