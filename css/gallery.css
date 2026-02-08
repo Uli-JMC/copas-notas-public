@@ -1,77 +1,29 @@
 /* ============================================================
-   gallery.css ✅ COMPLETO (Maridajes + Cocteles) - 2026
-   - Background blanco (light)
-   - Misma línea tipográfica del home
-   - Galería IG 4 cols desktop / 2 cols móvil
-   - Hover: oscurece + título + hashtags
-   - Reviews: form arriba + comments abajo, header y reacciones
+   gallery.css ✅ (DEPURADO para base.css) — 2026
+   - base.css manda tokens + reset + botones + toasts
+   - Este archivo SOLO contiene lo específico de Gallery
+   - Unifica línea visual (sans + uppercase + tracking)
 ============================================================ */
 
-:root{
-  --bg:#ffffff;
-  --card:#ffffff;
-  --bggrey:#fcf6ff;
-
-  --text:#121316;
-  --hold: #404040;
-  --muted: rgba(18,19,22,.68);
-  --line: rgba(18,19,22,.10);
-
-  --max: 1120px;
-  --radius: 18px;
-
-  --shadow: none;
-  --shadowHover: none;
-
-  --gutter: 22px;
-  --gap: 16px;
-
-  --tap: 44px;
-
-  --focus: rgba(120,170,255,.42);
-  --focusRing: 0 0 0 4px var(--focus);
-
-  /* Overlay tags */
-  --pillBg: rgba(0,0,0,.62);
-  --pillText: rgba(255,255,255,.92);
-}
-
-*{ box-sizing:border-box }
-html,body{ height:100% }
-
-body{
-  margin:0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue", Helvetica, sans-serif;
-  letter-spacing:.2px;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-}
-
-a{ color: inherit; text-decoration:none; }
-a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible{
-  outline: none;
-  box-shadow: var(--focusRing);
-  border-radius: 12px;
-}
-
-.container{
-  width: min(var(--max), calc(100% - (var(--gutter) * 2)));
-  margin: 0 auto;
-}
-
 /* ============================================================
-   Topbar (light)
+   Topbar (local: tu HTML usa .topbar/.nav/.navlinks)
+   (No tocamos .siteHeader porque tu markup es diferente)
 ============================================================ */
 .topbar{
   position: sticky;
-  top:0;
-  z-index: 50;
-  background: rgba(255,255,255,.86);
+  top: 0;
+  z-index: var(--header-z, 50);
+  background: rgba(255,255,255,.92);
+  border-bottom: 1px solid rgba(18,18,18,.10);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--line);
+}
+@media (max-width: 900px){
+  .topbar{
+    background:#fff;
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
+  }
 }
 
 .nav{
@@ -82,17 +34,23 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
   padding: 14px 0;
 }
 
+/* Brand (mismo feel que base: uppercase + tracking) */
 .brand{
   display:flex;
   align-items:center;
   gap:10px;
+  min-width: 0;
 }
-.brand img{ width:34px; height:34px; object-fit:contain; }
+.brand img{ width:34px; height:34px; object-fit:contain; display:block; }
 .brand span{
-  font-family: ui-serif, Georgia, "Times New Roman", Times, serif;
+  letter-spacing:.18em;
+  text-transform: uppercase;
   font-weight: 800;
-  letter-spacing:.05em;
+  font-size: 13px;
   white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-width: 62vw;
 }
 
 .navlinks{
@@ -101,170 +59,126 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
   gap: 18px;
 }
 .navlinks a{
-  color: var(--muted);
-  font-size: 13px;
-  letter-spacing:.14em;
+  color: rgba(18,18,18,.70);
+  letter-spacing:.22em;
   text-transform: uppercase;
+  font-size: 12px;
   padding: 10px 10px;
   border-radius: 999px;
   transition: .15s ease;
 }
 .navlinks a:hover{
-  color: var(--text);
-  background: rgba(18,19,22,.04);
+  color: rgba(18,18,18,.95);
+  background: rgba(18,18,18,.04);
+}
+.navlinks a[aria-current="page"]{
+  color: rgba(18,18,18,.95);
+  background: rgba(18,18,18,.06);
+  border: 1px solid rgba(18,18,18,.10);
 }
 
 .navright{ display:flex; gap:10px; align-items:center; }
 
-/* Mobile nav */
 @media (max-width: 860px){
   .navlinks{ display:none; }
 }
 
 /* ============================================================
-   Buttons
-============================================================ */
-.btn{
-  border: 1px solid var(--line);
-  background: transparent;
-  color: var(--text);
-  padding: 11px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  letter-spacing:.10em;
-  text-transform: uppercase;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:10px;
-  cursor:pointer;
-  user-select:none;
-  min-height: var(--tap);
-  transition: transform .15s ease, background .15s ease, border-color .15s ease;
-}
-.btn:hover{
-  transform: translateY(-1px);
-  background: rgba(18,19,22,.04);
-  border-color: rgba(18,19,22,.22);
-}
-.btn.primary{
-  background: rgba(18,19,22,.06);
-  border-color: rgba(18,19,22,.20);
-}
-.btn.primary:hover{
-  background: rgba(18,19,22,.10);
-  border-color: rgba(18,19,22,.28);
-}
-
-.icon-btn{
-  width: var(--tap);
-  height: var(--tap);
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  display:grid;
-  place-items:center;
-  background: #fff;
-  color: var(--text);
-  transition: .15s ease;
-}
-.icon-btn:hover{
-  background: rgba(18,19,22,.04);
-  border-color: rgba(18,19,22,.22);
-  transform: translateY(-1px);
-}
-
-/* ============================================================
-   Hero Lite
+   Hero Lite (alineado a spacing base.css)
 ============================================================ */
 .heroLite{
-  padding: 26px 0 10px;
-  background-color: var(--bggrey);
+  padding: var(--space-28) 0 var(--space-12);
+  background: #fcf6ff;
 }
 .heroLite__inner{
-  box-shadow: none;
-  padding: 20px;
+  padding: var(--space-20);
 }
+
 .kicker{
   display:inline-flex;
   align-items:center;
   padding: 7px 10px;
   border-radius: 999px;
-  border: 1px solid var(--line);
-  color: var(--muted);
+  border: 1px solid rgba(18,18,18,.12);
+  color: rgba(18,18,18,.62);
   font-size: 11px;
   letter-spacing:.14em;
   text-transform: uppercase;
-  background: rgba(18,19,22,.02);
+  background: rgba(18,18,18,.02);
 }
+
 .h1{
-  margin: 12px 0 6px;
-  font-family: ui-serif, Georgia, "Times New Roman", Times, serif;
+  margin: var(--space-14) 0 var(--space-10);
   font-weight: 900;
   letter-spacing:.02em;
   font-size: clamp(26px, 2.6vw, 38px);
-  line-height:1.08;
+  line-height: 1.08;
 }
+
 .lead{
   margin: 0;
-  color: var(--muted);
+  color: rgba(18,18,18,.62);
   line-height: 1.75;
-  max-width: 100%;
-  font-size: 14px;
-  text-align: justify;
+  font-size: var(--fs-14);
+  max-width: 78ch;
 }
+
 .heroLite__actions{
-  margin-top: 14px;
+  margin-top: var(--space-16);
   display:flex;
   gap: 10px;
   flex-wrap:wrap;
+}
+
+.heroLite__actions--types{
+  margin-top: var(--space-10);
 }
 
 /* ============================================================
    Sections
 ============================================================ */
 .section{
-  padding: 26px 0 44px;
+  padding: var(--space-28) 0 var(--space-48);
 }
+
 .sectionHead{
   display:flex;
   justify-content:space-between;
   align-items:flex-end;
-  gap:16px;
-  margin-bottom: 14px;
+  gap: 16px;
+  margin-bottom: var(--space-16);
 }
-.sectionHead--left{
-  justify-content:space-between;
-}
+
 .h2{
-  margin:0;
-  font-family: ui-serif, Georgia, "Times New Roman", Times, serif;
-  font-weight: 850;
+  font-weight: 900;
   letter-spacing:.02em;
   font-size: clamp(18px, 2vw, 26px);
   line-height: 1.15;
 }
+
 .sub{
-  margin: 10px 0 0; /* ✅ más aire */
-  color: var(--muted);
+  margin-top: var(--space-10);
+  color: rgba(18,18,18,.62);
   line-height: 1.7;
-  font-size: 14px;
+  font-size: var(--fs-14);
   max-width: 72ch;
 }
 
 /* ============================================================
-   Filters (NO pegado)
+   Filters (alineado a form base de base.css)
 ============================================================ */
 .filters{
-  margin: 18px 0 18px; /* ✅ más aire arriba */
+  margin: var(--space-18) 0 var(--space-18);
   display:flex;
   gap: 14px;
   flex-wrap:wrap;
   align-items:flex-end;
 }
+
 .field{
   display:flex;
   flex-direction:column;
-  gap:10px; /* ✅ labels separados */
+  gap: 10px;
   min-width: 220px;
 }
 
@@ -272,54 +186,53 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
   font-size: 12px;
   letter-spacing:.12em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: rgba(18,18,18,.62);
   line-height: 1.2;
 }
+
 .select, .input, .textarea{
-  border: 1px solid var(--line);
+  border: 1px solid rgba(18,18,18,.12);
   background: #fff;
-  color: var(--hold);
+  color: rgba(18,18,18,.92);
   border-radius: 14px;
   padding: 11px 12px;
-  font-size: 14px;
+  font-size: var(--fs-14);
   min-height: var(--tap);
 }
+
+.input::placeholder, .textarea::placeholder{
+  color: rgba(18,18,18,.40);
+}
+
 .textarea{
   resize: vertical;
   min-height: 140px;
 }
-.input::placeholder, .textarea::placeholder{ color: rgba(18,19,22,.45); }
 
-/* Mobile filters */
 @media (max-width: 640px){
-  :root{ --gutter: 16px; --gap: 12px; }
   .field{ min-width: 0; flex: 1 1 100%; }
   .filters{ gap: 12px; }
 }
 
 /* ============================================================
-   ✅ GALERÍA tipo Instagram (borde 1px, sin redondeo, sin sombra)
-   ✅ Hover: oscurece más + texto centrado (más pequeño)
+   ✅ Galería tipo IG (grid + overlay)
 ============================================================ */
 .galleryGrid{
   display:grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--gap);
+  gap: 16px;
 }
 
-/* Item cuadrado */
 .gItem{
   position: relative;
-  border-radius: 0;              /* ✅ */
+  border-radius: 0;
   overflow: hidden;
   background: #f3f4f6;
-  border: 1px solid var(--line); /* ✅ borde */
-  box-shadow: none;              /* ✅ */
+  border: 1px solid rgba(18,18,18,.12);
   transform: translateZ(0);
-  isolation:isolate;
+  isolation: isolate;
 }
 
-/* Ratio cuadrado */
 .gItem::before{
   content:"";
   display:block;
@@ -336,35 +249,32 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
   transition: filter .20s ease, transform .20s ease;
 }
 
-/* Overlay (centrado, oculto por defecto) */
 .gOverlay{
   position:absolute;
   inset:0;
   display:flex;
   flex-direction:column;
   align-items:center;
-  justify-content:center;         /* ✅ centrado */
+  justify-content:center;
   gap: 10px;
   padding: 16px;
-  background: rgba(0,0,0,.36);    /* ✅ base (invisible porque opacity 0) */
+  background: rgba(0,0,0,.36);
   opacity: 0;
   transition: opacity .20s ease, background .20s ease;
   text-align:center;
 }
 
-/* Título centrado (más sobrio) */
 .gTitle{
   margin:0;
   color: rgba(255,255,255,.94);
-  font-weight: 800;
-  letter-spacing:.08em;
+  font-weight: 900;
+  letter-spacing:.10em;
   text-transform: uppercase;
-  font-size: 12px;               /* ✅ más pequeño */
+  font-size: 12px;
   line-height: 1.25;
   text-shadow: 0 10px 28px rgba(0,0,0,.40);
 }
 
-/* Hashtags centrados */
 .gTags{
   display:flex;
   flex-wrap:wrap;
@@ -373,34 +283,32 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
   max-width: 92%;
 }
 
-/* Tag (más pequeño y “pro”) */
 .gTag{
   display:inline-flex;
   align-items:center;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(0,0,0,.55);     /* ✅ más oscuro */
+  background: rgba(0,0,0,.55);
   color: rgba(255,255,255,.92);
-  font-size: 10.5px;              /* ✅ más pequeño */
+  font-size: 10.5px;
   letter-spacing:.08em;
   text-transform: lowercase;
   white-space:nowrap;
 }
 
-/* Hover/focus: oscurecer más + mostrar overlay */
 .gItem:hover .gOverlay,
 .gItem:focus-within .gOverlay{
   opacity: 1;
-  background: rgba(0,0,0,.52);     /* ✅ más oscuro al hover */
+  background: rgba(0,0,0,.52);
 }
 
 .gItem:hover .gMedia,
 .gItem:focus-within .gMedia{
-  filter: brightness(.62) contrast(1.06); /* ✅ más oscuro (como tu ejemplo) */
+  filter: brightness(.62) contrast(1.06);
   transform: scale(1.03);
 }
 
-/* Touch helper (JS agrega isActive) */
+/* Touch helper */
 .gItem.isActive .gOverlay{
   opacity: 1;
   background: rgba(0,0,0,.52);
@@ -410,20 +318,19 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
   transform: scale(1.03);
 }
 
-/* Responsive grid */
 @media (max-width: 980px){
   .galleryGrid{ grid-template-columns: repeat(3, 1fr); }
 }
 @media (max-width: 640px){
-  .galleryGrid{ grid-template-columns: repeat(2, 1fr); }
+  .galleryGrid{ grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .gOverlay{ padding: 14px; }
   .gTitle{ font-size: 11.5px; }
   .gTag{ font-size: 10px; }
 }
 
-/* Skeleton (placeholder) */
+/* Skeleton */
 .gItem--skeleton{
-  border: 1px solid var(--line);
+  border: 1px solid rgba(18,18,18,.12);
   background: linear-gradient(90deg, #f2f3f5, #e9eaee, #f2f3f5);
   background-size: 240% 100%;
   animation: sk 1.1s ease infinite;
@@ -434,22 +341,20 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
 }
 
 /* ============================================================
-   Reviews (FORM arriba + lista abajo)
+   Reviews
 ============================================================ */
-.section--reviews{ padding-top: 10px; }
+.section--reviews{ padding-top: var(--space-10); }
 
 .reviewsWrap{
-  display:flex;              /* ✅ stack */
+  display:flex;
   flex-direction:column;
   gap: 16px;
 }
 
-/* Form layout */
 .reviewForm{
-  border: 1px solid var(--line);
+  border: 1px solid rgba(18,18,18,.12);
   background: #fff;
-  border-radius: var(--radius);
-  box-shadow: none;
+  border-radius: var(--radius-xl);
   padding: 18px;
 }
 
@@ -457,20 +362,14 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
-  margin-bottom: 14px;       /* ✅ separa del textarea */
+  margin-bottom: 14px;
 }
 
-.reviewForm .field{
-  min-width: 0;
-}
-
-.reviewForm .textarea{
-  margin-top: 0;
-}
+.reviewForm .field{ min-width: 0; }
 
 .hint{
-  margin-top: 10px;          /* ✅ separado del textarea */
-  color: var(--muted);
+  margin-top: 10px;
+  color: rgba(18,18,18,.62);
   font-size: 12px;
   letter-spacing:.08em;
   text-transform: uppercase;
@@ -486,22 +385,19 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
 
 .miniNote{
   margin:0;
-  color: var(--muted);
+  color: rgba(18,18,18,.62);
   font-size: 12px;
-  line-height:1.6;
+  line-height: 1.6;
 }
 
-/* Review list */
 .reviewList{
-  border: 1px solid var(--line);
+  border: 1px solid rgba(18,18,18,.12);
   background: #fff;
-  border-radius: var(--radius);
-  box-shadow: none;
-  padding: 0;               /* ✅ header controla padding */
+  border-radius: var(--radius-xl);
+  padding: 0;
   overflow:hidden;
 }
 
-/* Header “Comentarios” */
 .reviewHeader{
   padding: 14px 16px;
   display:flex;
@@ -512,13 +408,13 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
 
 .reviewHeader__title{
   margin:0;
-  font-weight: 850;
+  font-weight: 900;
   letter-spacing:.02em;
   font-size: 16px;
 }
 
 .reviewHeader__meta{
-  color: var(--muted);
+  color: rgba(18,18,18,.62);
   font-size: 12px;
   letter-spacing:.10em;
   text-transform: uppercase;
@@ -526,10 +422,9 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
 
 .reviewDivider{
   height: 1px;
-  background: rgba(18,19,22,.10);
+  background: rgba(18,18,18,.10);
 }
 
-/* Body list container */
 .reviewItems{
   padding: 12px 16px 16px;
   display:flex;
@@ -538,14 +433,13 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
 }
 
 .reviewEmpty{
-  color: var(--muted);
+  color: rgba(18,18,18,.62);
   line-height: 1.7;
   padding: 14px 0;
 }
 
-/* Single comment */
 .reviewCard{
-  border: 1px solid rgba(18,19,22,.10);
+  border: 1px solid rgba(18,18,18,.10);
   border-radius: 14px;
   padding: 12px 12px;
   background: #fff;
@@ -564,13 +458,15 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
   flex-direction:column;
   gap: 4px;
 }
+
 .reviewName{
-  font-weight: 800;
+  font-weight: 900;
   font-size: 13px;
   letter-spacing:.02em;
 }
+
 .reviewMeta{
-  color: var(--muted);
+  color: rgba(18,18,18,.62);
   font-size: 12px;
   letter-spacing:.10em;
   text-transform: uppercase;
@@ -579,11 +475,10 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
 .reviewText{
   margin: 0;
   line-height: 1.65;
-  color: rgba(18,19,22,.88);
-  font-size: 14px;
+  color: rgba(18,18,18,.88);
+  font-size: var(--fs-14);
 }
 
-/* Reacciones */
 .reactions{
   display:flex;
   gap: 8px;
@@ -592,9 +487,9 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
 }
 
 .reactBtn{
-  border: 1px solid rgba(18,19,22,.12);
-  background: rgba(18,19,22,.02);
-  color: var(--text);
+  border: 1px solid rgba(18,18,18,.12);
+  background: rgba(18,18,18,.02);
+  color: rgba(18,18,18,.92);
   border-radius: 999px;
   min-height: 34px;
   padding: 6px 10px;
@@ -606,41 +501,40 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
   user-select:none;
 }
 .reactBtn:hover{
-  background: rgba(18,19,22,.04);
-  border-color: rgba(18,19,22,.20);
+  background: rgba(18,18,18,.04);
+  border-color: rgba(18,18,18,.20);
 }
 .reactBtn[aria-pressed="true"]{
-  background: rgba(18,19,22,.06);
-  border-color: rgba(18,19,22,.26);
+  background: rgba(18,18,18,.06);
+  border-color: rgba(18,18,18,.26);
 }
 
 .reactIcon{ font-size: 14px; line-height: 1; }
 .reactCount{
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(18,18,18,.62);
   letter-spacing:.08em;
   text-transform: uppercase;
 }
 
-/* Responsive */
 @media (max-width: 640px){
   .row{ grid-template-columns: 1fr; }
 }
 
 /* ============================================================
-   Footer (light)
+   Footer local (tu HTML usa .footer/.footerRow)
 ============================================================ */
 .footer{
-  border-top: 1px solid var(--line);
-  background: rgba(18,19,22,.02);
+  border-top: 1px solid rgba(18,18,18,.10);
+  background: rgba(18,18,18,.02);
   padding: 18px 0;
 }
 .footerRow{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:14px;
-  color: var(--muted);
+  gap: 14px;
+  color: rgba(18,18,18,.62);
   font-size: 13px;
   letter-spacing:.10em;
   text-transform: uppercase;
@@ -658,9 +552,7 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
   }
 }
 
-/* ============================================================
-   Reduce motion
-============================================================ */
+/* Reduce motion */
 @media (prefers-reduced-motion: reduce){
   *{
     animation-duration: 0.001ms !important;
@@ -668,5 +560,4 @@ a:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visi
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
-  .btn:hover, .icon-btn:hover{ transform:none; }
 }

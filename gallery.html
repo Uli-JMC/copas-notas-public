@@ -9,6 +9,9 @@
   <title>Galería | Entre Copas & Notas</title>
   <meta name="description" content="Galería de cocteles y maridajes + reseñas de eventos. Filtrá por fecha y descubrí experiencias." />
 
+  <!-- ✅ Base global (tokens + botones + toasts + spacing) -->
+  <link rel="stylesheet" href="./css/base.css" />
+  <!-- ✅ Solo estilos específicos de Gallery -->
   <link rel="stylesheet" href="./css/gallery.css" />
 </head>
 
@@ -32,7 +35,7 @@
         </div>
 
         <div class="navright">
-          <a class="btn btn--light" href="./home.html#proximos">Próximos eventos</a>
+          <a class="btn" href="./home.html#proximos">Próximos eventos</a>
         </div>
       </nav>
     </div>
@@ -51,15 +54,15 @@
         </p>
 
         <div class="heroLite__actions" role="navigation" aria-label="Secciones">
-          <a class="btn primary btn--light" href="#galeria">Ver galería</a>
-          <a class="btn btn--light" href="#reseñas">Leer reseñas</a>
+          <a class="btn primary" href="#galeria">Ver galería</a>
+          <a class="btn" href="#reseñas">Leer reseñas</a>
         </div>
 
-        <!-- Selector de tipo (recarga cambiando ECN_PAGE.type) -->
-        <div class="heroLite__actions" style="margin-top:10px;">
-          <a class="btn btn--light" href="./gallery.html?type=all" id="btnAll">Todo</a>
-          <a class="btn btn--light" href="./gallery.html?type=cocteles" id="btnCocteles">Cocteles</a>
-          <a class="btn btn--light" href="./gallery.html?type=maridajes" id="btnMaridajes">Maridajes</a>
+        <!-- Selector de tipo -->
+        <div class="heroLite__actions heroLite__actions--types">
+          <a class="btn" href="./gallery.html?type=all" id="btnAll">Todo</a>
+          <a class="btn" href="./gallery.html?type=cocteles" id="btnCocteles">Cocteles</a>
+          <a class="btn" href="./gallery.html?type=maridajes" id="btnMaridajes">Maridajes</a>
         </div>
       </div>
     </div>
@@ -138,7 +141,7 @@
             </div>
 
             <div class="formActions">
-              <button class="btn primary btn--light" type="submit">Publicar reseña</button>
+              <button class="btn primary" type="submit">Publicar reseña</button>
               <p class="miniNote">Al publicar aceptás que tu comentario sea visible para otros.</p>
             </div>
           </form>
@@ -169,14 +172,12 @@
   </footer>
 
   <script>
-    // ✅ Decide tipo por querystring: ?type=all|cocteles|maridajes
     (function () {
       const params = new URLSearchParams(location.search);
       const t = (params.get("type") || "all").toLowerCase();
 
       window.ECN_PAGE = { type: t };
 
-      // UI text (solo copy, no afecta data)
       const pageTitle = document.getElementById("pageTitle");
       const pageLead = document.getElementById("pageLead");
       const gridTitle = document.getElementById("gridTitle");
@@ -186,7 +187,6 @@
       const btnCoct = document.getElementById("btnCocteles");
       const btnMar = document.getElementById("btnMaridajes");
 
-      // “activo” simple (sin clases nuevas)
       function markActive(a) {
         [btnAll, btnCoct, btnMar].forEach(x => x && x.removeAttribute("aria-current"));
         if (a) a.setAttribute("aria-current", "page");
