@@ -3,7 +3,7 @@
    - 1 solo JS para ambas páginas
    - Lee window.ECN_PAGE.type: "cocteles" | "maridajes" | "all"
    - Galería: Supabase (public) -> gallery_items (preferido) o promos (fallback)
-   - Filtros: fecha + búsqueda (debounce)
+   - Filtros: fecha + tipo + búsqueda (debounce)
    - Grid IG: render limpio y quita skeletons
    - Reviews: LocalStorage (por ahora), pero:
      ✅✅ Select de eventos: Supabase events + event_dates
@@ -17,6 +17,11 @@
    ✅ PATCH 2026-02-01:
    - Soporte para window.ECN_PAGE.type = "all"
    - En "all" muestra cocteles + maridajes
+
+   ✅ PATCH 2026-02-08:
+   - Nuevo select Tipo (#filterType) al lado de Fecha (ya no botones)
+   - En pageKey "all": el select Tipo controla el filtro sin recargar
+   - Reviews renderiza en #reviewItems y actualiza #reviewMeta/#reviewEmpty
 ============================================================ */
 
 (function () {
@@ -122,12 +127,6 @@
     );
   }
 
-  function isBadRequest(err) {
-    const st = Number(err?.status || 0);
-    const msg = safeStr(err?.message || "").toLowerCase();
-    return st === 400 || msg.includes("bad request") || msg.includes("400");
-  }
-
   function prettyErr(err) {
     const msg = safeStr(err?.message || err || "");
     return msg || "Ocurrió un error.";
@@ -149,13 +148,13 @@
   }
 
   // ------------------------------------------------------------
-  // Page key desde tu config  ✅ PATCH: soporta "all"
+  // Page key desde tu config  ✅ soporta "all"
   // ------------------------------------------------------------
   function getPageKey() {
     const t = window.ECN_PAGE && window.ECN_PAGE.type ? String(window.ECN_PAGE.type).toLowerCase() : "";
     if (t.includes("coct")) return "cocteles";
     if (t.includes("marid")) return "maridajes";
-    if (t.includes("all")) return "all";     // ✅ PATCH
+    if (t.includes("all")) return "all";
     return "gallery";
   }
   const pageKey = getPageKey();
@@ -167,6 +166,7 @@
   if (!gridEl) return;
 
   const selDate = $("#filterDate");
+  const selType = $("#filterType"); // ✅ NUEVO
   const inpSearch = $("#filterSearch");
 
   // ------------------------------------------------------------
@@ -179,7 +179,6 @@
   const reviewCountEl = $("#reviewCount");
 
   const reviewListEl = $("#reviewList");
-  const reviewEmptyEl = $("#reviewEmpty");
 
   // ------------------------------------------------------------
   // Supabase availability (PUBLIC client)
@@ -239,34 +238,6 @@
     target
   `;
 
-  // ⚠️ Mantengo tus selects con joins (por si luego arreglás FK),
-  // pero la galería NO los usa para evitar 400.
-  const SELECT_GALLERY_A = `
-    id,
-    type,
-    name,
-    tags,
-    image_url,
-    image_path,
-    created_at,
-    target,
-    events ( title ),
-    event_dates ( label, date, start_at )
-  `;
-
-  const SELECT_GALLERY_B = `
-    id,
-    type,
-    name,
-    tags,
-    image_url,
-    image_path,
-    created_at,
-    target,
-    events:events!gallery_items_event_id_fkey ( title ),
-    event_dates:event_dates!gallery_items_event_date_id_fkey ( label, date, start_at )
-  `;
-
   const SELECT_PROMOS_BASE = `
     id,
     type,
@@ -277,21 +248,6 @@
     image_path,
     created_at,
     target
-  `;
-
-  // promos: lectura flexible (con joins) -> no lo usamos para evitar 400
-  const SELECT_PROMOS = `
-    id,
-    type,
-    title,
-    name,
-    tags,
-    image_url,
-    image_path,
-    created_at,
-    target,
-    events ( title ),
-    event_dates ( label, date, start_at )
   `;
 
   function publicUrlFromPath(path) {
@@ -319,11 +275,7 @@
   }
 
   function pickDateISO(row) {
-    // Preferimos fecha "real" del event_date si existe
-    const d = safeStr(row?.event_dates?.date || row?.event_dates?.start_at || "");
-    if (d) return d;
-
-    // Si no hay join, usamos created_at para no romper filtro
+    // Sin joins: usamos created_at (para que filtro por fecha no rompa)
     const c = safeStr(row?.created_at || "");
     return c || "";
   }
@@ -332,16 +284,13 @@
     const row = r || {};
     const t = String(row.type || "").toLowerCase();
 
-    const type =
-      t.includes("coct") ? "cocteles" :
-      t.includes("marid") ? "maridajes" :
-      pageKey;
+    const type = t.includes("coct")
+      ? "cocteles"
+      : t.includes("marid")
+      ? "maridajes"
+      : "all";
 
-    const evTitle = cleanSpaces(row?.events?.title || "") || "";
-    const dateLabel = cleanSpaces(row?.event_dates?.label || "") || "";
-
-    const title = cleanSpaces(row.name || row.title || evTitle || "Evento") || "Evento";
-
+    const title = cleanSpaces(row.name || row.title || "Evento") || "Evento";
     const createdAt = safeStr(row.created_at || "");
     const dateISO = pickDateISO(row);
 
@@ -352,7 +301,7 @@
       type,
       eventName: title,
       dateISO,
-      dateLabel,
+      dateLabel: dateISO ? fmtShortDate(dateISO) : "",
       img,
       tags: normalizeTags(row.tags),
       createdAt,
@@ -371,7 +320,6 @@
     return Array.isArray(data) ? data : [];
   }
 
-  // ✅ FIX: La galería usa SOLO SELECT BASE (sin joins) para evitar 400
   async function fetchGallery() {
     if (!hasSupabase()) {
       toast("Falta Supabase en esta página (revisá scripts).");
@@ -380,18 +328,12 @@
 
     await ensureSessionOptional();
 
-    // helper ✅ PATCH: filtro por tipo con soporte "all"
-    const okType = (xType) => {
-      if (pageKey === "all") return xType === "cocteles" || xType === "maridajes";
-      return xType === pageKey;
-    };
-
     // 1) gallery_items (BASE)
     try {
       const rows = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_BASE);
       return rows
         .map(normalizeGalleryRow)
-        .filter((x) => okType(x.type) && x.img && (!x.target || x.target === "home"));
+        .filter((x) => x.img && (!x.target || x.target === "home"));
     } catch (e1) {
       if (!isMissingTable(e1)) {
         if (isRLSError(e1)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
@@ -404,7 +346,7 @@
       const rowsP = await fetchUsing(DB.GALLERY_FALLBACK, SELECT_PROMOS_BASE);
       return rowsP
         .map(normalizeGalleryRow)
-        .filter((x) => okType(x.type) && x.img && (!x.target || x.target === "home"));
+        .filter((x) => x.img && (!x.target || x.target === "home"));
     } catch (eP) {
       if (isMissingTable(eP)) toast("No existe tabla gallery_items ni promos.");
       else if (isRLSError(eP)) toast("Acceso bloqueado (RLS) leyendo promos.");
@@ -417,19 +359,16 @@
   // ------------------------------------------------------------
   // ✅ Reseñas: gating por evento finalizado (ends_at)
   // ------------------------------------------------------------
-  let REVIEW_EVENTS = [];                 // [{id,title,dates:[...], eligible:boolean, reason:string}]
-  let REVIEW_ELIGIBLE = new Map();        // eventId -> { eligible, reason, endedAtMs, nextEndMs }
+  let REVIEW_EVENTS = [];
+  let REVIEW_ELIGIBLE = new Map(); // eventId -> { eligible, reason, endedAtMs, nextEndMs }
 
   function eventTypeMatches(pageKeyForMatch, typeText) {
     const t = norm(typeText || "");
 
-    // ✅ PATCH: en "all" permitimos ambos grupos
     if (pageKeyForMatch === "all") {
       return t.includes("coct") || t.includes("vino") || t.includes("cata") || t.includes("marid");
     }
-
     if (pageKeyForMatch === "cocteles") return t.includes("coct");
-    // maridajes: vino / cata / marid
     return t.includes("vino") || t.includes("cata") || t.includes("marid");
   }
 
@@ -481,8 +420,7 @@
 
     const parsed = (Array.isArray(dates) ? dates : []).map((d) => {
       const endMs = toMs(d.endsAt);
-      const startMs = toMs(d.startAt);
-      return { ...d, startMs, endMs };
+      return { ...d, endMs };
     });
 
     const ended = parsed.filter((d) => Number.isFinite(d.endMs) && d.endMs < now);
@@ -704,10 +642,35 @@
   // ------------------------------------------------------------
   let allItems = [];
 
-  function mountDateFilter() {
+  function getTypeFromUI() {
+    // prioridad: select Tipo (si existe). fallback: pageKey
+    const v = selType ? String(selType.value || "") : "";
+    if (!v) return pageKey;
+    if (v === "all") return "all";
+    if (v.includes("coct")) return "cocteles";
+    if (v.includes("marid")) return "maridajes";
+    return "all";
+  }
+
+  function mountTypeFilter() {
+    if (!selType) return;
+    // si el HTML ya lo trae armado, no lo pisamos
+    if (selType.options && selType.options.length >= 3) return;
+
+    selType.innerHTML = `
+      <option value="all">Todo</option>
+      <option value="cocteles">Cocteles</option>
+      <option value="maridajes">Maridajes</option>
+    `;
+
+    // default según pageKey
+    selType.value = pageKey === "cocteles" ? "cocteles" : pageKey === "maridajes" ? "maridajes" : "all";
+  }
+
+  function mountDateFilter(itemsForDate) {
     if (!selDate) return;
 
-    const dates = uniq(allItems.map((x) => x.dateISO).filter(Boolean)).sort();
+    const dates = uniq((itemsForDate || []).map((x) => x.dateISO).filter(Boolean)).sort();
     const base = `<option value="">Todas</option>`;
     const opts = dates.map((d) => `<option value="${esc(d)}">${esc(fmtShortDate(d))}</option>`).join("");
     selDate.innerHTML = base + opts;
@@ -716,42 +679,74 @@
   function applyGalleryFilters() {
     const fDate = selDate ? String(selDate.value || "") : "";
     const q = inpSearch ? norm(inpSearch.value || "") : "";
+    const typeWanted = getTypeFromUI();
 
     const filtered = allItems.filter((x) => {
+      // type
+      const okType =
+        typeWanted === "all"
+          ? (x.type === "cocteles" || x.type === "maridajes")
+          : x.type === typeWanted;
+
+      // date
       const okDate = !fDate || String(x.dateISO || "") === fDate;
-      if (!q) return okDate;
+
+      if (!q) return okType && okDate;
 
       const hay = norm((x.eventName || "") + " " + (Array.isArray(x.tags) ? x.tags.join(" ") : ""));
       const okSearch = hay.includes(q);
 
-      return okDate && okSearch;
+      return okType && okDate && okSearch;
     });
 
     renderGallery(filtered);
   }
 
+  // Si cambiás tipo, recomputamos fechas válidas para ese tipo
+  function onTypeChange() {
+    if (!selDate) {
+      applyGalleryFilters();
+      return;
+    }
+    const typeWanted = getTypeFromUI();
+    const pool =
+      typeWanted === "all"
+        ? allItems.filter((x) => x.type === "cocteles" || x.type === "maridajes")
+        : allItems.filter((x) => x.type === typeWanted);
+
+    // reset fecha si queda inválida
+    const current = String(selDate.value || "");
+    mountDateFilter(pool);
+    if (current && !pool.some((x) => String(x.dateISO || "") === current)) {
+      selDate.value = "";
+    }
+    applyGalleryFilters();
+  }
+
   // ------------------------------------------------------------
-  // REVIEWS: estructura header y contenedor interno
+  // REVIEWS: estructura nueva (#reviewItems + #reviewMeta + #reviewEmpty)
   // ------------------------------------------------------------
   function ensureReviewStructure() {
     if (!reviewListEl) return;
-    if ($(".reviewHeader", reviewListEl)) return;
 
-    const emptyNode = reviewEmptyEl ? reviewEmptyEl.cloneNode(true) : null;
+    if ($("#reviewItems", reviewListEl) && $("#reviewMeta")) return;
+
+    const prevEmpty = $("#reviewEmpty") ? $("#reviewEmpty").cloneNode(true) : null;
 
     reviewListEl.innerHTML = `
       <div class="reviewHeader">
-        <h3 class="reviewHeader__title">Comentarios</h3>
-        <div class="reviewHeader__meta" id="reviewMeta">0</div>
+        <div class="reviewHeader__title">Comentarios</div>
+        <div class="reviewHeader__meta" id="reviewMeta">0 comentarios</div>
       </div>
       <div class="reviewDivider"></div>
       <div class="reviewItems" id="reviewItems"></div>
     `;
 
     const wrap = $("#reviewItems", reviewListEl);
-    if (emptyNode) {
-      emptyNode.id = "reviewEmpty";
-      wrap.appendChild(emptyNode);
+    if (prevEmpty) {
+      prevEmpty.id = "reviewEmpty";
+      prevEmpty.classList.add("reviewEmpty");
+      wrap.appendChild(prevEmpty);
     } else {
       const d = document.createElement("div");
       d.id = "reviewEmpty";
@@ -798,6 +793,9 @@
     const itemsWrap = $("#reviewItems", reviewListEl);
     const empty = $("#reviewEmpty", reviewListEl);
 
+    if (!itemsWrap) return;
+
+    // limpia cards
     $$(".reviewCard", itemsWrap).forEach((n) => n.remove());
 
     const sorted = (Array.isArray(list) ? list.slice() : []).sort(
@@ -984,10 +982,23 @@
     try {
       allItems = await fetchGallery();
 
-      mountDateFilter();
-      renderGallery(allItems);
+      // ✅ Monta tipo (si existe) y aplica defaults
+      mountTypeFilter();
+
+      // ✅ Fechas basadas en tipo actual (para que el select Fecha sea coherente)
+      const typeWanted = getTypeFromUI();
+      const pool =
+        typeWanted === "all"
+          ? allItems.filter((x) => x.type === "cocteles" || x.type === "maridajes")
+          : allItems.filter((x) => x.type === typeWanted);
+
+      mountDateFilter(pool);
+
+      // Render inicial con filtros
+      applyGalleryFilters();
 
       if (selDate) selDate.addEventListener("change", applyGalleryFilters);
+      if (selType) selType.addEventListener("change", onTypeChange);
       if (inpSearch) inpSearch.addEventListener("input", debounce(applyGalleryFilters, 130));
     } catch (e) {
       console.warn("[gallery] initGallery fail:", e);

@@ -1,114 +1,51 @@
 /* ============================================================
-   gallery.css ✅ (ALINEADO A base.css) - 2026
-   - Usa base.css para: reset, buttons, toasts, tipografía, focus ring
-   - Aquí solo: topbar/hero/sections/filters/grid/reviews/footer
+   gallery.css ✅ PAGE ONLY (2026) — UNIFICADO con base.css
+   - NO redefine body/container/buttons/toasts
+   - Tipografía y spacing alineados con home/base
 ============================================================ */
 
 :root{
-  --bggrey:#fcf6ff;
-  --gap: 16px;
-
-  /* Overlay tags */
-  --pillBg: rgba(0,0,0,.62);
-  --pillText: rgba(255,255,255,.92);
+  --bggrey:#fcf6ff;  /* fondo suave hero */
 }
 
-/* ============================================================
-   Topbar (light)
-============================================================ */
-.topbar{
-  position: sticky;
-  top:0;
-  z-index: 50;
-  background: rgba(255,255,255,.86);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--line);
-}
-
-.nav{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 14px;
-  padding: 14px 0;
-}
-
-.brand{
-  display:flex;
-  align-items:center;
-  gap:10px; /* queda ok aunque ya no haya img */
-}
-.brand span{
-  font-family: ui-serif, Georgia, "Times New Roman", Times, serif;
-  font-weight: 800;
-  letter-spacing:.05em;
-  white-space:nowrap;
-}
-
-.navlinks{
-  display:flex;
-  align-items:center;
-  gap: 18px;
-}
-.navlinks a{
-  color: var(--muted);
-  font-size: 13px;
-  letter-spacing:.14em;
-  text-transform: uppercase;
-  padding: 10px 10px;
+/* Activo en nav */
+.navLink[aria-current="page"]{
+  color: rgba(18,18,18,.95);
+  background: rgba(18,18,18,.04);
   border-radius: 999px;
-  transition: .15s ease;
-}
-.navlinks a:hover{
-  color: var(--text);
-  background: rgba(18,19,22,.04);
-}
-
-.navright{ display:flex; gap:10px; align-items:center; }
-
-@media (max-width: 860px){
-  .navlinks{ display:none; }
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
 /* ============================================================
    Hero Lite
 ============================================================ */
 .heroLite{
-  padding: 26px 0 10px;
-  background-color: var(--bggrey);
+  padding: 26px 0 14px;
+  background: var(--bggrey);
+  border-bottom: 1px solid rgba(18,18,18,.08);
 }
 .heroLite__inner{
-  box-shadow: none;
-  padding: 20px;
+  padding: 22px 0;
 }
 .kicker{
   display:inline-flex;
   align-items:center;
   padding: 7px 10px;
   border-radius: 999px;
-  border: 1px solid var(--line);
-  color: var(--muted);
+  border: 1px solid rgba(18,18,18,.12);
+  color: rgba(18,18,18,.62);
   font-size: 11px;
-  letter-spacing:.14em;
+  letter-spacing: .18em;
   text-transform: uppercase;
-  background: rgba(18,19,22,.02);
-}
-.h1{
-  margin: 12px 0 6px;
-  font-family: ui-serif, Georgia, "Times New Roman", Times, serif;
-  font-weight: 900;
-  letter-spacing:.02em;
-  font-size: clamp(26px, 2.6vw, 38px);
-  line-height:1.08;
+  background: rgba(18,18,18,.02);
 }
 .lead{
-  margin: 0;
-  color: var(--muted);
+  margin-top: 12px;
+  color: rgba(18,18,18,.62);
   line-height: 1.75;
-  max-width: 100%;
-  font-size: 14px;
-  text-align: justify;
+  max-width: 72ch;
+  font-size: var(--fs-15);
 }
 .heroLite__actions{
   margin-top: 14px;
@@ -118,33 +55,34 @@
 }
 
 /* ============================================================
-   Sections
+   Sections (alineado a home)
 ============================================================ */
 .section{
-  padding: 26px 0 44px;
+  padding: 44px 0 54px;
 }
 .sectionHead{
   display:flex;
   justify-content:space-between;
   align-items:flex-end;
-  gap:16px;
+  gap: 16px;
   margin-bottom: 14px;
 }
-.sectionHead--left{ justify-content:space-between; }
-
+.sectionHead--left{
+  justify-content:space-between;
+}
 .h2{
-  margin:0;
-  font-family: ui-serif, Georgia, "Times New Roman", Times, serif;
-  font-weight: 850;
-  letter-spacing:.02em;
-  font-size: clamp(18px, 2vw, 26px);
-  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-size: clamp(18px, 2.2vw, 22px);
+  line-height: 1.2;
+  color: var(--text);
 }
 .sub{
-  margin: 10px 0 0;
+  margin-top: 10px;
   color: var(--muted);
   line-height: 1.7;
-  font-size: 14px;
+  font-size: var(--fs-14);
   max-width: 72ch;
 }
 
@@ -153,62 +91,70 @@
 ============================================================ */
 .filters{
   margin: 18px 0 18px;
-  display:flex;
+  display:grid;
+  grid-template-columns: 220px 220px 1fr;
   gap: 14px;
-  flex-wrap:wrap;
-  align-items:flex-end;
+  align-items:end;
 }
 
 .field{
   display:flex;
   flex-direction:column;
-  gap:10px;
-  min-width: 220px;
-}
-
-.field--search{
-  min-width: 280px;
-  flex: 1 1 320px;
-}
-
-.label{
-  font-size: 12px;
-  letter-spacing:.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-  line-height: 1.2;
+  gap: 10px;
+  min-width: 0;
 }
 
 .select, .input, .textarea{
-  border: 1px solid var(--line);
+  border: 1px solid rgba(18,18,18,.12);
   background: #fff;
-  color: rgba(18,19,22,.86);
+  color: rgba(18,18,18,.86);
   border-radius: 14px;
   padding: 11px 12px;
-  font-size: 14px;
+  font-size: var(--fs-14);
   min-height: var(--tap);
 }
 
-.textarea{
-  resize: vertical;
-  min-height: 140px;
+.field--search .searchWrap{
+  position: relative;
+  display:flex;
+  align-items:center;
 }
 
-.input::placeholder, .textarea::placeholder{ color: rgba(18,19,22,.45); }
+.field--search .input{
+  padding-right: 58px;
+}
 
-@media (max-width: 640px){
-  :root{ --gap: 12px; }
-  .field{ min-width: 0; flex: 1 1 100%; }
-  .filters{ gap: 12px; }
+.searchHint{
+  position:absolute;
+  right: 10px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(18,18,18,.10);
+  background: rgba(18,18,18,.03);
+  color: rgba(18,18,18,.55);
+  font-size: 12px;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  display:flex;
+  align-items:center;
+  pointer-events:none;
+}
+
+/* Mobile filters */
+@media (max-width: 760px){
+  .filters{
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ============================================================
-   Galería tipo Instagram
+   ✅ GALERÍA (IG-style)
 ============================================================ */
 .galleryGrid{
   display:grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--gap);
+  gap: 16px;
 }
 
 .gItem{
@@ -216,9 +162,7 @@
   border-radius: 0;
   overflow: hidden;
   background: #f3f4f6;
-  border: 1px solid var(--line);
-  box-shadow: none;
-  transform: translateZ(0);
+  border: 1px solid rgba(18,18,18,.12);
   isolation:isolate;
 }
 
@@ -256,8 +200,8 @@
 .gTitle{
   margin:0;
   color: rgba(255,255,255,.94);
-  font-weight: 800;
-  letter-spacing:.08em;
+  font-weight: 900;
+  letter-spacing:.10em;
   text-transform: uppercase;
   font-size: 12px;
   line-height: 1.25;
@@ -297,28 +241,8 @@
   transform: scale(1.03);
 }
 
-.gItem.isActive .gOverlay{
-  opacity: 1;
-  background: rgba(0,0,0,.52);
-}
-.gItem.isActive .gMedia{
-  filter: brightness(.62) contrast(1.06);
-  transform: scale(1.03);
-}
-
-@media (max-width: 980px){
-  .galleryGrid{ grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 640px){
-  .galleryGrid{ grid-template-columns: repeat(2, 1fr); }
-  .gOverlay{ padding: 14px; }
-  .gTitle{ font-size: 11.5px; }
-  .gTag{ font-size: 10px; }
-}
-
-/* Skeleton */
 .gItem--skeleton{
-  border: 1px solid var(--line);
+  border: 1px solid rgba(18,18,18,.12);
   background: linear-gradient(90deg, #f2f3f5, #e9eaee, #f2f3f5);
   background-size: 240% 100%;
   animation: sk 1.1s ease infinite;
@@ -328,8 +252,15 @@
   100%{ background-position: 100% 0; }
 }
 
+@media (max-width: 980px){
+  .galleryGrid{ grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 640px){
+  .galleryGrid{ grid-template-columns: repeat(2, 1fr); }
+}
+
 /* ============================================================
-   Reviews
+   Reviews + Comments (estilo completo)
 ============================================================ */
 .section--reviews{ padding-top: 10px; }
 
@@ -340,10 +271,9 @@
 }
 
 .reviewForm{
-  border: 1px solid var(--line);
+  border: 1px solid rgba(18,18,18,.12);
   background: #fff;
   border-radius: var(--radius-xl);
-  box-shadow: none;
   padding: 18px;
 }
 
@@ -354,13 +284,16 @@
   margin-bottom: 14px;
 }
 
-.reviewForm .field{ min-width: 0; }
+.textarea{
+  resize: vertical;
+  min-height: 140px;
+}
 
 .hint{
   margin-top: 10px;
   color: var(--muted);
   font-size: 12px;
-  letter-spacing:.08em;
+  letter-spacing:.10em;
   text-transform: uppercase;
   text-align:right;
 }
@@ -380,34 +313,100 @@
 }
 
 .reviewList{
-  border: 1px solid var(--line);
+  border: 1px solid rgba(18,18,18,.12);
   background: #fff;
   border-radius: var(--radius-xl);
-  box-shadow: none;
-  padding: 0;
   overflow:hidden;
+}
+
+.reviewHeader{
+  padding: 14px 16px;
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap: 10px;
+}
+
+.reviewHeader__title{
+  font-weight: 900;
+  letter-spacing:.10em;
+  text-transform: uppercase;
+  font-size: 13px;
+}
+
+.reviewHeader__meta{
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing:.10em;
+  text-transform: uppercase;
+}
+
+.reviewDivider{
+  height: 1px;
+  background: rgba(18,18,18,.10);
+}
+
+.reviewItems{
+  padding: 12px 16px 16px;
+  display:flex;
+  flex-direction:column;
+  gap: 12px;
 }
 
 .reviewEmpty{
   color: var(--muted);
   line-height: 1.7;
-  padding: 14px 16px;
+  padding: 12px 16px 16px;
+}
+
+/* Si tu JS crea tarjetas */
+.reviewCard{
+  border: 1px solid rgba(18,18,18,.10);
+  border-radius: 14px;
+  padding: 12px 12px;
+  background: #fff;
+}
+
+.reviewTop{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.reviewName{
+  font-weight: 900;
+  letter-spacing:.06em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.reviewMeta{
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing:.10em;
+  text-transform: uppercase;
+}
+
+.reviewText{
+  margin: 0;
+  line-height: 1.65;
+  color: rgba(18,18,18,.88);
+  font-size: var(--fs-14);
 }
 
 @media (max-width: 640px){
   .row{ grid-template-columns: 1fr; }
 }
 
-/* ============================================================
-   Footer (light)
-============================================================ */
-.footer{
-  border-top: 1px solid var(--line);
-  background: rgba(18,19,22,.02);
+/* Footer light (mantiene tu look actual) */
+.footer.footer--light{
+  border-top: 1px solid rgba(18,18,18,.10);
+  background: rgba(18,18,18,.02);
   padding: 18px 0;
 }
-
-.footerRow{
+.footerRow.footerRow--light{
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -418,11 +417,10 @@
   text-transform: uppercase;
   line-height: 1.4;
 }
-
-.footerRow .social{ gap:10px; display:flex; }
+.footerRow.footerRow--light .social{ gap:10px; display:flex; }
 
 @media (max-width: 640px){
-  .footerRow{
+  .footerRow.footerRow--light{
     flex-direction: column;
     justify-content:center;
     align-items:center;
