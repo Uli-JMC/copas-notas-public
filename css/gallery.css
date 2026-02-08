@@ -2,6 +2,7 @@
    gallery.css ✅ PAGE ONLY (2026) — UNIFICADO con base.css
    - NO redefine body/container/buttons/toasts
    - Tipografía y spacing alineados con home/base
+   - ✅ Incluye Reviews + Reactions completos (para gallery.js)
 ============================================================ */
 
 :root{
@@ -104,6 +105,16 @@
   min-width: 0;
 }
 
+/* labels (por si tu HTML usa <label class="..."> o label normal) */
+.field label{
+  font-size: 12px;
+  letter-spacing:.10em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1.25;
+}
+
+/* inputs */
 .select, .input, .textarea{
   border: 1px solid rgba(18,18,18,.12);
   background: #fff;
@@ -112,6 +123,20 @@
   padding: 11px 12px;
   font-size: var(--fs-14);
   min-height: var(--tap);
+  outline: none;
+}
+
+.input::placeholder,
+.textarea::placeholder{
+  color: rgba(18,18,18,.40);
+}
+
+/* focus consistente con base.css */
+.select:focus,
+.input:focus,
+.textarea:focus{
+  box-shadow: var(--focusRing);
+  border-color: rgba(75,110,255,.35);
 }
 
 .field--search .searchWrap{
@@ -164,6 +189,8 @@
   background: #f3f4f6;
   border: 1px solid rgba(18,18,18,.12);
   isolation:isolate;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .gItem::before{
@@ -241,6 +268,25 @@
   transform: scale(1.03);
 }
 
+/* ✅ estado activo (tap en mobile) - lo usa tu JS */
+.gItem.isActive .gOverlay{
+  opacity: 1;
+  background: rgba(0,0,0,.52);
+}
+.gItem.isActive .gMedia{
+  filter: brightness(.62) contrast(1.06);
+  transform: scale(1.03);
+}
+
+/* focus visible */
+.gItem:focus{
+  outline:none;
+}
+.gItem:focus-visible{
+  box-shadow: var(--focusRing);
+}
+
+/* skeleton */
 .gItem--skeleton{
   border: 1px solid rgba(18,18,18,.12);
   background: linear-gradient(90deg, #f2f3f5, #e9eaee, #f2f3f5);
@@ -277,6 +323,12 @@
   padding: 18px;
 }
 
+/* estructura de campos */
+.reviewForm .field{
+  gap: 8px;
+}
+
+/* grid nombre + evento (si aplica) */
 .row{
   display:grid;
   grid-template-columns: 1fr 1fr;
@@ -305,6 +357,12 @@
   flex-wrap:wrap;
 }
 
+/* si el botón viene de base.css (.btn) lo respeta;
+   esto solo ayuda a que no se vea “aplastado” en forms */
+.reviewForm .btn{
+  border-radius: 14px;
+}
+
 .miniNote{
   margin:0;
   color: var(--muted);
@@ -312,6 +370,7 @@
   line-height:1.6;
 }
 
+/* List container */
 .reviewList{
   border: 1px solid rgba(18,18,18,.12);
   background: #fff;
@@ -359,7 +418,7 @@
   padding: 12px 16px 16px;
 }
 
-/* Si tu JS crea tarjetas */
+/* Card */
 .reviewCard{
   border: 1px solid rgba(18,18,18,.10);
   border-radius: 14px;
@@ -375,6 +434,10 @@
   margin-bottom: 8px;
 }
 
+.reviewWho{
+  min-width: 0;
+}
+
 .reviewName{
   font-weight: 900;
   letter-spacing:.06em;
@@ -387,6 +450,7 @@
   font-size: 12px;
   letter-spacing:.10em;
   text-transform: uppercase;
+  margin-top: 4px;
 }
 
 .reviewText{
@@ -394,13 +458,82 @@
   line-height: 1.65;
   color: rgba(18,18,18,.88);
   font-size: var(--fs-14);
+  overflow-wrap: anywhere;
 }
 
+/* ============================================================
+   ✅ Reactions (❤️ 👍 👎) — tu JS las crea
+============================================================ */
+.reactions{
+  margin-top: 10px;
+  display:flex;
+  gap: 10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.reactBtn{
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  padding: 8px 12px;
+  min-height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(18,18,18,.12);
+  background: rgba(18,18,18,.03);
+  color: rgba(18,18,18,.80);
+  cursor:pointer;
+  user-select:none;
+  transition: background .15s ease, border-color .15s ease, transform .10s ease;
+}
+
+.reactBtn:hover{
+  background: rgba(18,18,18,.06);
+  border-color: rgba(18,18,18,.18);
+}
+
+.reactBtn:active{
+  transform: translateY(1px);
+}
+
+.reactBtn:focus{
+  outline:none;
+}
+
+.reactBtn:focus-visible{
+  box-shadow: var(--focusRing);
+  border-color: rgba(75,110,255,.35);
+}
+
+.reactIcon{
+  font-size: 14px;
+  line-height: 1;
+  transform: translateY(1px);
+}
+
+.reactCount{
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing:.08em;
+  text-transform: uppercase;
+}
+
+/* estado activo (aria-pressed=true) */
+.reactBtn[aria-pressed="true"]{
+  background: rgba(18,18,18,.10);
+  border-color: rgba(18,18,18,.22);
+}
+
+/* Mobile tweaks */
 @media (max-width: 640px){
   .row{ grid-template-columns: 1fr; }
+  .reactions{ gap: 8px; }
+  .reactBtn{ padding: 8px 10px; }
 }
 
-/* Footer light (mantiene tu look actual) */
+/* ============================================================
+   Footer light (mantiene tu look actual)
+============================================================ */
 .footer.footer--light{
   border-top: 1px solid rgba(18,18,18,.10);
   background: rgba(18,18,18,.02);
