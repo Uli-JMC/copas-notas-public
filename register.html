@@ -8,6 +8,10 @@
   <title>Inscripción | Entre Copas & Notas</title>
   <meta name="description" content="Formulario de inscripción para eventos de catas y coctelería." />
 
+  <!-- ✅ Base primero (tokens, layout, botones globales) -->
+  <link rel="stylesheet" href="./css/base.css" />
+
+  <!-- ✅ Register después (solo overrides específicos de la página) -->
   <link rel="stylesheet" href="./css/register.css" />
 </head>
 
@@ -37,12 +41,8 @@
     <div class="container">
       <section class="card">
         <div class="cardTop">
-
-          <!-- ✅ Row superior: Inscripción + cupos disponibles -->
           <div class="cardTopRow">
             <p class="kicker">Inscripción</p>
-
-            <!-- ✅ Cupos disponibles (no totales). register.js setea el texto -->
             <span class="cuposBadge" id="availableSeats">CUPOS DISP.: —</span>
           </div>
 
@@ -51,15 +51,11 @@
             <p class="sub" id="eventDesc">Completá tus datos para reservar tu cupo.</p>
           </div>
 
-          <!-- ✅ MetaBox full width -->
           <div class="metaBox" id="metaBox"></div>
         </div>
 
-        <!-- ✅ Padding interno del formulario -->
         <div class="formWrap">
           <form id="regForm" novalidate>
-
-            <!-- ✅ opcional (no visible): útil para date_id si lo ocupás en Supabase RPC -->
             <input type="hidden" id="dateId" name="dateId" value="" />
 
             <div class="grid">
