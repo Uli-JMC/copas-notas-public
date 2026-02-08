@@ -415,49 +415,55 @@
     }
   }
 
-  function computeEligibilityForEvent(dates) {
-    const now = nowMs();
+ function computeEligibilityForEvent(dates) {
+  const now = nowMs();
 
-    const parsed = (Array.isArray(dates) ? dates : []).map((d) => {
-      const endMs = toMs(d.endsAt);
-      return { ...d, endMs };
-    });
+  const parsed = (Array.isArray(dates) ? dates : []).map((d) => {
+    // prioridad: ends_at -> start_at -> date -> created_at
+    const endMs = toMs(d.endsAt) || toMs(d.startAt) || toMs(d.date) || toMs(d.createdAt);
+    const startMs = toMs(d.startAt) || toMs(d.date) || toMs(d.createdAt);
+    return { ...d, startMs, endMs };
+  });
 
-    const ended = parsed.filter((d) => Number.isFinite(d.endMs) && d.endMs < now);
-    if (ended.length) {
-      ended.sort((a, b) => a.endMs - b.endMs);
-      const last = ended[ended.length - 1];
-      return { eligible: true, reason: "", endedAtMs: last.endMs, nextEndMs: NaN };
-    }
+  // Si tenemos endMs válido y ya pasó => elegible
+  const ended = parsed.filter((d) => Number.isFinite(d.endMs) && d.endMs < now);
+  if (ended.length) {
+    ended.sort((a, b) => a.endMs - b.endMs);
+    const last = ended[ended.length - 1];
+    return { eligible: true, reason: "", endedAtMs: last.endMs, nextEndMs: NaN };
+  }
 
-    const futureEnds = parsed.filter((d) => Number.isFinite(d.endMs) && d.endMs >= now);
-    if (futureEnds.length) {
-      futureEnds.sort((a, b) => a.endMs - b.endMs);
-      const next = futureEnds[0];
-      return {
-        eligible: false,
-        reason: "Las reseñas se habilitan cuando el evento finaliza.",
-        endedAtMs: NaN,
-        nextEndMs: next.endMs,
-      };
-    }
-
-    if (parsed.length) {
-      return {
-        eligible: false,
-        reason: "Este evento aún no tiene hora de finalización configurada. Las reseñas se habilitan al finalizar.",
-        endedAtMs: NaN,
-        nextEndMs: NaN,
-      };
-    }
-
+  // Si hay fin futuro => no elegible aún
+  const futureEnds = parsed.filter((d) => Number.isFinite(d.endMs) && d.endMs >= now);
+  if (futureEnds.length) {
+    futureEnds.sort((a, b) => a.endMs - b.endMs);
+    const next = futureEnds[0];
     return {
       eligible: false,
-      reason: "Aún no hay fechas para este evento.",
+      reason: "Las reseñas se habilitan cuando el evento finaliza.",
+      endedAtMs: NaN,
+      nextEndMs: next.endMs,
+    };
+  }
+
+  // Si hay fechas pero no parsean, mensaje claro
+  if (parsed.length) {
+    return {
+      eligible: false,
+      reason: "Este evento no tiene una fecha/hora válida de finalización. Configurá start_at/ends_at.",
       endedAtMs: NaN,
       nextEndMs: NaN,
     };
   }
+
+  return {
+    eligible: false,
+    reason: "Aún no hay fechas para este evento.",
+    endedAtMs: NaN,
+    nextEndMs: NaN,
+  };
+}
+
 
   async function fetchEventsForSelect() {
     if (!hasSupabase()) return [];

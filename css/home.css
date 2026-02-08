@@ -172,6 +172,13 @@
   white-space: nowrap;
 }
 
+.eventPill--success{
+  border-color: rgba(22,163,74,.22);
+  background: rgba(22,163,74,.12);
+  color: rgba(22,163,74,.96);
+}
+
+
 .heroTitle--wix {
   font-weight: 800;
   letter-spacing: .02em;

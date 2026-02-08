@@ -9,6 +9,11 @@
    - ✅ FIX 2026-02: Drawer toggle visible (X) + navegación sin flash
    - ✅ Quote rotator: animación moderna + altura estable (CSS)
    - ✅ PATCH 2026-02: Resumen por mes en LISTADO PRO (sin foto, botones derecha)
+
+   ✅ PATCH 2026-02-08 (FINALIZADO vs AGOTADO):
+   - Lee start_at / ends_at / date desde event_dates
+   - Detecta evento FINALIZADO (fin < ahora) => pill verde + bloquea botones
+   - AGOTADO solo si seats_available total <= 0 (cupos)
 ============================================================ */
 
 // ============================================================
@@ -66,6 +71,56 @@ function safeCssUrl(url) {
 }
 
 // ============================================================
+// ✅ Time helpers (FINALIZADO)
+// ============================================================
+function toMs(v) {
+  const raw = String(v || "").trim();
+  if (!raw) return NaN;
+
+  // YYYY-MM-DD => fin del día
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const t = Date.parse(raw + "T23:59:59");
+    return Number.isFinite(t) ? t : NaN;
+  }
+
+  // YYYY-MM-DD HH:mm:ss => ISO-like
+  if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(raw)) {
+    const t = Date.parse(raw.replace(" ", "T"));
+    return Number.isFinite(t) ? t : NaN;
+  }
+
+  const t = Date.parse(raw);
+  return Number.isFinite(t) ? t : NaN;
+}
+
+function getEventEndMs(ev) {
+  // endsAt (mejor) -> startAt -> date -> createdAt
+  const dates = Array.isArray(ev?.dateObjs) ? ev.dateObjs : [];
+  let best = NaN;
+
+  for (const d of dates) {
+    const end = toMs(d.endsAt) || toMs(d.startAt) || toMs(d.date) || toMs(d.createdAt);
+    if (!Number.isFinite(end)) continue;
+    if (!Number.isFinite(best) || end > best) best = end;
+  }
+
+  return best;
+}
+
+function getEventState(ev) {
+  const now = Date.now();
+  const endMs = getEventEndMs(ev);
+  const isEnded = Number.isFinite(endMs) && endMs < now;
+
+  const soldOut = Number(ev?.seats || 0) <= 0;
+
+  if (isEnded) return { state: "ENDED", label: "FINALIZADO", pillClass: "eventPill--success", disabled: true };
+  if (soldOut) return { state: "SOLD_OUT", label: "AGOTADO", pillClass: "eventPill--danger", disabled: true };
+
+  return { state: "OPEN", label: "", pillClass: "", disabled: false };
+}
+
+// ============================================================
 // Toasts
 // ============================================================
 const toastsEl = qs("#toasts");
@@ -103,9 +158,9 @@ function goEvent(id) {
   window.location.href = `./event.html?event=${encodeURIComponent(id)}`;
 }
 
-function goRegister(id, soldOut) {
-  if (soldOut) {
-    toast("Evento agotado", "Este evento no tiene cupos.");
+function goRegister(id, disabled) {
+  if (disabled) {
+    toast("No disponible", "Este evento no está disponible para inscripción.");
     return;
   }
   window.location.href = `./register.html?event=${encodeURIComponent(id)}`;
@@ -113,9 +168,6 @@ function goRegister(id, soldOut) {
 
 // ============================================================
 // ✅ Drawer / Mobile Menu (Hamburger = abre/cierra + X visible)
-// - FIX 1: el botón queda arriba del drawer (fixed + zIndex alto)
-// - FIX 2: al hacer click en link, cerramos y navegamos después (sin flash)
-// - FIX extra: clona botón/backdrop para eliminar listeners previos (script inline viejo)
 // ============================================================
 function initMobileDrawer() {
   // anti doble bind
@@ -127,7 +179,7 @@ function initMobileDrawer() {
   const backdrop0 = document.getElementById("drawerBackdrop");
   if (!fab0 || !drawer || !backdrop0) return;
 
-  // ✅ mata listeners viejos (por ejemplo el script inline del HTML)
+  // ✅ mata listeners viejos
   const fab = fab0.cloneNode(true);
   fab0.parentNode.replaceChild(fab, fab0);
 
@@ -136,7 +188,6 @@ function initMobileDrawer() {
 
   let isOpen = false;
 
-  // guardar estilos originales por si acaso
   const fabOrig = {
     position: fab.style.position || "",
     top: fab.style.top || "",
@@ -154,15 +205,12 @@ function initMobileDrawer() {
   };
 
   const setFabOverDrawer = (on) => {
-    // ✅ ponemos el botón arriba del drawer para que se vea la X
     if (on) {
       fab.style.position = "fixed";
       fab.style.top = "14px";
       fab.style.right = "14px";
       fab.style.left = "";
-      fab.style.zIndex = "2000"; // arriba del drawer/backdrop
-
-      // ✅ las líneas blancas sobre el drawer morado
+      fab.style.zIndex = "2000";
       spans.forEach((s) => (s.style.backgroundColor = "#fff"));
     } else {
       fab.style.position = fabOrig.position;
@@ -170,7 +218,6 @@ function initMobileDrawer() {
       fab.style.right = fabOrig.right;
       fab.style.left = fabOrig.left;
       fab.style.zIndex = fabOrig.zIndex;
-
       spans.forEach((s, i) => (s.style.backgroundColor = spanOrigBg[i] || ""));
     }
   };
@@ -180,7 +227,6 @@ function initMobileDrawer() {
     isOpen = true;
 
     backdrop.hidden = false;
-
     drawer.classList.add("is-open");
     drawer.setAttribute("aria-hidden", "false");
 
@@ -205,7 +251,6 @@ function initMobileDrawer() {
     fab.setAttribute("aria-label", "Abrir menú");
 
     if (!keepScroll) lockScroll(false);
-
     setFabOverDrawer(false);
 
     if (!keepBackdrop) {
@@ -227,7 +272,6 @@ function initMobileDrawer() {
     if (e.key === "Escape") closeDrawer();
   });
 
-  // ✅ cerrar + navegación SIN flash
   drawer.addEventListener("click", (e) => {
     const a = e.target.closest("a[href]");
     if (!a) return;
@@ -235,10 +279,8 @@ function initMobileDrawer() {
     const href = a.getAttribute("href") || "";
     if (!href) return;
 
-    // Anchors dentro de la misma página
     if (href.startsWith("#")) {
       e.preventDefault();
-
       closeDrawer();
 
       setTimeout(() => {
@@ -252,9 +294,7 @@ function initMobileDrawer() {
       return;
     }
 
-    // Link a otra página: evita ver el contenido “detrás”
     e.preventDefault();
-
     closeDrawer({ keepBackdrop: true, keepScroll: true });
 
     setTimeout(() => {
@@ -262,7 +302,6 @@ function initMobileDrawer() {
     }, 220);
   });
 
-  // si vuelven a desktop, cerramos
   window.addEventListener("resize", () => {
     if (window.innerWidth > 900 && isOpen) closeDrawer();
   });
@@ -283,18 +322,14 @@ function hasSupabase() {
 
 async function fetchEventsFromSupabase() {
   if (!hasSupabase()) {
-    hardFail(
-      "APP.supabase no está listo. Revisá el orden: supabase-js CDN -> supabaseClient.js -> home.js"
-    );
+    hardFail("APP.supabase no está listo. Revisá el orden: supabase-js CDN -> supabaseClient.js -> home.js");
     return [];
   }
 
   // 1) Traer eventos
   const evRes = await APP.supabase
     .from("events")
-    .select(
-      'id,title,type,month_key,"desc",img,location,time_range,duration_hours,created_at,updated_at'
-    )
+    .select('id,title,type,month_key,"desc",img,location,time_range,duration_hours,created_at,updated_at')
     .order("created_at", { ascending: false });
 
   if (evRes.error) {
@@ -306,10 +341,10 @@ async function fetchEventsFromSupabase() {
   const events = Array.isArray(evRes.data) ? evRes.data : [];
   if (!events.length) return [];
 
-  // 2) Traer fechas
+  // 2) Traer fechas (✅ con start_at / ends_at / date)
   const datesRes = await APP.supabase
     .from("event_dates")
-    .select("id,event_id,label,seats_total,seats_available,created_at")
+    .select("id,event_id,label,start_at,ends_at,date,seats_total,seats_available,created_at")
     .order("created_at", { ascending: true });
 
   if (datesRes.error) {
@@ -327,8 +362,12 @@ async function fetchEventsFromSupabase() {
     byEvent.get(eid).push({
       id: d?.id,
       label: d?.label,
+      startAt: d?.start_at || "",
+      endsAt: d?.ends_at || "",
+      date: d?.date || "",
       seats_available: Number(d?.seats_available ?? 0),
       seats_total: Number(d?.seats_total ?? 0),
+      createdAt: d?.created_at || "",
     });
   });
 
@@ -337,16 +376,14 @@ async function fetchEventsFromSupabase() {
     const evDates = byEvent.get(ev.id) || [];
     const labels = evDates.map((x) => x.label).filter(Boolean);
 
-    const seats = evDates.reduce(
-      (acc, x) => acc + (Number(x.seats_available) || 0),
-      0
-    );
+    const seats = evDates.reduce((acc, x) => acc + (Number(x.seats_available) || 0), 0);
 
     return {
       id: ev?.id || "",
       type: ev?.type || "Experiencia",
       monthKey: String(ev?.month_key || "—").toUpperCase(),
       dates: labels,
+      dateObjs: evDates, // ✅ para FINALIZADO
       title: ev?.title || "Evento",
       desc: ev?.desc || "",
       seats,
@@ -365,11 +402,7 @@ async function fetchGalleryPreview(limit = 8) {
   if (!hasSupabase()) return [];
 
   const sel = "id,type,name,tags,image_url,image_path,created_at,target";
-  const res = await APP.supabase
-    .from("gallery_items")
-    .select(sel)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const res = await APP.supabase.from("gallery_items").select(sel).order("created_at", { ascending: false }).limit(limit);
 
   if (res.error) {
     console.warn("[home] gallery_items error:", res.error);
@@ -449,7 +482,6 @@ async function renderHomeGalleryPreview() {
   if (!grid) return;
 
   const rows = await fetchGalleryPreview(8);
-
   if (!rows.length) {
     grid.innerHTML = "";
     return;
@@ -475,7 +507,6 @@ async function renderHomeGalleryPreview() {
 
 // ============================================================
 // ✅ Testimonial rotator (MODERNO)
-// - Usa clase .is-anim (CSS) para animación suave
 // ============================================================
 function initQuoteRotator() {
   const el = qs("#quoteRotator");
@@ -498,9 +529,7 @@ function initQuoteRotator() {
     quotes = [];
   }
 
-  quotes = Array.isArray(quotes)
-    ? quotes.map((q) => String(q || "").trim()).filter(Boolean)
-    : [];
+  quotes = Array.isArray(quotes) ? quotes.map((q) => String(q || "").trim()).filter(Boolean) : [];
   if (!quotes.length) return;
 
   let i = 0;
@@ -509,9 +538,8 @@ function initQuoteRotator() {
     const q = quotes[idx];
     if (!q) return;
 
-    // reinicia animación
     el.classList.remove("is-anim");
-    void el.offsetWidth; // reflow
+    void el.offsetWidth;
     el.textContent = "“" + q + "”";
     el.classList.add("is-anim");
   };
@@ -633,7 +661,9 @@ function renderSlides() {
   idx = Math.min(idx, EVENTS.length - 1);
 
   EVENTS.forEach((ev, i) => {
-    const soldOut = ev.seats <= 0;
+    const st = getEventState(ev);
+    const soldOut = st.state === "SOLD_OUT";
+    const ended = st.state === "ENDED";
 
     const slide = document.createElement("article");
     slide.className = "slide";
@@ -649,7 +679,7 @@ function renderSlides() {
           <div class="heroRow">
             <div class="heroLeft">
               <div class="heroMeta">
-                <span class="pill">${escapeHtml(soldOut ? "AGOTADO" : (ev.type || "EXPERIENCIA"))}</span>
+                <span class="pill">${escapeHtml(ended ? "FINALIZADO" : (soldOut ? "AGOTADO" : (ev.type || "EXPERIENCIA")))}</span>
               </div>
 
               <h1 class="heroTitle heroTitle--wix">${escapeHtml(ev.title)}</h1>
@@ -663,7 +693,7 @@ function renderSlides() {
                 <div class="heroTag">${escapeHtml(labelC)}</div>
 
                 <button class="heroPanelBtn" data-action="register" data-id="${ev.id}"
-                  ${soldOut ? "disabled style='opacity:.55'" : ""}>
+                  ${st.disabled ? "disabled style='opacity:.55'" : ""}>
                   INSCRIBIRME
                 </button>
               </div>
@@ -708,7 +738,7 @@ function restartAuto() {
 // ============================================================
 const monthAnchors = qs("#monthAnchors");
 const monthGrid = qs("#monthGrid");
-const monthEmpty = qs("#monthEmpty"); // ✅ usa el bloque de estado vacío del HTML
+const monthEmpty = qs("#monthEmpty");
 let activeMonth = null;
 
 function getThreeMonthWindow() {
@@ -741,13 +771,6 @@ function renderMonths() {
   renderMonthGrid();
 }
 
-/**
- * ✅ LISTADO PRO (sin foto)
- * - Tipo pequeño (pill)
- * - Título grande
- * - Meta abajo: Lugar • Fecha • Horario
- * - Botón Inscribirme NEGRO (clase inviteBlack en CSS / base)
- */
 function renderMonthGrid() {
   if (!monthGrid) return;
 
@@ -755,7 +778,6 @@ function renderMonthGrid() {
 
   const list = EVENTS.filter((e) => e.monthKey === activeMonth);
 
-  // Estado vacío usa tu #monthEmpty (no metemos texto redundante dentro del listado)
   if (!list.length) {
     if (monthEmpty) monthEmpty.hidden = false;
     return;
@@ -763,12 +785,12 @@ function renderMonthGrid() {
   if (monthEmpty) monthEmpty.hidden = true;
 
   list.forEach((ev) => {
-    const soldOut = ev.seats <= 0;
+    const st = getEventState(ev);
+    const soldOut = st.state === "SOLD_OUT";
+    const ended = st.state === "ENDED";
 
-    // ✅ Fecha: 1ra etiqueta si existe
     const dateLabel = String(ev?.dates?.[0] || "").trim() || "Por definir";
 
-    // ✅ Meta: Lugar • Fecha • Horario
     const place = String(ev?.location || "").trim() || "Costa Rica";
     const time = String(ev?.timeRange || "").trim() || "Horario por definir";
 
@@ -781,7 +803,13 @@ function renderMonthGrid() {
         <div class="eventRowLeft">
           <div class="eventRowTop">
             <span class="eventPill">${escapeHtml(ev.type || "Experiencia")}</span>
-            ${soldOut ? `<span class="eventPill eventPill--danger">AGOTADO</span>` : ""}
+            ${
+              ended
+                ? `<span class="eventPill eventPill--success">FINALIZADO</span>`
+                : soldOut
+                ? `<span class="eventPill eventPill--danger">AGOTADO</span>`
+                : ""
+            }
           </div>
 
           <h3 class="eventRowTitle">${escapeHtml(ev.title)}</h3>
@@ -796,13 +824,13 @@ function renderMonthGrid() {
         </div>
 
         <div class="eventRowRight">
-          <button class="btn" data-action="info" data-id="${ev.id}">
+          <button class="btn" data-action="info" data-id="${ev.id}" ${st.disabled ? "disabled" : ""}>
             Más info
           </button>
 
           <button class="btn primary inviteBlack" data-action="register" data-id="${ev.id}"
-            ${soldOut ? "disabled" : ""}>
-            Inscribirme
+            ${st.disabled ? "disabled" : ""}>
+            ${ended ? "Finalizado" : "Inscribirme"}
           </button>
         </div>
       </div>
@@ -823,15 +851,19 @@ document.addEventListener("click", (e) => {
   const ev = EVENTS.find((x) => x.id === id);
   if (!ev) return;
 
-  const soldOut = ev.seats <= 0;
+  const st = getEventState(ev);
 
   if (btn.dataset.action === "info") {
+    if (st.disabled) {
+      toast("Finalizado", "Este evento ya finalizó.");
+      return;
+    }
     goEvent(ev.id);
     return;
   }
 
   if (btn.dataset.action === "register") {
-    goRegister(ev.id, soldOut);
+    goRegister(ev.id, st.disabled);
     return;
   }
 });
