@@ -9,9 +9,9 @@
   <title>Galería | Entre Copas & Notas</title>
   <meta name="description" content="Galería de cocteles y maridajes + reseñas de eventos. Filtrá por fecha y descubrí experiencias." />
 
-  <!-- ✅ Base global (tokens + botones + toasts + spacing) -->
+  <!-- ✅ Base primero (global) -->
   <link rel="stylesheet" href="./css/base.css" />
-  <!-- ✅ Solo estilos específicos de Gallery -->
+  <!-- ✅ Page CSS después -->
   <link rel="stylesheet" href="./css/gallery.css" />
 </head>
 
@@ -23,7 +23,7 @@
     <div class="container">
       <nav class="nav">
         <a class="brand" href="./index.html" aria-label="Ir a portada">
-          <img src="./assets/img/logocuadrado-entrecopasynotas.png" alt="Entre Copas & Notas" />
+          <!-- ✅ Logo eliminado -->
           <span>Entre Copas &amp; Notas</span>
         </a>
 
@@ -35,7 +35,7 @@
         </div>
 
         <div class="navright">
-          <a class="btn" href="./home.html#proximos">Próximos eventos</a>
+          <a class="btn primary" href="./home.html#proximos">Próximos eventos</a>
         </div>
       </nav>
     </div>
@@ -53,17 +53,11 @@
           Un solo lugar para ver coctelería y maridajes. Explorá la grilla y filtrá por fecha o por texto.
         </p>
 
+        <!-- ✅ Solo “Leer reseñas” debajo del texto -->
         <div class="heroLite__actions" role="navigation" aria-label="Secciones">
-          <a class="btn primary" href="#galeria">Ver galería</a>
-          <a class="btn" href="#reseñas">Leer reseñas</a>
+          <a class="btn primary" href="#reseñas">Leer reseñas</a>
         </div>
 
-        <!-- Selector de tipo -->
-        <div class="heroLite__actions heroLite__actions--types">
-          <a class="btn" href="./gallery.html?type=all" id="btnAll">Todo</a>
-          <a class="btn" href="./gallery.html?type=cocteles" id="btnCocteles">Cocteles</a>
-          <a class="btn" href="./gallery.html?type=maridajes" id="btnMaridajes">Maridajes</a>
-        </div>
       </div>
     </div>
   </section>
@@ -87,7 +81,17 @@
             </select>
           </div>
 
+          <!-- ✅ Nuevo: Tipo al lado derecho de Fecha (como select) -->
           <div class="field">
+            <label for="filterType" class="label">Tipo</label>
+            <select id="filterType" class="select" aria-label="Filtrar por tipo">
+              <option value="all">Todo</option>
+              <option value="cocteles">Cocteles</option>
+              <option value="maridajes">Maridajes</option>
+            </select>
+          </div>
+
+          <div class="field field--search">
             <label for="filterSearch" class="label">Buscar</label>
             <input id="filterSearch" class="input" type="search" placeholder="Ej: mojito, queso, vino blanco…" />
           </div>
@@ -172,44 +176,54 @@
   </footer>
 
   <script>
+    // ✅ Decide tipo por querystring: ?type=all|cocteles|maridajes
     (function () {
       const params = new URLSearchParams(location.search);
       const t = (params.get("type") || "all").toLowerCase();
 
       window.ECN_PAGE = { type: t };
 
+      // UI text (solo copy, no afecta data)
       const pageTitle = document.getElementById("pageTitle");
       const pageLead = document.getElementById("pageLead");
       const gridTitle = document.getElementById("gridTitle");
       const gridSub = document.getElementById("gridSub");
 
-      const btnAll = document.getElementById("btnAll");
-      const btnCoct = document.getElementById("btnCocteles");
-      const btnMar = document.getElementById("btnMaridajes");
+      // ✅ Nuevo select tipo (reemplaza botones)
+      const typeSel = document.getElementById("filterType");
+      if (typeSel) typeSel.value = (t === "cocteles" || t === "maridajes") ? t : "all";
 
-      function markActive(a) {
-        [btnAll, btnCoct, btnMar].forEach(x => x && x.removeAttribute("aria-current"));
-        if (a) a.setAttribute("aria-current", "page");
+      function setCopy(type) {
+        if (type.includes("coct")) {
+          if (pageTitle) pageTitle.textContent = "Cocteles";
+          if (pageLead) pageLead.textContent = "Creaciones, técnica y sabor. Explorá coctelería y momentos del evento.";
+          if (gridTitle) gridTitle.textContent = "Galería de Cocteles";
+          if (gridSub) gridSub.textContent = "Filtrá por fecha (evento) y encontrá contenido rápido.";
+        } else if (type.includes("marid")) {
+          if (pageTitle) pageTitle.textContent = "Maridajes";
+          if (pageLead) pageLead.textContent = "Vinos, sabores y armonías. Explorá maridajes y momentos del evento.";
+          if (gridTitle) gridTitle.textContent = "Galería de Maridajes";
+          if (gridSub) gridSub.textContent = "Filtrá por fecha (evento) y encontrá contenido rápido.";
+        } else {
+          if (pageTitle) pageTitle.textContent = "Galería";
+          if (pageLead) pageLead.textContent = "Un solo lugar para ver coctelería y maridajes. Explorá la grilla y filtrá por fecha o por texto.";
+          if (gridTitle) gridTitle.textContent = "Galería (Todo)";
+          if (gridSub) gridSub.textContent = "Filtrá por fecha (evento) y encontrá contenido rápido.";
+        }
       }
 
-      if (t.includes("coct")) {
-        if (pageTitle) pageTitle.textContent = "Cocteles";
-        if (pageLead) pageLead.textContent = "Creaciones, técnica y sabor. Explorá coctelería y momentos del evento.";
-        if (gridTitle) gridTitle.textContent = "Galería de Cocteles";
-        if (gridSub) gridSub.textContent = "Filtrá por fecha (evento) y encontrá contenido rápido.";
-        markActive(btnCoct);
-      } else if (t.includes("marid")) {
-        if (pageTitle) pageTitle.textContent = "Maridajes";
-        if (pageLead) pageLead.textContent = "Vinos, sabores y armonías. Explorá maridajes y momentos del evento.";
-        if (gridTitle) gridTitle.textContent = "Galería de Maridajes";
-        if (gridSub) gridSub.textContent = "Filtrá por fecha (evento) y encontrá contenido rápido.";
-        markActive(btnMar);
-      } else {
-        if (pageTitle) pageTitle.textContent = "Galería";
-        if (pageLead) pageLead.textContent = "Un solo lugar para ver coctelería y maridajes. Explorá la grilla y filtrá por fecha o por texto.";
-        if (gridTitle) gridTitle.textContent = "Galería (Todo)";
-        if (gridSub) gridSub.textContent = "Filtrá por fecha (evento) y encontrá contenido rápido.";
-        markActive(btnAll);
+      setCopy(t);
+
+      // ✅ Al cambiar tipo: navega a ?type=... manteniendo scroll (sin hash)
+      if (typeSel) {
+        typeSel.addEventListener("change", () => {
+          const v = (typeSel.value || "all").toLowerCase();
+          const u = new URL(location.href);
+          u.searchParams.set("type", v);
+          // limpiamos el hash para evitar saltos raros
+          u.hash = "";
+          location.href = u.toString();
+        });
       }
     })();
   </script>
@@ -219,4 +233,5 @@
   <script src="./js/gallery.js"></script>
 
 </body>
+
 </html>
