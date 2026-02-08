@@ -28,8 +28,8 @@
           <span class="backText">Volver</span>
         </a>
 
+        <!-- ✅ Sin icono: solo nombre -->
         <a class="brandRight" href="./home.html" aria-label="Ir a home">
-          <img src="./assets/img/logocuadrado-entrecopasynotas.png" alt="Logo" />
           <span>Entre Copas &amp; Notas</span>
         </a>
       </div>
@@ -109,16 +109,17 @@
                 <p class="err" data-err-for="allergies"></p>
               </div>
 
+              <!-- ✅ Checkbox izquierda + botón derecha (misma línea) -->
               <div class="field full">
-                <label class="check">
-                  <input id="marketingOptIn" name="marketingOptIn" type="checkbox" />
-                  <span>Quiero recibir información de próximos eventos por correo o WhatsApp.</span>
-                </label>
-              </div>
-            </div>
+                <div class="formActions">
+                  <label class="check" for="marketingOptIn">
+                    <input id="marketingOptIn" name="marketingOptIn" type="checkbox" />
+                    <span>Quiero recibir información de próximos eventos por correo o WhatsApp.</span>
+                  </label>
 
-            <div class="btnsub">
-              <button class="btn primary inviteBlack" id="submitBtn" type="submit">Inscribirme</button>
+                  <button class="btn primary inviteBlack" id="submitBtn" type="submit">Inscribirme</button>
+                </div>
+              </div>
             </div>
 
             <p class="fine">

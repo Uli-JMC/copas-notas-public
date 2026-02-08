@@ -93,13 +93,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   min-width: 0;
 }
 
-.brandRight img{
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-  filter: drop-shadow(0 8px 20px rgba(0,0,0,.08));
-}
-
 .brandRight span{
   font-family: inherit;
   font-weight: 900;
@@ -407,15 +400,17 @@ select{
   letter-spacing:.08em;
 }
 
-/* Checkbox */
+/* ============================================================
+   ✅ Checkbox (alineado con texto)
+============================================================ */
 .check{
   display:flex;
-  align-items:flex-start;
+  align-items:center; /* ✅ antes flex-start */
   gap: 10px;
   cursor:pointer;
   user-select:none;
   color: rgba(18,18,18,.72);
-  line-height: 1.45;
+  line-height: 1.25; /* ✅ más compacto */
 
   text-transform:none;
   letter-spacing: 0;
@@ -425,50 +420,45 @@ select{
 .check input{
   width: 18px;
   height: 18px;
-  margin: 2px 0 0;
+  margin: 0;        /* ✅ antes 2px 0 0 */
   flex: 0 0 18px;
 }
 
 .check span{ display:block; margin:0; }
 
 /* ============================================================
-   ✅ Botones (solo para register: igual HOME)
-   - No tocamos el .btn global; solo en .btnsub/.actions
+   ✅ Row: checkbox izquierda + botón derecha
 ============================================================ */
-.btnsub{
-  margin-top: var(--space-16);
+.formActions{
   display:flex;
+  align-items:center;
+  justify-content:space-between;
   gap: var(--space-12);
-  flex-wrap:wrap;
 }
 
-/* Igual a tu bloque HOME (pill + radius 14) */
-.btnsub .btn{
+.formActions .check{
+  flex: 1 1 auto;
+  min-width: 240px;
+}
+
+.formActions #submitBtn{
+  flex: 0 0 auto;
   min-height: 44px;
   padding: 11px 16px;
   border-radius: 14px;
+  margin-left: auto;
 }
 
-/* No primary: fondo suave + borde suave */
-.btnsub .btn:not(.primary){
-  background: rgba(18, 18, 18, .03);
-  border-color: rgba(18, 18, 18, .10);
-}
-
-/* Primary “home”: por defecto suave */
-.btnsub .btn.primary{
-  background: rgba(18, 18, 18, .08);
-  border-color: rgba(18, 18, 18, .18);
-}
-
-/* ✅ Si querés el CTA negro como el home (inviteBlack), solo agregá esa clase al botón */
-.btnsub .btn.primary.inviteBlack{
+/* ============================================================
+   ✅ Botón CTA negro (inviteBlack) (sin tocar base)
+============================================================ */
+.btn.primary.inviteBlack{
   background: #000 !important;
   border-color: #000 !important;
   color: #fff !important;
   border-width: 2px;
 }
-.btnsub .btn.primary.inviteBlack:hover{
+.btn.primary.inviteBlack:hover{
   filter: brightness(1.06);
 }
 
@@ -500,6 +490,25 @@ select{
   text-transform: uppercase;
 }
 
+/* ✅ Fix footer social (evita que base.css los apile) */
+.footerRow .social{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap: 10px;
+  flex-direction: row;
+}
+
+.footerRow .icon-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  text-decoration:none;
+}
+
 /* ============================================================
    Responsive
 ============================================================ */
@@ -516,12 +525,23 @@ select{
   .cardTop{ padding: 18px 16px 16px; }
   .formWrap{ padding: 16px; }
 
+  /* ✅ Actions mobile: botón abajo full width */
+  .formActions{
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .formActions #submitBtn{
+    width: 100%;
+    margin-left: 0;
+  }
+
   .footerRow{
     flex-direction: column;
     align-items: center;
     text-align: center;
     gap: 12px;
   }
+
   .footerRow .social{
     justify-content: center;
     width: 100%;
