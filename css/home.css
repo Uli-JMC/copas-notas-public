@@ -711,7 +711,7 @@
 .aboutIcon{
   width: 60px;
   height: 60px;
-  border-radius: 14px;
+  border-radius: 50%;
   border: 1px solid rgba(18,18,18,.20);
   background-color: rgba(255,255,255,.65);
   margin-bottom: 14px;
