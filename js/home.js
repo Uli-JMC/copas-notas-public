@@ -139,7 +139,12 @@ function toast(title, msg, timeout = 3800) {
 // ============================================================
 // Nav helpers (rutas)
 // ============================================================
-function goEvent(id) {
+function goEvent(id, finalized) {
+  // ✅ si querés permitir ver detalle aunque esté finalizado, borrá este if.
+  if (finalized) {
+    toast("Evento finalizado", "Este evento ya terminó.");
+    return;
+  }
   window.location.href = `./event.html?event=${encodeURIComponent(id)}`;
 }
 
@@ -336,7 +341,6 @@ function computeEventStatus(dates, durationHours) {
     };
   });
 
-  // Si no hay fechas, no inventamos finalizado/agoto
   if (!parsed.length) {
     return {
       finalized: false,
@@ -347,13 +351,11 @@ function computeEventStatus(dates, durationHours) {
     };
   }
 
-  // FINALIZADO: solo si puedo calcular el max end y ya pasó
   const ends = parsed.map((x) => x.endMs).filter((x) => Number.isFinite(x));
-  const canJudgeFinal = ends.length === parsed.length; // todas calculables
+  const canJudgeFinal = ends.length === parsed.length;
   const maxEnd = ends.length ? Math.max(...ends) : NaN;
   const finalized = canJudgeFinal && Number.isFinite(maxEnd) && maxEnd < now;
 
-  // Próxima fecha vigente: la que tenga end>=now y start más cercano
   const viable = parsed
     .filter((x) => x.upcomingOrLive && !x.ended)
     .slice()
@@ -365,16 +367,11 @@ function computeEventStatus(dates, durationHours) {
 
   const next = viable[0] || null;
 
-  // Cupos solo cuentan para fechas vigentes (no finalizadas)
   const seatsUpcoming = viable.reduce((acc, x) => acc + (Number(x.seats_available) || 0), 0);
 
-  // AGOTADO: si NO finalizado, y existen fechas vigentes, y cupos=0
   const hasUpcoming = viable.length > 0;
   const soldOut = !finalized && hasUpcoming && seatsUpcoming <= 0;
 
-  // Label que mostramos:
-  // - si hay próxima vigente: su label
-  // - si no hay: último label por orden de endMs (o startMs), para mostrar “última fecha”
   let nextLabel = next ? next.label : "";
   let nextIso = "";
   if (next && Number.isFinite(next.startMs)) nextIso = new Date(next.startMs).toISOString();
@@ -401,7 +398,6 @@ async function fetchEventsFromSupabase() {
     return [];
   }
 
-  // 1) Traer eventos
   const evRes = await APP.supabase
     .from("events")
     .select('id,title,type,month_key,"desc",img,location,time_range,duration_hours,created_at,updated_at')
@@ -416,7 +412,6 @@ async function fetchEventsFromSupabase() {
   const events = Array.isArray(evRes.data) ? evRes.data : [];
   if (!events.length) return [];
 
-  // 2) Traer fechas (✅ incluye start_at y ends_at)
   const datesRes = await APP.supabase
     .from("event_dates")
     .select("id,event_id,label,seats_total,seats_available,created_at,start_at,ends_at")
@@ -446,13 +441,10 @@ async function fetchEventsFromSupabase() {
     });
   });
 
-  // 3) map para UI
   return events.map((ev) => {
     const evDates = byEvent.get(ev.id) || [];
-
     const status = computeEventStatus(evDates, ev?.duration_hours);
 
-    // labels para UI (mostramos 1ra fecha vigente o última)
     const labels = evDates.map((x) => x.label).filter(Boolean);
 
     return {
@@ -694,11 +686,9 @@ function getDefaultHero() {
 }
 
 function getHeroDayLabel(ev) {
-  // ✅ muestra la próxima fecha (o la última si ya terminó)
   const label = String(ev?.nextDateLabel || "").trim();
   if (label) return label.toUpperCase();
 
-  // fallback: primera etiqueta si existe
   const first = String(ev?.dates?.[0] || "").trim();
   if (!first) return "PRÓXIMA FECHA";
   return first.toUpperCase();
@@ -763,6 +753,8 @@ function renderSlides() {
       ? `<span class="pill pill--danger">AGOTADO</span>`
       : "";
 
+    const ctaText = finalized ? "EVENTO FINALIZADO" : soldOut ? "AGOTADO" : "INSCRIBIRME";
+
     slide.innerHTML = `
       <div class="container heroCard">
         <div class="heroInnerPanel">
@@ -784,8 +776,8 @@ function renderSlides() {
                 <div class="heroTag">${escapeHtml(labelC)}</div>
 
                 <button class="heroPanelBtn" data-action="register" data-id="${ev.id}"
-                  ${blocked ? "disabled style='opacity:.55'" : ""}>
-                  INSCRIBIRME
+                  ${blocked ? "disabled style='opacity:.55;cursor:not-allowed'" : ""}>
+                  ${escapeHtml(ctaText)}
                 </button>
               </div>
             </div>
@@ -881,7 +873,6 @@ function renderMonthGrid() {
     const blocked = finalized || soldOut;
 
     const dateLabel = String(ev?.nextDateLabel || ev?.dates?.[0] || "").trim() || "Por definir";
-
     const place = String(ev?.location || "").trim() || "Costa Rica";
     const time = String(ev?.timeRange || "").trim() || "Horario por definir";
 
@@ -894,6 +885,8 @@ function renderMonthGrid() {
       : soldOut
       ? `<span class="eventPill eventPill--danger">AGOTADO</span>`
       : "";
+
+    const regText = finalized ? "Finalizado" : soldOut ? "Agotado" : "Inscribirme";
 
     row.innerHTML = `
       <div class="eventRowMain">
@@ -915,13 +908,14 @@ function renderMonthGrid() {
         </div>
 
         <div class="eventRowRight">
-          <button class="btn" data-action="info" data-id="${ev.id}">
+          <button class="btn" data-action="info" data-id="${ev.id}"
+            ${finalized ? "disabled style='opacity:.55;cursor:not-allowed'" : ""}>
             Más info
           </button>
 
           <button class="btn primary inviteBlack" data-action="register" data-id="${ev.id}"
-            ${blocked ? "disabled" : ""}>
-            Inscribirme
+            ${blocked ? "disabled style='opacity:.55;cursor:not-allowed'" : ""}>
+            ${escapeHtml(regText)}
           </button>
         </div>
       </div>
@@ -946,7 +940,8 @@ document.addEventListener("click", (e) => {
   const soldOut = !!ev.soldOut;
 
   if (btn.dataset.action === "info") {
-    goEvent(ev.id);
+    // ✅ ya está bloqueado por disabled, pero por si acaso:
+    goEvent(ev.id, finalized);
     return;
   }
 
