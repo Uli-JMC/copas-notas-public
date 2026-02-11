@@ -5,32 +5,17 @@
    - Galería: Supabase (public) -> gallery_items (preferido) o promos (fallback)
    - Filtros: fecha + tipo + búsqueda (debounce)
    - Grid IG: render limpio y quita skeletons
-   - Reviews: LocalStorage (por ahora), pero:
-     ✅✅ Select de eventos: Supabase events + event_dates
-     ✅ Reseñas SOLO si el evento YA TERMINÓ (última fecha finalizó)
 
-   ✅ FIX 2026-01-21:
-   - Evita errores 400 por "embedded relationships" (events/event_dates) en gallery_items
-   - La galería usa SIEMPRE un SELECT BASE (sin joins) -> 0 requests 400
-   - Mantiene TODO lo demás igual (reviews siguen usando events + event_dates)
+   REVIEWS ✅ (2026-02-10):
+   - Reseñas en Supabase table: public.event_reviews  ✅ cross-device
+   - Sin login: ownership por token local + hash en DB (NO se expone token)
+   - Editar/Borrar solo tus reseñas (token hash coincide via RPC)
+   - RPCs: create_event_review, update_event_review, delete_event_review
+   - Gating: solo eventos finalizados (última fecha terminó)
 
-   ✅ PATCH 2026-02-01:
-   - Soporte para window.ECN_PAGE.type = "all"
-   - En "all" muestra cocteles + maridajes
+   Reactions:
+   - Se mantienen LocalStorage (por ahora) por review.id
 
-   ✅ PATCH 2026-02-08:
-   - Nuevo select Tipo (#filterType) al lado de Fecha (ya no botones)
-   - En pageKey "all": el select Tipo controla el filtro sin recargar
-   - Reviews renderiza en #reviewItems y actualiza #reviewMeta/#reviewEmpty
-
-   ✅ PATCH 2026-02-08 (FIX gating real):
-   - Elegible SOLO cuando la ÚLTIMA fecha terminó (max end < now)
-   - end efectivo = ends_at || (start_at + duration_hours)
-
-   ✅ PATCH 2026-02-10 (EDIT/DELETE):
-   - Cada usuario puede editar/borrar SOLO sus comentarios
-   - Identidad local por navegador (visitorId en LocalStorage)
-   - Ventana de edición "en el momento" (15 min por defecto)
 ============================================================ */
 
 (function () {
@@ -181,7 +166,7 @@
   if (!gridEl) return;
 
   const selDate = $("#filterDate");
-  const selType = $("#filterType"); // ✅ NUEVO
+  const selType = $("#filterType");
   const inpSearch = $("#filterSearch");
 
   // ------------------------------------------------------------
@@ -192,7 +177,6 @@
   const reviewNameInp = $("#reviewName");
   const reviewTextTa = $("#reviewText");
   const reviewCountEl = $("#reviewCount");
-
   const reviewListEl = $("#reviewList");
 
   // ------------------------------------------------------------
@@ -225,18 +209,65 @@
   }
 
   // ------------------------------------------------------------
-  // DB config (ÚNICA DEFINICIÓN)
+  // Token local (sin login) + hash para ownership UI
+  // - token NO se guarda en DB, solo su hash
+  // ------------------------------------------------------------
+  const LS_AUTH = {
+    TOKEN: "ecn_author_token_v1",
+  };
+
+  function getOrCreateAuthorToken() {
+    try {
+      const existing = localStorage.getItem(LS_AUTH.TOKEN);
+      if (existing && existing.length >= 24) return existing;
+      let token = "";
+      try {
+        // token random fuerte (si hay crypto)
+        const bytes = new Uint8Array(24);
+        crypto.getRandomValues(bytes);
+        token = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+      } catch (_) {
+        token = `${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+      }
+      localStorage.setItem(LS_AUTH.TOKEN, token);
+      return token;
+    } catch (_) {
+      // sin localStorage: token volatile (igual permite escribir pero ownership no persiste)
+      return `${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+    }
+  }
+
+  async function sha256Hex(str) {
+    // Para comparar con author_hash (sha256 hex) sin exponer token
+    try {
+      if (!crypto?.subtle) return "";
+      const enc = new TextEncoder();
+      const data = enc.encode(String(str));
+      const hash = await crypto.subtle.digest("SHA-256", data);
+      const bytes = Array.from(new Uint8Array(hash));
+      return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+    } catch (_) {
+      return "";
+    }
+  }
+
+  const AUTHOR_TOKEN = getOrCreateAuthorToken();
+  let AUTHOR_HASH = ""; // se llena async
+
+  // ------------------------------------------------------------
+  // DB config
   // ------------------------------------------------------------
   const DB = {
     GALLERY_PRIMARY: "gallery_items",
     GALLERY_FALLBACK: "promos",
     EVENTS: "events",
     EVENT_DATES: "event_dates",
+    REVIEWS: "event_reviews",
     STORAGE_BUCKET: "gallery",
   };
 
   // ------------------------------------------------------------
-  // SELECTS (ÚNICA DEFINICIÓN)
+  // SELECTS
   // ------------------------------------------------------------
   const SELECT_GALLERY_BASE = `
     id,
@@ -259,6 +290,16 @@
     image_path,
     created_at,
     target
+  `;
+
+  const SELECT_REVIEWS_BASE = `
+    id,
+    event_id,
+    author_hash,
+    author_name,
+    body,
+    created_at,
+    updated_at
   `;
 
   function publicUrlFromPath(path) {
@@ -294,7 +335,11 @@
     const row = r || {};
     const t = String(row.type || "").toLowerCase();
 
-    const type = t.includes("coct") ? "cocteles" : t.includes("marid") ? "maridajes" : "all";
+    const type = t.includes("coct")
+      ? "cocteles"
+      : t.includes("marid")
+      ? "maridajes"
+      : "all";
 
     const title = cleanSpaces(row.name || row.title || "Evento") || "Evento";
     const createdAt = safeStr(row.created_at || "");
@@ -356,6 +401,7 @@
   // ------------------------------------------------------------
   let REVIEW_EVENTS = [];
   let REVIEW_ELIGIBLE = new Map(); // eventId -> { eligible, reason, endedAtMs, nextEndMs }
+  let EVENT_TITLE_BY_ID = new Map();
 
   function eventTypeMatches(pageKeyForMatch, typeText) {
     const t = norm(typeText || "");
@@ -445,7 +491,9 @@
     }
 
     const maxEnd = Math.max(...ends);
-    if (Number.isFinite(maxEnd) && maxEnd < now) return { eligible: true, reason: "", endedAtMs: maxEnd, nextEndMs: NaN };
+    if (Number.isFinite(maxEnd) && maxEnd < now) {
+      return { eligible: true, reason: "", endedAtMs: maxEnd, nextEndMs: NaN };
+    }
 
     return { eligible: false, reason: "Las reseñas se habilitan cuando el evento finaliza.", endedAtMs: NaN, nextEndMs: NaN };
   }
@@ -481,17 +529,27 @@
           const eligibility = computeEligibilityForEvent(dates, durationHours);
           REVIEW_ELIGIBLE.set(id, eligibility);
 
-          return { id, title, ok, dates: labels, eligible: !!eligibility.eligible, reason: eligibility.reason || "", nextEndMs: eligibility.nextEndMs };
+          return {
+            id,
+            title,
+            ok,
+            dates: labels,
+            eligible: !!eligibility.eligible,
+            reason: eligibility.reason || "",
+            nextEndMs: eligibility.nextEndMs,
+          };
         })
         .filter((x) => x.ok);
 
       REVIEW_EVENTS = list;
+      EVENT_TITLE_BY_ID = new Map(list.map((x) => [x.id, x.title]));
       return list;
     } catch (e) {
       if (isRLSError(e)) toast("Acceso bloqueado (RLS) leyendo eventos.");
       else console.warn("[reviews] fetchEventsForSelect fail:", e);
       REVIEW_EVENTS = [];
       REVIEW_ELIGIBLE = new Map();
+      EVENT_TITLE_BY_ID = new Map();
       return [];
     }
   }
@@ -518,8 +576,11 @@
         const disabled = ev.eligible ? "" : "disabled";
         let hint = "";
         if (!ev.eligible) {
-          if (Number.isFinite(ev.nextEndMs)) hint = ` (Disponible después de ${fmtShortDate(new Date(ev.nextEndMs).toISOString())})`;
-          else hint = " (Disponible al finalizar)";
+          if (Number.isFinite(ev.nextEndMs)) {
+            hint = ` (Disponible después de ${fmtShortDate(new Date(ev.nextEndMs).toISOString())})`;
+          } else {
+            hint = " (Disponible al finalizar)";
+          }
         }
 
         return `<option value="${esc(ev.id)}" data-title="${esc(ev.title)}" data-eligible="${ev.eligible ? "1" : "0"}" ${disabled}>${esc(label + hint)}</option>`;
@@ -541,13 +602,10 @@
   }
 
   // ------------------------------------------------------------
-  // LocalStorage keys (reviews/reactions/identity + edit state)
+  // LocalStorage keys (reactions only)
   // ------------------------------------------------------------
   const LS = {
-    REVIEWS: `ecn_reviews_${pageKey}`,
     REACTIONS: `ecn_reactions_${pageKey}`,
-    VISITOR: `ecn_visitor_id`,
-    EDITING: `ecn_editing_${pageKey}`, // { reviewId: string|null }
   };
 
   function loadJSON(key, fallback) {
@@ -565,64 +623,6 @@
     try {
       localStorage.setItem(key, JSON.stringify(value));
     } catch (_) {}
-  }
-
-  // ------------------------------------------------------------
-  // ✅ Identidad local (para "solo editar el propio comentario")
-  // ------------------------------------------------------------
-  function getVisitorId() {
-    try {
-      const existing = localStorage.getItem(LS.VISITOR);
-      if (existing && String(existing).trim()) return String(existing).trim();
-
-      const id = uid("v");
-      localStorage.setItem(LS.VISITOR, id);
-      return id;
-    } catch (_) {
-      // fallback si storage bloqueado
-      return "v_fallback";
-    }
-  }
-  const VISITOR_ID = getVisitorId();
-
-  // ------------------------------------------------------------
-  // ✅ Config edición: "en el momento"
-  // ------------------------------------------------------------
-  const EDIT_WINDOW_MS = 15 * 60 * 1000; // ✅ 15 min (cambiá aquí si querés)
-
-  function canEditReview(r) {
-    if (!r) return { ok: false, reason: "No disponible." };
-    if (String(r.authorId || "") !== String(VISITOR_ID)) return { ok: false, reason: "Solo podés editar tus comentarios." };
-
-    const createdMs = toMs(r.createdAt);
-    if (!Number.isFinite(createdMs)) return { ok: false, reason: "No pude validar el tiempo del comentario." };
-
-    const age = nowMs() - createdMs;
-    if (age > EDIT_WINDOW_MS) return { ok: false, reason: "La edición solo está disponible por unos minutos después de publicar." };
-
-    return { ok: true, reason: "" };
-  }
-
-  function loadEditingState() {
-    const st = loadJSON(LS.EDITING, { reviewId: null });
-    if (!st || typeof st !== "object") return { reviewId: null };
-    return { reviewId: st.reviewId || null };
-  }
-
-  function setEditingReviewId(reviewIdOrNull) {
-    saveJSON(LS.EDITING, { reviewId: reviewIdOrNull || null });
-  }
-
-  // ------------------------------------------------------------
-  // REVIEWS storage
-  // ------------------------------------------------------------
-  function loadReviews() {
-    const arr = loadJSON(LS.REVIEWS, []);
-    return Array.isArray(arr) ? arr : [];
-  }
-
-  function saveReviews(list) {
-    saveJSON(LS.REVIEWS, list);
   }
 
   function loadReactionState() {
@@ -654,7 +654,7 @@
     items.forEach((it) => {
       const tags = Array.isArray(it.tags) ? it.tags : [];
       const title = it.eventName ? String(it.eventName) : "Evento";
-      const dateLabel = it.dateLabel ? String(it.dateLabel) : it.dateISO ? fmtShortDate(it.dateISO) : "";
+      const dateLabel = it.dateLabel ? String(it.dateLabel) : (it.dateISO ? fmtShortDate(it.dateISO) : "");
 
       const tile = document.createElement("article");
       tile.className = "gItem";
@@ -730,7 +730,11 @@
     const typeWanted = getTypeFromUI();
 
     const filtered = allItems.filter((x) => {
-      const okType = typeWanted === "all" ? x.type === "cocteles" || x.type === "maridajes" : x.type === typeWanted;
+      const okType =
+        typeWanted === "all"
+          ? (x.type === "cocteles" || x.type === "maridajes")
+          : x.type === typeWanted;
+
       const okDate = !fDate || String(x.dateISO || "") === fDate;
 
       if (!q) return okType && okDate;
@@ -757,15 +761,18 @@
 
     const current = String(selDate.value || "");
     mountDateFilter(pool);
-    if (current && !pool.some((x) => String(x.dateISO || "") === current)) selDate.value = "";
+    if (current && !pool.some((x) => String(x.dateISO || "") === current)) {
+      selDate.value = "";
+    }
     applyGalleryFilters();
   }
 
   // ------------------------------------------------------------
-  // REVIEWS: estructura nueva (#reviewItems + #reviewMeta + #reviewEmpty)
+  // REVIEWS: UI structure
   // ------------------------------------------------------------
   function ensureReviewStructure() {
     if (!reviewListEl) return;
+
     if ($("#reviewItems", reviewListEl) && $("#reviewMeta")) return;
 
     const prevEmpty = $("#reviewEmpty") ? $("#reviewEmpty").cloneNode(true) : null;
@@ -799,7 +806,56 @@
   }
 
   // ------------------------------------------------------------
-  // REVIEWS: render list (✅ ahora con Edit/Delete del propio)
+  // REVIEWS: Supabase fetch
+  // ------------------------------------------------------------
+  let REVIEWS_CACHE = []; // lista actual renderizada (para editar/borrar rápido)
+
+  function isOwnerReview(row) {
+    const h = safeStr(row?.author_hash || "");
+    return !!(AUTHOR_HASH && h && h === AUTHOR_HASH);
+  }
+
+  async function fetchReviewsForAllowedEvents() {
+    if (!hasSupabase()) return [];
+    await ensureSessionOptional();
+
+    const client = sb();
+
+    // Solo eventos del pageKey
+    const allowedIds = (REVIEW_EVENTS || []).map((x) => x.id).filter(Boolean);
+    if (!allowedIds.length) return [];
+
+    try {
+      const { data, error } = await client
+        .from(DB.REVIEWS)
+        .select(SELECT_REVIEWS_BASE)
+        .in("event_id", allowedIds)
+        .order("created_at", { ascending: false })
+        .limit(250);
+
+      if (error) throw error;
+
+      const rows = Array.isArray(data) ? data : [];
+      return rows.map((r) => ({
+        id: safeStr(r.id || ""),
+        eventId: safeStr(r.event_id || ""),
+        eventLabel: EVENT_TITLE_BY_ID.get(safeStr(r.event_id || "")) || "Evento",
+        name: cleanSpaces(r.author_name || "") || "Anónimo",
+        text: safeStr(r.body || ""),
+        createdAt: safeStr(r.created_at || ""),
+        updatedAt: safeStr(r.updated_at || ""),
+        author_hash: safeStr(r.author_hash || ""),
+      }));
+    } catch (e) {
+      if (isMissingTable(e)) toast("No existe la tabla event_reviews. Ejecutá el SQL primero.");
+      else if (isRLSError(e)) toast("Acceso bloqueado (RLS) leyendo event_reviews.");
+      else console.warn("[reviews] fetchReviewsForAllowedEvents fail:", e);
+      return [];
+    }
+  }
+
+  // ------------------------------------------------------------
+  // REVIEWS: render list (con acciones Editar/Borrar solo dueño)
   // ------------------------------------------------------------
   function renderReviews(list) {
     if (!reviewListEl) return;
@@ -808,6 +864,7 @@
 
     const itemsWrap = $("#reviewItems", reviewListEl);
     const empty = $("#reviewEmpty", reviewListEl);
+
     if (!itemsWrap) return;
 
     $$(".reviewCard", itemsWrap).forEach((n) => n.remove());
@@ -815,6 +872,8 @@
     const sorted = (Array.isArray(list) ? list.slice() : []).sort(
       (a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))
     );
+
+    REVIEWS_CACHE = sorted;
 
     if (!sorted.length) {
       if (empty) empty.style.display = "";
@@ -826,7 +885,6 @@
     setReviewMeta(sorted.length);
 
     const reactionState = loadReactionState();
-    const editing = loadEditingState();
     const frag = document.createDocumentFragment();
 
     for (const r of sorted) {
@@ -840,75 +898,43 @@
 
       const rc = r.reactions || { heart: 0, up: 0, down: 0 };
       const my = reactionState[r.id] || "none";
+      const canEdit = isOwnerReview(r);
 
-      const editGate = canEditReview(r);
-      const isMine = String(r.authorId || "") === String(VISITOR_ID);
-      const isEditingThis = editing.reviewId && String(editing.reviewId) === String(r.id);
-
-      // UI: acciones
-      const editBtn = isMine
-        ? `<button class="reactBtn" type="button" data-action="edit" ${editGate.ok ? "" : "disabled"} aria-label="Editar comentario">
-             <span class="reactIcon">✏️</span>
-             <span class="reactCount">Editar</span>
-           </button>`
-        : "";
-
-      const deleteBtn = isMine
-        ? `<button class="reactBtn" type="button" data-action="delete" aria-label="Borrar comentario">
-             <span class="reactIcon">🗑️</span>
-             <span class="reactCount">Borrar</span>
-           </button>`
-        : "";
-
-      const editActions = isEditingThis
-        ? `<div class="reactions" aria-label="Acciones de edición">
-             <button class="reactBtn" type="button" data-action="save" aria-label="Guardar cambios">
-               <span class="reactIcon">✅</span>
-               <span class="reactCount">Guardar</span>
-             </button>
-             <button class="reactBtn" type="button" data-action="cancel" aria-label="Cancelar edición">
-               <span class="reactIcon">✖️</span>
-               <span class="reactCount">Cancelar</span>
-             </button>
-           </div>`
-        : "";
-
-      const bodyHtml = isEditingThis
-        ? `<textarea class="textarea" data-edit-text rows="4" maxlength="420">${esc(text)}</textarea>
-           <div class="hint"><span data-edit-count>${esc(String(text.length))}</span>/420</div>`
-        : `<p class="reviewText">${esc(text)}</p>`;
+      // Nota visual si fue editado
+      const edited = r.updatedAt && r.createdAt && r.updatedAt !== r.createdAt ? " · editado" : "";
 
       card.innerHTML = `
         <div class="reviewTop">
           <div class="reviewWho">
             <div class="reviewName">${esc(who)}</div>
-            <div class="reviewMeta">${esc(meta)}</div>
+            <div class="reviewMeta">${esc(meta)}${esc(edited)}</div>
           </div>
+
+          ${canEdit ? `
+          <div class="reviewActions" style="display:flex; gap:8px; align-items:center;">
+            <button class="btn ghost" type="button" data-action="edit" style="padding:8px 10px; border-radius:12px;">Editar</button>
+            <button class="btn ghost" type="button" data-action="delete" style="padding:8px 10px; border-radius:12px;">Borrar</button>
+          </div>` : ""}
         </div>
 
-        ${bodyHtml}
+        <p class="reviewText" data-role="text">${esc(text)}</p>
 
-        ${isEditingThis ? editActions : `
-          <div class="reactions" aria-label="Reacciones y acciones">
-            <button class="reactBtn" type="button" data-react="heart" aria-pressed="${my === "heart" ? "true" : "false"}" aria-label="Me encanta">
-              <span class="reactIcon">❤️</span>
-              <span class="reactCount">${esc(String(rc.heart || 0))}</span>
-            </button>
+        <div class="reactions" aria-label="Reacciones">
+          <button class="reactBtn" type="button" data-react="heart" aria-pressed="${my === "heart" ? "true" : "false"}" aria-label="Me encanta">
+            <span class="reactIcon">❤️</span>
+            <span class="reactCount">${esc(String(rc.heart || 0))}</span>
+          </button>
 
-            <button class="reactBtn" type="button" data-react="up" aria-pressed="${my === "up" ? "true" : "false"}" aria-label="Me gusta">
-              <span class="reactIcon">👍</span>
-              <span class="reactCount">${esc(String(rc.up || 0))}</span>
-            </button>
+          <button class="reactBtn" type="button" data-react="up" aria-pressed="${my === "up" ? "true" : "false"}" aria-label="Me gusta">
+            <span class="reactIcon">👍</span>
+            <span class="reactCount">${esc(String(rc.up || 0))}</span>
+          </button>
 
-            <button class="reactBtn" type="button" data-react="down" aria-pressed="${my === "down" ? "true" : "false"}" aria-label="No me gustó">
-              <span class="reactIcon">👎</span>
-              <span class="reactCount">${esc(String(rc.down || 0))}</span>
-            </button>
-
-            ${editBtn}
-            ${deleteBtn}
-          </div>
-        `}
+          <button class="reactBtn" type="button" data-react="down" aria-pressed="${my === "down" ? "true" : "false"}" aria-label="No me gustó">
+            <span class="reactIcon">👎</span>
+            <span class="reactCount">${esc(String(rc.down || 0))}</span>
+          </button>
+        </div>
       `;
 
       frag.appendChild(card);
@@ -918,14 +944,48 @@
   }
 
   // ------------------------------------------------------------
-  // REVIEWS: submit (con gating + authorId)
+  // REVIEWS: submit via RPC (con gating)
   // ------------------------------------------------------------
   function updateCountUI() {
     if (!reviewTextTa || !reviewCountEl) return;
     reviewCountEl.textContent = String(String(reviewTextTa.value || "").length);
   }
 
-  function handleSubmit(e) {
+  async function rpcCreateReview({ eventId, name, text }) {
+    const client = sb();
+    const { data, error } = await client.rpc("create_event_review", {
+      p_event_id: eventId,
+      p_author_token: AUTHOR_TOKEN,
+      p_author_name: name || null,
+      p_body: text,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function rpcUpdateReview({ reviewId, text, name }) {
+    const client = sb();
+    const { data, error } = await client.rpc("update_event_review", {
+      p_review_id: reviewId,
+      p_author_token: AUTHOR_TOKEN,
+      p_body: text,
+      p_author_name: name || null,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function rpcDeleteReview({ reviewId }) {
+    const client = sb();
+    const { data, error } = await client.rpc("delete_event_review", {
+      p_review_id: reviewId,
+      p_author_token: AUTHOR_TOKEN,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!reviewEventSel || !reviewTextTa) return;
 
@@ -941,10 +1001,6 @@
       return;
     }
 
-    const selected = reviewEventSel.selectedOptions && reviewEventSel.selectedOptions[0];
-    const eventTitle = selected ? String(selected.getAttribute("data-title") || "Evento") : "Evento";
-    const eventLabel = eventTitle;
-
     const name = clampStr(reviewNameInp ? reviewNameInp.value : "", 40);
     const text = clampStr(reviewTextTa.value, 420);
 
@@ -953,48 +1009,41 @@
       return;
     }
 
-    const reviews = loadReviews();
-    const newReview = {
-      id: uid("rev"),
-      eventId,
-      eventLabel,
-      name: name || "Anónimo",
-      text,
-      createdAt: nowISO(),
-      editedAt: null,
-      authorId: VISITOR_ID, // ✅ clave para "solo el propio"
-      reactions: { heart: 0, up: 0, down: 0 },
-    };
+    try {
+      await rpcCreateReview({ eventId, name: name || "Anónimo", text });
 
-    reviews.unshift(newReview);
-    saveReviews(reviews);
+      // reset
+      reviewTextTa.value = "";
+      if (reviewNameInp) reviewNameInp.value = "";
+      reviewEventSel.selectedIndex = 0;
+      updateCountUI();
 
-    // reset form
-    reviewTextTa.value = "";
-    if (reviewNameInp) reviewNameInp.value = "";
-    reviewEventSel.selectedIndex = 0;
-    updateCountUI();
+      toast("Reseña publicada.");
 
-    toast("Reseña publicada.");
-    renderReviews(reviews);
+      // recarga de DB para quedar 100% consistente
+      const list = await fetchReviewsForAllowedEvents();
+      renderReviews(list);
+    } catch (err) {
+      console.warn("[reviews] create fail:", err);
+      toast(prettyErr(err));
+    }
   }
 
   // ------------------------------------------------------------
-  // REVIEWS: reacciones
+  // REVIEWS: Edit/Borrar (delegación) + Reacciones
   // ------------------------------------------------------------
   function toggleReaction(reviewId, kind) {
-    const reviews = loadReviews();
-    const idx = reviews.findIndex((r) => r.id === reviewId);
-    if (idx < 0) return;
-
-    // no reacciones durante edición
-    const editing = loadEditingState();
-    if (editing.reviewId && String(editing.reviewId) === String(reviewId)) return;
-
+    // Reacciones siguen local
     const st = loadReactionState();
     const prev = st[reviewId] || "none";
 
-    const rx = reviews[idx].reactions || { heart: 0, up: 0, down: 0 };
+    // Mantenemos counts en memoria solo para UI local (sin DB)
+    // Si querés persistencia real cross-device, luego lo pasamos a DB.
+    const list = REVIEWS_CACHE.slice();
+    const idx = list.findIndex((r) => r.id === reviewId);
+    if (idx < 0) return;
+
+    const rx = list[idx].reactions || { heart: 0, up: 0, down: 0 };
     rx.heart = Number(rx.heart || 0);
     rx.up = Number(rx.up || 0);
     rx.down = Number(rx.down || 0);
@@ -1016,136 +1065,119 @@
       st[reviewId] = kind;
     }
 
-    reviews[idx].reactions = rx;
-
+    list[idx].reactions = rx;
     saveReactionState(st);
-    saveReviews(reviews);
-    renderReviews(reviews);
+    renderReviews(list);
   }
 
-  // ------------------------------------------------------------
-  // ✅ Edit/Delete actions (solo propio)
-  // ------------------------------------------------------------
-  function startEdit(reviewId) {
-    const reviews = loadReviews();
-    const r = reviews.find((x) => x.id === reviewId);
-    if (!r) return;
+  function enterEditMode(card, row) {
+    const p = $(`[data-role="text"]`, card);
+    if (!p) return;
 
-    const gate = canEditReview(r);
-    if (!gate.ok) {
-      toast(gate.reason || "No podés editar este comentario.");
-      return;
-    }
+    const current = safeStr(row.text || "");
+    const ta = document.createElement("textarea");
+    ta.className = "textarea";
+    ta.value = current;
+    ta.maxLength = 420;
+    ta.style.marginTop = "10px";
 
-    setEditingReviewId(reviewId);
-    renderReviews(reviews);
+    const actions = document.createElement("div");
+    actions.style.cssText = "display:flex; gap:10px; margin-top:10px; align-items:center; flex-wrap:wrap;";
 
-    // focus textarea + contador live
-    const card = document.querySelector(`.reviewCard[data-review-id="${CSS.escape(reviewId)}"]`);
-    const ta = card ? card.querySelector("[data-edit-text]") : null;
-    const cnt = card ? card.querySelector("[data-edit-count]") : null;
-    if (ta) {
-      ta.focus();
-      ta.setSelectionRange(ta.value.length, ta.value.length);
-      ta.addEventListener("input", () => {
-        if (cnt) cnt.textContent = String(ta.value.length);
-      });
-    }
+    const btnSave = document.createElement("button");
+    btnSave.type = "button";
+    btnSave.className = "btn primary";
+    btnSave.textContent = "Guardar";
+
+    const btnCancel = document.createElement("button");
+    btnCancel.type = "button";
+    btnCancel.className = "btn ghost";
+    btnCancel.textContent = "Cancelar";
+
+    p.replaceWith(ta);
+    ta.insertAdjacentElement("afterend", actions);
+    actions.appendChild(btnSave);
+    actions.appendChild(btnCancel);
+
+    btnCancel.addEventListener("click", async () => {
+      const list = await fetchReviewsForAllowedEvents();
+      renderReviews(list);
+    });
+
+    btnSave.addEventListener("click", async () => {
+      const next = clampStr(ta.value, 420);
+      if (!next || next.length < 2) {
+        toast("Escribí un comentario válido (mínimo 2 caracteres).");
+        return;
+      }
+
+      try {
+        await rpcUpdateReview({ reviewId: row.id, text: next, name: row.name });
+        toast("Comentario actualizado.");
+        const list = await fetchReviewsForAllowedEvents();
+        renderReviews(list);
+      } catch (err) {
+        console.warn("[reviews] update fail:", err);
+        toast(prettyErr(err));
+      }
+    });
+
+    // UX: foco directo
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
   }
 
-  function cancelEdit() {
-    setEditingReviewId(null);
-    renderReviews(loadReviews());
-  }
-
-  function saveEdit(reviewId, newTextRaw) {
-    const reviews = loadReviews();
-    const idx = reviews.findIndex((x) => x.id === reviewId);
-    if (idx < 0) return;
-
-    const r = reviews[idx];
-    const gate = canEditReview(r);
-    if (!gate.ok) {
-      toast(gate.reason || "No podés editar este comentario.");
-      cancelEdit();
-      return;
-    }
-
-    const newText = clampStr(newTextRaw, 420);
-    if (!newText || newText.length < 2) {
-      toast("La reseña debe tener al menos 2 caracteres.");
-      return;
-    }
-
-    reviews[idx] = { ...r, text: newText, editedAt: nowISO() };
-    saveReviews(reviews);
-
-    setEditingReviewId(null);
-    toast("Comentario actualizado.");
-    renderReviews(reviews);
-  }
-
-  function deleteReview(reviewId) {
-    const reviews = loadReviews();
-    const r = reviews.find((x) => x.id === reviewId);
-    if (!r) return;
-
-    if (String(r.authorId || "") !== String(VISITOR_ID)) {
-      toast("Solo podés borrar tus comentarios.");
-      return;
-    }
-
-    // confirm simple (sin modal)
-    const ok = window.confirm("¿Querés borrar este comentario? Esto no se puede deshacer.");
+  async function handleDelete(card, row) {
+    const ok = confirm("¿Querés borrar tu comentario? Esta acción no se puede deshacer.");
     if (!ok) return;
 
-    const next = reviews.filter((x) => x.id !== reviewId);
-    saveReviews(next);
-
-    // limpiar reacciones de ese review (opcional)
-    const st = loadReactionState();
-    if (st && typeof st === "object" && st[reviewId]) {
-      delete st[reviewId];
-      saveReactionState(st);
+    try {
+      await rpcDeleteReview({ reviewId: row.id });
+      toast("Comentario borrado.");
+      const list = await fetchReviewsForAllowedEvents();
+      renderReviews(list);
+    } catch (err) {
+      console.warn("[reviews] delete fail:", err);
+      toast(prettyErr(err));
     }
-
-    // si estaba en edición, cancelar
-    const editing = loadEditingState();
-    if (editing.reviewId && String(editing.reviewId) === String(reviewId)) setEditingReviewId(null);
-
-    toast("Comentario borrado.");
-    renderReviews(next);
   }
 
-  function onReviewListClick(e) {
-    const btn = e.target && e.target.closest ? e.target.closest(".reactBtn") : e.target;
-    if (!btn) return;
-    const realBtn = btn.closest ? btn.closest(".reactBtn") : null;
-    if (!realBtn) return;
+  async function onReviewListClick(e) {
+    const t = e.target;
 
-    const card = realBtn.closest(".reviewCard");
+    // acciones Edit/Borrar
+    const actionBtn = t && t.closest ? t.closest("[data-action]") : null;
+    if (actionBtn) {
+      const card = actionBtn.closest(".reviewCard");
+      if (!card) return;
+
+      const reviewId = String(card.dataset.reviewId || "");
+      const row = REVIEWS_CACHE.find((x) => x.id === reviewId);
+      if (!row) return;
+
+      // seguridad UI extra
+      if (!isOwnerReview(row)) {
+        toast("Solo podés editar/borrar tus propios comentarios.");
+        return;
+      }
+
+      const action = String(actionBtn.getAttribute("data-action") || "");
+      if (action === "edit") enterEditMode(card, row);
+      if (action === "delete") await handleDelete(card, row);
+      return;
+    }
+
+    // reacciones
+    const btn = t && t.closest ? t.closest(".reactBtn") : null;
+    if (!btn) return;
+
+    const card = btn.closest(".reviewCard");
     if (!card) return;
 
     const reviewId = String(card.dataset.reviewId || "");
-    if (!reviewId) return;
+    const kind = String(btn.dataset.react || "");
+    if (!reviewId || !kind) return;
 
-    // actions
-    const action = realBtn.dataset.action ? String(realBtn.dataset.action) : "";
-    if (action) {
-      if (action === "edit") return startEdit(reviewId);
-      if (action === "delete") return deleteReview(reviewId);
-      if (action === "cancel") return cancelEdit();
-      if (action === "save") {
-        const ta = card.querySelector("[data-edit-text]");
-        const text = ta ? ta.value : "";
-        return saveEdit(reviewId, text);
-      }
-      return;
-    }
-
-    // reactions
-    const kind = realBtn.dataset.react ? String(realBtn.dataset.react) : "";
-    if (!kind) return;
     toggleReaction(reviewId, kind);
   }
 
@@ -1165,6 +1197,7 @@
           : allItems.filter((x) => x.type === typeWanted);
 
       mountDateFilter(pool);
+
       applyGalleryFilters();
 
       if (selDate) selDate.addEventListener("change", applyGalleryFilters);
@@ -1181,6 +1214,9 @@
     if (!reviewListEl) return;
 
     ensureReviewStructure();
+
+    // hash para ownership UI (si el browser soporta crypto.subtle)
+    AUTHOR_HASH = await sha256Hex(AUTHOR_TOKEN);
 
     try {
       await mountReviewEventSelect();
@@ -1202,14 +1238,15 @@
     if (formEl) formEl.addEventListener("submit", handleSubmit);
     if (reviewListEl) reviewListEl.addEventListener("click", onReviewListClick);
 
-    // render inicial
-    renderReviews(loadReviews());
+    // Cargar desde DB para que sea cross-device
+    const list = await fetchReviewsForAllowedEvents();
+    renderReviews(list);
 
-    // sync multi-tab
-    window.addEventListener("storage", (ev) => {
-      if (!ev || !ev.key) return;
-      if (ev.key === LS.REVIEWS || ev.key === LS.REACTIONS || ev.key === LS.EDITING) {
-        renderReviews(loadReviews());
+    // refresh suave cuando se vuelve a la pestaña (para ver comentarios nuevos)
+    document.addEventListener("visibilitychange", async () => {
+      if (document.visibilityState === "visible") {
+        const list2 = await fetchReviewsForAllowedEvents();
+        renderReviews(list2);
       }
     });
   }
