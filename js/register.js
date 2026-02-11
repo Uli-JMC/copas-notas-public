@@ -565,11 +565,11 @@ async function fetchEventAndDates(eventId) {
 
   const dates = Array.isArray(ds)
     ? ds.map((x) => ({
-        id: x.id,
-        label: safeTrim(x.label),
-        seats_total: Math.max(0, Number(x.seats_total) || 0),
-        seats_available: Math.max(0, Number(x.seats_available) || 0),
-      }))
+      id: x.id,
+      label: safeTrim(x.label),
+      seats_total: Math.max(0, Number(x.seats_total) || 0),
+      seats_available: Math.max(0, Number(x.seats_available) || 0),
+    }))
     : [];
 
   return { event: ev, dates };
@@ -689,6 +689,12 @@ async function submitRegistration() {
     const { error } = await sb.rpc("register_for_event", payload);
     if (error) throw error;
 
+    // ✅ Cambiar a estado enviado
+    if (submitBtn) {
+      submitBtn.textContent = "Enviado ✓";
+      submitBtn.classList.add("isSuccess");
+    }
+
     // Guard para botón "Ver evento"
     window.__ECN_LAST_EVENT_ID = String(EVENT_ID);
 
@@ -761,7 +767,7 @@ async function submitRegistration() {
       DATES = fresh.dates;
       renderHeader();
       syncSubmitAvailability();
-    } catch (_) {}
+    } catch (_) { }
   }
 }
 

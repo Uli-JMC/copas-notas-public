@@ -470,6 +470,13 @@ select{
   line-height: 1.55;
 }
 
+.btn.primary.inviteBlack.isSuccess{
+  background: #111 !important;
+  border-color: #111 !important;
+  color: #fff !important;
+  opacity: .85;
+}
+
 /* ============================================================
    Footer (tu footer simple en register)
 ============================================================ */
