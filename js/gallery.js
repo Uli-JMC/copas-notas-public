@@ -26,6 +26,10 @@
    ✅ PATCH 2026-02-08 (FIX gating real):
    - Elegible SOLO cuando la ÚLTIMA fecha terminó (max end < now)
    - end efectivo = ends_at || (start_at + duration_hours)
+
+   ✅ PATCH 2026-02-10:
+   - ✅ Editar/Borrar reseñas SOLO del mismo autor (mismo navegador)
+   - ✅ Editar permitido solo "en el momento" (ventana en minutos)
 ============================================================ */
 
 (function () {
@@ -351,6 +355,41 @@
   }
 
   // ------------------------------------------------------------
+  // ✅ AUTHOR KEY + edición "en el momento"
+  // ------------------------------------------------------------
+  const EDIT_WINDOW_MIN = 30; // 👈 cambiá esto si querés (ej: 10 / 15 / 60)
+  const LS_AUTHOR = "ecn_author_key_v1";
+
+  function getAuthorKey() {
+    try {
+      let k = localStorage.getItem(LS_AUTHOR);
+      if (k && k.length > 10) return k;
+      k = uid("author");
+      localStorage.setItem(LS_AUTHOR, k);
+      return k;
+    } catch (_) {
+      return uid("author_tmp");
+    }
+  }
+
+  const MY_AUTHOR_KEY = getAuthorKey();
+
+  function isMine(review) {
+    return !!(review && review.authorKey && review.authorKey === MY_AUTHOR_KEY);
+  }
+
+  function canEditNow(review) {
+    if (!review) return false;
+    if (!isMine(review)) return false;
+    const createdMs = toMs(review.createdAt);
+    if (!Number.isFinite(createdMs)) return true;
+    const diffMin = (nowMs() - createdMs) / (60 * 1000);
+    return diffMin <= EDIT_WINDOW_MIN;
+  }
+
+  let EDITING_ID = null; // id del comentario en edición
+
+  // ------------------------------------------------------------
   // ✅ Reseñas: gating por evento FINALIZADO (última fecha terminó)
   // ------------------------------------------------------------
   let REVIEW_EVENTS = [];
@@ -409,13 +448,6 @@
     }
   }
 
-  /**
-   * ✅ Elegible SOLO cuando la ÚLTIMA fecha terminó:
-   * - end efectivo = endsAt || (startAt + durationHours)
-   * - elegible si: todos los end son calculables Y maxEnd < now
-   * - si hay fecha futura: no elegible y da la próxima fecha
-   * - si falta info: no elegible y pide configurar start_at/ends_at/duration_hours
-   */
   function computeEligibilityForEvent(dates, durationHours) {
     const now = nowMs();
 
@@ -437,9 +469,8 @@
     }
 
     const ends = parsed.map((x) => x.endMs).filter((x) => Number.isFinite(x));
-    const canJudgeFinal = ends.length === parsed.length; // todas calculables
+    const canJudgeFinal = ends.length === parsed.length;
 
-    // Próxima fecha (end>=now) para hint
     const future = parsed
       .filter((x) => Number.isFinite(x.endMs) && x.endMs >= now)
       .sort((a, b) => a.endMs - b.endMs);
@@ -453,7 +484,6 @@
       };
     }
 
-    // Si no hay future, todas (calculables) deberían estar < now
     if (!canJudgeFinal) {
       return {
         eligible: false,
@@ -484,7 +514,6 @@
     const datesByEvent = await fetchEventDatesByEvent();
 
     try {
-      // ✅ traemos duration_hours para poder calcular ends_at si está null
       const { data, error } = await client
         .from(DB.EVENTS)
         .select("id,title,type,duration_hours,created_at")
@@ -795,8 +824,13 @@
     saveJSON(LS.REACTIONS, st);
   }
 
+  function getReviewById(list, id) {
+    const rid = String(id || "");
+    return (Array.isArray(list) ? list : []).find((r) => String(r?.id || "") === rid) || null;
+  }
+
   // ------------------------------------------------------------
-  // REVIEWS: render list
+  // REVIEWS: render list (con Editar/Borrar)
   // ------------------------------------------------------------
   function renderReviews(list) {
     if (!reviewListEl) return;
@@ -838,6 +872,84 @@
       const rc = r.reactions || { heart: 0, up: 0, down: 0 };
       const my = reactionState[r.id] || "none";
 
+      const mine = isMine(r);
+      const editing = EDITING_ID && String(EDITING_ID) === String(r.id);
+      const canEdit = canEditNow(r);
+
+      const actionsHTML = mine
+        ? `
+          <div class="reactions" style="margin-top:10px; justify-content:space-between; gap:10px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="reactBtn" type="button" data-react="heart" aria-pressed="${my === "heart" ? "true" : "false"}" aria-label="Me encanta">
+                <span class="reactIcon">❤️</span>
+                <span class="reactCount">${esc(String(rc.heart || 0))}</span>
+              </button>
+
+              <button class="reactBtn" type="button" data-react="up" aria-pressed="${my === "up" ? "true" : "false"}" aria-label="Me gusta">
+                <span class="reactIcon">👍</span>
+                <span class="reactCount">${esc(String(rc.up || 0))}</span>
+              </button>
+
+              <button class="reactBtn" type="button" data-react="down" aria-pressed="${my === "down" ? "true" : "false"}" aria-label="No me gustó">
+                <span class="reactIcon">👎</span>
+                <span class="reactCount">${esc(String(rc.down || 0))}</span>
+              </button>
+            </div>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+              ${
+                editing
+                  ? `
+                    <button class="reactBtn" type="button" data-action="save" aria-label="Guardar edición">
+                      <span class="reactIcon">💾</span>
+                      <span class="reactCount">Guardar</span>
+                    </button>
+                    <button class="reactBtn" type="button" data-action="cancel" aria-label="Cancelar edición">
+                      <span class="reactIcon">✖</span>
+                      <span class="reactCount">Cancelar</span>
+                    </button>
+                  `
+                  : `
+                    <button class="reactBtn" type="button" data-action="edit" ${canEdit ? "" : "disabled"} aria-label="Editar comentario">
+                      <span class="reactIcon">✏️</span>
+                      <span class="reactCount">Editar</span>
+                    </button>
+                    <button class="reactBtn" type="button" data-action="delete" aria-label="Borrar comentario">
+                      <span class="reactIcon">🗑️</span>
+                      <span class="reactCount">Borrar</span>
+                    </button>
+                  `
+              }
+            </div>
+          </div>
+        `
+        : `
+          <div class="reactions" aria-label="Reacciones">
+            <button class="reactBtn" type="button" data-react="heart" aria-pressed="${my === "heart" ? "true" : "false"}" aria-label="Me encanta">
+              <span class="reactIcon">❤️</span>
+              <span class="reactCount">${esc(String(rc.heart || 0))}</span>
+            </button>
+
+            <button class="reactBtn" type="button" data-react="up" aria-pressed="${my === "up" ? "true" : "false"}" aria-label="Me gusta">
+              <span class="reactIcon">👍</span>
+              <span class="reactCount">${esc(String(rc.up || 0))}</span>
+            </button>
+
+            <button class="reactBtn" type="button" data-react="down" aria-pressed="${my === "down" ? "true" : "false"}" aria-label="No me gustó">
+              <span class="reactIcon">👎</span>
+              <span class="reactCount">${esc(String(rc.down || 0))}</span>
+            </button>
+          </div>
+        `;
+
+      const bodyHTML = editing
+        ? `
+          <textarea class="textarea" data-edit="1" rows="4" maxlength="420"
+            style="min-height:120px; margin-top:10px;">${esc(text)}</textarea>
+          <div class="hint" style="margin-top:10px; text-align:right;">Editando…</div>
+        `
+        : `<p class="reviewText">${esc(text)}</p>`;
+
       card.innerHTML = `
         <div class="reviewTop">
           <div class="reviewWho">
@@ -846,24 +958,15 @@
           </div>
         </div>
 
-        <p class="reviewText">${esc(text)}</p>
+        ${bodyHTML}
 
-        <div class="reactions" aria-label="Reacciones">
-          <button class="reactBtn" type="button" data-react="heart" aria-pressed="${my === "heart" ? "true" : "false"}" aria-label="Me encanta">
-            <span class="reactIcon">❤️</span>
-            <span class="reactCount">${esc(String(rc.heart || 0))}</span>
-          </button>
+        ${mine && !editing && !canEdit ? `
+          <div class="miniNote" style="margin-top:10px;">
+            La edición solo está disponible por ${EDIT_WINDOW_MIN} min después de publicar.
+          </div>
+        ` : ""}
 
-          <button class="reactBtn" type="button" data-react="up" aria-pressed="${my === "up" ? "true" : "false"}" aria-label="Me gusta">
-            <span class="reactIcon">👍</span>
-            <span class="reactCount">${esc(String(rc.up || 0))}</span>
-          </button>
-
-          <button class="reactBtn" type="button" data-react="down" aria-pressed="${my === "down" ? "true" : "false"}" aria-label="No me gustó">
-            <span class="reactIcon">👎</span>
-            <span class="reactCount">${esc(String(rc.down || 0))}</span>
-          </button>
-        </div>
+        ${actionsHTML}
       `;
 
       frag.appendChild(card);
@@ -917,10 +1020,16 @@
       text,
       createdAt: nowISO(),
       reactions: { heart: 0, up: 0, down: 0 },
+
+      // ✅ clave de autor (solo este navegador puede editar/borrar)
+      authorKey: MY_AUTHOR_KEY,
     };
 
     reviews.unshift(newReview);
     saveReviews(reviews);
+
+    // al publicar, cerramos cualquier edición abierta
+    EDITING_ID = null;
 
     reviewTextTa.value = "";
     if (reviewNameInp) reviewNameInp.value = "";
@@ -929,6 +1038,93 @@
 
     toast("Reseña publicada.");
     renderReviews(reviews);
+  }
+
+  // ------------------------------------------------------------
+  // REVIEWS: acciones edit/save/cancel/delete (delegación)
+  // ------------------------------------------------------------
+  function startEdit(reviewId) {
+    const reviews = loadReviews();
+    const r = getReviewById(reviews, reviewId);
+    if (!r) return;
+
+    if (!isMine(r)) {
+      toast("No podés editar comentarios de otras personas.");
+      return;
+    }
+    if (!canEditNow(r)) {
+      toast(`Solo podés editar dentro de ${EDIT_WINDOW_MIN} min después de publicar.`);
+      return;
+    }
+
+    EDITING_ID = reviewId;
+    renderReviews(reviews);
+  }
+
+  function cancelEdit() {
+    EDITING_ID = null;
+    renderReviews(loadReviews());
+  }
+
+  function saveEdit(reviewId, newText) {
+    const reviews = loadReviews();
+    const idx = reviews.findIndex((x) => String(x?.id || "") === String(reviewId));
+    if (idx < 0) return;
+
+    const r = reviews[idx];
+    if (!isMine(r)) {
+      toast("No podés editar comentarios de otras personas.");
+      return;
+    }
+    if (!canEditNow(r)) {
+      toast(`Solo podés editar dentro de ${EDIT_WINDOW_MIN} min después de publicar.`);
+      EDITING_ID = null;
+      renderReviews(reviews);
+      return;
+    }
+
+    const text = clampStr(newText, 420);
+    if (!text || text.length < 2) {
+      toast("Tu reseña debe tener al menos 2 caracteres.");
+      return;
+    }
+
+    reviews[idx].text = text;
+    reviews[idx].editedAt = nowISO(); // opcional (por si querés mostrarlo luego)
+
+    saveReviews(reviews);
+    EDITING_ID = null;
+    toast("Comentario actualizado.");
+    renderReviews(reviews);
+  }
+
+  function deleteReview(reviewId) {
+    const reviews = loadReviews();
+    const r = getReviewById(reviews, reviewId);
+    if (!r) return;
+
+    if (!isMine(r)) {
+      toast("No podés borrar comentarios de otras personas.");
+      return;
+    }
+
+    const ok = window.confirm("¿Borrar tu comentario? Esta acción no se puede deshacer.");
+    if (!ok) return;
+
+    const next = reviews.filter((x) => String(x?.id || "") !== String(reviewId));
+    saveReviews(next);
+
+    // limpiar reacción propia guardada si existiera
+    const st = loadReactionState();
+    if (st && typeof st === "object" && st[reviewId]) {
+      delete st[reviewId];
+      saveReactionState(st);
+    }
+
+    if (String(EDITING_ID) === String(reviewId)) EDITING_ID = null;
+
+    toast("Comentario eliminado.");
+    renderReviews(next);
   }
 
   // ------------------------------------------------------------
@@ -974,6 +1170,7 @@
   function onReviewListClick(e) {
     const btn = e.target && e.target.closest ? e.target.closest(".reactBtn") : e.target;
     if (!btn) return;
+
     const realBtn = btn.closest ? btn.closest(".reactBtn") : null;
     if (!realBtn) return;
 
@@ -981,9 +1178,35 @@
     if (!card) return;
 
     const reviewId = String(card.dataset.reviewId || "");
-    const kind = String(realBtn.dataset.react || "");
-    if (!reviewId || !kind) return;
+    if (!reviewId) return;
 
+    // ✅ acciones (editar/borrar/guardar/cancelar)
+    const action = String(realBtn.dataset.action || "");
+    if (action) {
+      if (action === "edit") {
+        startEdit(reviewId);
+        return;
+      }
+      if (action === "cancel") {
+        cancelEdit();
+        return;
+      }
+      if (action === "save") {
+        const ta = $(`textarea[data-edit="1"]`, card);
+        const newText = ta ? String(ta.value || "") : "";
+        saveEdit(reviewId, newText);
+        return;
+      }
+      if (action === "delete") {
+        deleteReview(reviewId);
+        return;
+      }
+      return;
+    }
+
+    // ✅ reacciones
+    const kind = String(realBtn.dataset.react || "");
+    if (!kind) return;
     toggleReaction(reviewId, kind);
   }
 
@@ -1046,6 +1269,8 @@
     window.addEventListener("storage", (ev) => {
       if (!ev || !ev.key) return;
       if (ev.key === LS.REVIEWS || ev.key === LS.REACTIONS) {
+        // Si alguien cambió en otra pestaña, cerramos edición local para evitar conflictos
+        EDITING_ID = null;
         renderReviews(loadReviews());
       }
     });

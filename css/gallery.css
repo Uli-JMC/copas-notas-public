@@ -9,11 +9,12 @@
    - Hero más alto (franja más amplia)
    - Selects “pro”: padding, chevron custom, no pegados al borde
    - Filters como barra limpia (border + radius)
+   - ✅ Acciones Editar/Borrar: look tool + disabled elegante
 ============================================================ */
 
 :root{
   --bggrey:#fcf6ff;  /* fallback suave */
-  --galleryCover: url("/assets/img/gallery-cover"); /* ✅ tu imagen */
+  --galleryCover: url("/assets/img/gallery/gallery-cover.png"); /* ✅ tu imagen */
   --heroPurple: var(--drawer-bg); /* ✅ morado del menú (base.css) */
 }
 
@@ -509,6 +510,12 @@
   border-radius: 14px;
   padding: 12px 12px;
   background: #fff;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.reviewCard:focus-within{
+  border-color: rgba(75,110,255,.25);
+  box-shadow: 0 12px 30px rgba(0,0,0,.05);
 }
 
 .reviewTop{
@@ -545,7 +552,22 @@
 }
 
 /* ============================================================
-   ✅ Reactions (❤️ 👍 👎)
+   ✅ Modo edición (textarea dentro del card)
+============================================================ */
+.reviewCard textarea.textarea{
+  min-height: 120px;
+  border-radius: 14px;
+  border-color: rgba(18,18,18,.14);
+  background: rgba(18,18,18,.02);
+  box-shadow: 0 10px 26px rgba(0,0,0,.04);
+}
+
+.reviewCard textarea.textarea:focus{
+  background: #fff;
+}
+
+/* ============================================================
+   ✅ Reactions + Tools (❤️ 👍 👎 + Editar/Borrar)
 ============================================================ */
 .reactions{
   margin-top: 10px;
@@ -555,6 +577,7 @@
   align-items:center;
 }
 
+/* base de botón tipo “chip tool” */
 .reactBtn{
   display:inline-flex;
   align-items:center;
@@ -567,7 +590,8 @@
   color: rgba(18,18,18,.80);
   cursor:pointer;
   user-select:none;
-  transition: background .15s ease, border-color .15s ease, transform .10s ease;
+  transition: background .15s ease, border-color .15s ease, transform .10s ease, opacity .15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .reactBtn:hover{
@@ -599,6 +623,48 @@
 .reactBtn[aria-pressed="true"]{
   background: rgba(18,18,18,.10);
   border-color: rgba(18,18,18,.22);
+}
+
+/* ✅ disabled elegante (para Editar fuera de ventana) */
+.reactBtn:disabled{
+  opacity: .45;
+  cursor: not-allowed;
+  transform: none;
+}
+.reactBtn:disabled:hover{
+  background: rgba(18,18,18,.03);
+  border-color: rgba(18,18,18,.12);
+}
+
+/* ✅ botones de acción: un poco más “tool” */
+.reactBtn[data-action] .reactCount{
+  letter-spacing:.10em;
+}
+
+/* ✅ botón borrar: un toque más visible sin ser rojo agresivo */
+.reactBtn[data-action="delete"]{
+  background: rgba(255,59,48,.06);
+  border-color: rgba(255,59,48,.18);
+}
+.reactBtn[data-action="delete"]:hover{
+  background: rgba(255,59,48,.10);
+  border-color: rgba(255,59,48,.26);
+}
+
+/* ✅ botón guardar: sensación positiva */
+.reactBtn[data-action="save"]{
+  background: rgba(52,199,89,.10);
+  border-color: rgba(52,199,89,.22);
+}
+.reactBtn[data-action="save"]:hover{
+  background: rgba(52,199,89,.14);
+  border-color: rgba(52,199,89,.28);
+}
+
+/* ✅ botón cancelar: neutral */
+.reactBtn[data-action="cancel"]{
+  background: rgba(18,18,18,.04);
+  border-color: rgba(18,18,18,.14);
 }
 
 @media (max-width: 640px){
