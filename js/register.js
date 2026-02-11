@@ -116,8 +116,7 @@ function getSb() {
 // ============================================================
 const SUCCESS = {
   overlayId: "ecnSuccessOverlay",
-  // ✅ AJUSTÁ ESTA RUTA a donde lo subas público
-  lottieJsonUrl: "/assets/lottie/champagne_13399330.json",
+  lottieJsonUrl: "/assets/img/lottie/champagne_13399330.json",
   lottieLib: "https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js",
 };
 
