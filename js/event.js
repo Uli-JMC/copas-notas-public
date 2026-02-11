@@ -1,9 +1,11 @@
 "use strict";
 
 /* ============================================================
-   event.js (Supabase-first) ✅ FIX
+   event.js (Supabase-first) ✅ FIX + PRICE (Opción A)
    - No marca "Agotado" si fechas aún no cargaron (evita falso sold-out)
    - Loader suave para evitar “brinco” visual al refrescar
+   - ✅ Muestra Precio (events.price_amount + events.price_currency)
+     - Si no hay precio => "Por confirmar"
 ============================================================ */
 
 // ============================================================
@@ -94,6 +96,41 @@ function getDefaultHero() {
   }
 }
 
+// ✅ Precio helpers (Opción A)
+function normCurrency(cur) {
+  const c = String(cur || "").trim().toUpperCase();
+  if (c === "USD" || c === "CRC") return c;
+  return "";
+}
+function formatMoney(amount, currency) {
+  const cur = normCurrency(currency);
+  const n = Number(amount);
+  if (!cur || !Number.isFinite(n)) return "Por confirmar";
+
+  // CRC normalmente sin decimales, USD con 2
+  const isCRC = cur === "CRC";
+  const decimals = isCRC ? 0 : 2;
+
+  try {
+    const formatted = n.toLocaleString("es-CR", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    return isCRC ? `₡${formatted}` : `$${formatted}`;
+  } catch (_) {
+    // fallback simple
+    const fixed = n.toFixed(decimals);
+    return isCRC ? `₡${fixed}` : `$${fixed}`;
+  }
+}
+
+function safePriceText(priceAmount, priceCurrency) {
+  const cur = normCurrency(priceCurrency);
+  const n = Number(priceAmount);
+  if (!cur || !Number.isFinite(n)) return "Por confirmar";
+  return formatMoney(n, cur);
+}
+
 // ============================================================
 // Loader
 // ============================================================
@@ -125,7 +162,9 @@ async function fetchEventFromSupabase(eventId) {
   // 1) Evento
   const evRes = await APP.supabase
     .from("events")
-    .select('id,title,type,month_key,"desc",img,location,time_range,duration_hours,created_at,updated_at')
+    .select(
+      'id,title,type,month_key,"desc",img,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at'
+    )
     .eq("id", eventId)
     .maybeSingle();
 
@@ -191,6 +230,11 @@ async function fetchEventFromSupabase(eventId) {
     location: safeText(evRes.data.location, "Por confirmar"),
     timeRange: safeText(evRes.data.time_range, "Por confirmar"),
     durationHours: safeText(evRes.data.duration_hours, "Por confirmar"),
+
+    // ✅ precio (Opción A)
+    priceAmount: evRes.data.price_amount,
+    priceCurrency: evRes.data.price_currency,
+    priceText: safePriceText(evRes.data.price_amount, evRes.data.price_currency),
   };
 }
 
@@ -254,6 +298,7 @@ function setNotices({ sold, available, pending }) {
   else if (available && availNotice) availNotice.removeAttribute("hidden");
   else if (pending && pendingNotice) pendingNotice.removeAttribute("hidden");
 }
+
 function renderEvent(ev) {
   CURRENT = ev;
 
@@ -265,7 +310,6 @@ function renderEvent(ev) {
 
   // ✅ SOLO es agotado si fechas están OK y el total de seats es 0
   const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
-  const hasDates = Array.isArray(ev.dates) && ev.dates.length > 0;
 
   // Background hero
   const heroBg = $("#heroBg");
@@ -375,6 +419,11 @@ function renderEvent(ev) {
         <div class="kvLabel">Ubicación</div>
         <div class="kvValue">${escapeHtml(safeText(ev.location))}</div>
       </div>
+
+      <div class="kvRow">
+        <div class="kvLabel">Costo</div>
+        <div class="kvValue">${escapeHtml(ev.priceText || "Por confirmar")}</div>
+      </div>
     `;
   }
 
@@ -384,7 +433,6 @@ function renderEvent(ev) {
   } else if (soldOutTotal) {
     setNotices({ sold: true, available: false, pending: false });
   } else {
-    // si hay fechas ok y no está agotado => disponible
     setNotices({ sold: false, available: true, pending: false });
   }
 
