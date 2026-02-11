@@ -1028,3 +1028,78 @@
   background: rgba(18,18,18,.10);
   border-color: rgba(18,18,18,.20);
 }
+
+/* ============================================================
+   FOOTER B (CENTRADO PRO) — Patch
+   - © + social centrados, más “premium”
+============================================================ */
+
+.footerBottom{
+  display: flex;
+  flex-direction: column;
+  align-items: center;     /* ✅ centrado */
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(18,18,18,.10);
+  color: var(--muted);
+  font-size: var(--fs-13);
+}
+
+/* social centrado */
+.footerBottom .social{
+  display:flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* botones WA/IG más pro */
+.footerBottom .social .icon-btn{
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(18,18,18,.14);
+  background: rgba(18,18,18,.02);
+  color: rgba(18,18,18,.78);
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  font-size: 12px;
+  transition: transform .15s ease, background .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.footerBottom .social .icon-btn:hover{
+  transform: translateY(-1px);
+  background: rgba(18,18,18,.06);
+  border-color: rgba(18,18,18,.22);
+  color: rgba(18,18,18,.92);
+}
+
+.footerBottom .social .icon-btn:focus-visible{
+  outline: none;
+  box-shadow: var(--focusRing);
+}
+
+/* en desktop que respire un poco más */
+@media (min-width: 980px){
+  .footerBottom{
+    gap: 16px;
+    padding-top: 20px;
+  }
+}
+
+/* opcional: bloque “pill” suave */
+.footerBottom{
+  width: min(var(--max), calc(100% - (var(--gutter) * 2)));
+  margin-left: auto;
+  margin-right: auto;
+  border-top: 0;
+  padding: 16px 14px;
+  border-radius: 16px;
+  background: rgba(18,18,18,.02);
+  border: 1px solid rgba(18,18,18,.10);
+}
+
