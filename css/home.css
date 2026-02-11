@@ -18,6 +18,9 @@
    - Aplica a:
      - Hero: .heroPanelBtn.btn--success / .btn--danger
      - Listado: .btn.primary.inviteBlack.btn--success / .btn--danger
+
+   ✅ PATCH 2026-02-10 (TESTIMONIAL MORADO):
+   - Background morado premium + glow + textura suave (estilo menú)
 ============================================================ */
 
 /* ============================================================
@@ -871,22 +874,67 @@
 }
 
 /* ============================================================
-   Testimonial
+   ✅ Testimonial — MORADO PREMIUM (estilo menú) + glow effect
 ============================================================ */
 .testimonial{
-  padding: 84px 0;
+  position: relative;
+  padding: 92px 0;
+  overflow: hidden;
+  isolation: isolate;
+
   border-top: 1px solid rgba(18,18,18,.08);
   border-bottom: 1px solid rgba(18,18,18,.08);
-  background: rgba(18,18,18,.02);
+
+  background:
+    radial-gradient(1200px 520px at 22% 30%, rgba(140, 70, 255, .26), rgba(140, 70, 255, 0) 62%),
+    radial-gradient(900px 460px at 78% 60%, rgba(185, 90, 255, .22), rgba(185, 90, 255, 0) 60%),
+    linear-gradient(180deg, rgba(88, 40, 170, .08) 0%, rgba(88, 40, 170, .13) 55%, rgba(88, 40, 170, .08) 100%),
+    linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
 }
 
 @media (max-width: 640px){
   .testimonial{ padding: 64px 0; }
 }
 
+/* “glow” + viñeta suave */
+.testimonial::before{
+  content:"";
+  position:absolute;
+  inset:-2px;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(900px 380px at 35% 45%, rgba(140, 70, 255, .20), rgba(140, 70, 255, 0) 64%),
+    radial-gradient(780px 360px at 70% 55%, rgba(185, 90, 255, .16), rgba(185, 90, 255, 0) 62%),
+    linear-gradient(180deg, rgba(0,0,0,.04) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,.04) 100%);
+}
+
+/* textura muy sutil */
+.testimonial::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(2px 2px at 10% 20%, rgba(120, 70, 255, .12) 0 40%, transparent 41%),
+    radial-gradient(2px 2px at 30% 70%, rgba(120, 70, 255, .10) 0 40%, transparent 41%),
+    radial-gradient(2px 2px at 60% 40%, rgba(120, 70, 255, .10) 0 40%, transparent 41%),
+    radial-gradient(2px 2px at 85% 65%, rgba(120, 70, 255, .12) 0 40%, transparent 41%);
+  opacity: .25;
+  mix-blend-mode: multiply;
+  filter: blur(.2px);
+}
+
+/* contenido arriba */
+.testimonial .container{
+  position: relative;
+  z-index: 1;
+}
+
 .quoteKicker{
   text-align: center;
-  color: var(--muted);
+  color: rgba(55, 20, 110, .72);
   letter-spacing: .12em;
   text-transform: uppercase;
   font-size: 12px;
@@ -898,12 +946,13 @@
   text-align: center;
   font-size: clamp(18px, 2.4vw, 28px);
   line-height: 1.45;
-  color: rgba(18,18,18,.88);
+  color: rgba(18,18,18,.90);
   font-weight: 650;
   min-height: 4.6em;
   display: grid;
   place-items: center;
   padding: 0 10px;
+  text-shadow: 0 16px 40px rgba(88, 40, 170, .08);
 }
 
 .quote.is-anim{
