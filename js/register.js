@@ -1,12 +1,25 @@
 "use strict";
 
 /* ============================================================
-   register.js (Supabase) ✅ ALINEADO + MODAL ÉXITO (Lottie)
-   - Mantiene tu lógica intacta
-   - En éxito: muestra modal centrado con animación + copy
-   - ✅ SIN TIMER: redirige SOLO con botón "Ver evento"
+   register.js (Supabase) ✅ ALINEADO + MODAL ÉXITO (SIN TIMER)
+   - Lee event + fechas desde Supabase
+   - Permite seleccionar fecha (event_dates)
+   - Muestra cupos disponibles reales (seats_available)
+   - Inserta inscripción + decrementa cupo en UNA operación vía RPC
 
-   ✅ Lottie JSON: champagne_13399330.json :contentReference[oaicite:1]{index=1}
+   ✅ RPC FIRMA CANÓNICA (dejá SOLO esta en DB):
+     p_event_id uuid,
+     p_event_date_id uuid,
+     p_name text,
+     p_email text,
+     p_phone text,
+     p_marketing_opt_in boolean,
+     p_allergies text   -- opcional (podés mandar null o "")
+
+   ✅ MODAL ÉXITO (2026-02-10):
+   - Centrado, overlay, animación Lottie (JSON)
+   - Sin auto-cierre (sin timer)
+   - Cierra con botón, X, overlay y ESC
 ============================================================ */
 
 // ============================================================
@@ -59,6 +72,7 @@ function safeTrim(v) {
 
 function normalizePhone(raw) {
   const only = String(raw || "").replace(/\D/g, "");
+  // CR: 8 dígitos o 506 + 8 dígitos
   if (only.length === 8) return "506" + only;
   if (only.length === 11 && only.startsWith("506")) return only;
   return null;
@@ -98,237 +112,260 @@ function getSb() {
 }
 
 // ============================================================
-// ✅ Modal Éxito (Lottie) — SIN TIMER
+// ✅ MODAL ÉXITO (Lottie JSON) — SIN TIMER
 // ============================================================
+const SUCCESS = {
+  overlayId: "ecnSuccessOverlay",
+  // ✅ AJUSTÁ ESTA RUTA a donde lo subas público
+  lottieJsonUrl: "/assets/lottie/champagne_13399330.json",
+  lottieLib: "https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js",
+};
 
-// 👉 Poné el JSON en tu repo y ajustá este path:
-const ANIM_URL = "/assets/lottie/champagne_13399330.json"; // :contentReference[oaicite:2]{index=2}
+function ensureSuccessModalStylesOnce() {
+  if (document.getElementById("ecnSuccessModalStyles")) return;
 
-let __successModalEl = null;
-let __lottiePlayer = null;
-
-function injectModalStylesOnce() {
-  if (document.getElementById("regSuccessModalStyles")) return;
-  const css = `
-    .regSuccessOverlay{
+  const style = document.createElement("style");
+  style.id = "ecnSuccessModalStyles";
+  style.textContent = `
+    .ecnModalOverlay{
       position: fixed;
       inset: 0;
       display: none;
-      align-items: center;
-      justify-content: center;
+      place-items: center;
       padding: 18px;
       background: rgba(0,0,0,.55);
       z-index: 9999;
     }
-    .regSuccessOverlay.isOpen{ display:flex; }
+    .ecnModalOverlay[aria-hidden="false"]{ display: grid; }
 
-    .regSuccessCard{
+    .ecnModal{
       width: min(520px, 100%);
-      border-radius: 22px;
+      border-radius: 20px;
       border: 1px solid rgba(255,255,255,.18);
       background: rgba(255,255,255,.96);
-      box-shadow: 0 28px 90px rgba(0,0,0,.28);
+      box-shadow: 0 28px 90px rgba(0,0,0,.35);
       overflow: hidden;
       transform: translateY(6px);
       opacity: 0;
       transition: transform .18s ease, opacity .18s ease;
     }
-    .regSuccessOverlay.isOpen .regSuccessCard{
+    .ecnModalOverlay[aria-hidden="false"] .ecnModal{
       transform: translateY(0);
       opacity: 1;
     }
 
-    .regSuccessTop{
-      padding: 18px 18px 10px;
+    .ecnModalTop{
+      padding: 14px 16px 0;
       display:flex;
       justify-content:flex-end;
     }
-    .regSuccessClose{
-      width: 40px;
-      height: 40px;
+    .ecnCloseX{
+      width: 44px;
+      height: 44px;
       border-radius: 999px;
       border: 1px solid rgba(18,18,18,.12);
       background: rgba(18,18,18,.04);
-      cursor: pointer;
+      cursor:pointer;
       display:grid;
       place-items:center;
-      font-size: 18px;
-      line-height: 1;
+      font-size: 16px;
+      transition: background .15s ease, border-color .15s ease, transform .10s ease;
     }
-    .regSuccessClose:hover{ background: rgba(18,18,18,.06); }
+    .ecnCloseX:hover{
+      background: rgba(18,18,18,.06);
+      border-color: rgba(18,18,18,.18);
+    }
+    .ecnCloseX:active{ transform: translateY(1px); }
 
-    .regSuccessBody{
-      padding: 0 22px 22px;
+    .ecnModalBody{
+      padding: 0 18px 18px;
       text-align: center;
     }
-    .regSuccessAnim{
-      width: 120px;
-      height: 120px;
-      margin: 2px auto 10px;
+
+    .ecnAnim{
+      width: 96px;
+      height: 96px;
+      margin: 4px auto 10px;
     }
-    .regSuccessTitle{
-      margin: 6px 0 8px;
+
+    .ecnTitle{
+      margin: 0;
       font-weight: 900;
       letter-spacing: .06em;
       text-transform: uppercase;
+      font-size: 14px;
       color: rgba(18,18,18,.92);
-      font-size: 14px;
     }
-    .regSuccessMsg{
-      margin: 0;
-      color: rgba(18,18,18,.70);
-      line-height: 1.6;
+
+    .ecnMsg{
+      margin: 10px auto 0;
+      color: rgba(18,18,18,.68);
+      line-height: 1.7;
       font-size: 14px;
+      max-width: 46ch;
     }
-    .regSuccessFoot{
-      padding: 14px 18px 18px;
+
+    .ecnActions{
+      margin-top: 14px;
       display:flex;
+      gap: 10px;
       justify-content:center;
+      flex-wrap: wrap;
     }
-    .regSuccessBtn{
+
+    .ecnBtn{
       min-height: 44px;
       padding: 11px 16px;
       border-radius: 14px;
-      border: 2px solid #000;
-      background: #000;
-      color: #fff;
+      border: 1px solid rgba(18,18,18,.14);
+      background: rgba(18,18,18,.04);
+      cursor:pointer;
       font-weight: 900;
       letter-spacing: .10em;
       text-transform: uppercase;
-      cursor: pointer;
+      font-size: 12px;
+      color: rgba(18,18,18,.88);
+      transition: background .15s ease, border-color .15s ease;
     }
-    .regSuccessBtn:hover{ filter: brightness(1.06); }
+    .ecnBtn:hover{
+      background: rgba(18,18,18,.06);
+      border-color: rgba(18,18,18,.20);
+    }
+    .ecnBtn--primary{
+      background: #000;
+      border-color: #000;
+      color:#fff;
+    }
+    .ecnBtn--primary:hover{ filter: brightness(1.06); }
+
+    @media (max-width: 420px){
+      .ecnModalBody{ padding: 0 14px 16px; }
+    }
   `;
-  const style = document.createElement("style");
-  style.id = "regSuccessModalStyles";
-  style.textContent = css;
   document.head.appendChild(style);
 }
 
-function ensureModal() {
-  injectModalStylesOnce();
-  if (__successModalEl) return __successModalEl;
+async function ensureLottieLoaded() {
+  if (window.lottie && typeof window.lottie.loadAnimation === "function") return;
 
-  const overlay = document.createElement("div");
-  overlay.className = "regSuccessOverlay";
+  await new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = SUCCESS.lottieLib;
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("No se pudo cargar Lottie."));
+    document.head.appendChild(s);
+  });
+}
+
+function ensureSuccessModalDOM() {
+  ensureSuccessModalStylesOnce();
+
+  let overlay = document.getElementById(SUCCESS.overlayId);
+  if (overlay) return overlay;
+
+  overlay = document.createElement("div");
+  overlay.id = SUCCESS.overlayId;
+  overlay.className = "ecnModalOverlay";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-label", "Confirmación de reserva");
+  overlay.setAttribute("aria-hidden", "true");
+
   overlay.innerHTML = `
-    <div class="regSuccessCard" role="document">
-      <div class="regSuccessTop">
-        <button class="regSuccessClose" type="button" aria-label="Cerrar">✕</button>
+    <div class="ecnModal" role="document">
+      <div class="ecnModalTop">
+        <button class="ecnCloseX" type="button" aria-label="Cerrar">✕</button>
       </div>
-
-      <div class="regSuccessBody">
-        <div class="regSuccessAnim" id="regSuccessAnim" aria-hidden="true"></div>
-        <div class="regSuccessTitle">Tu reserva ha sido realizada con éxito</div>
-        <p class="regSuccessMsg">Pronto te llegará un correo con los detalles.</p>
-      </div>
-
-      <div class="regSuccessFoot">
-        <button class="regSuccessBtn" type="button">Ver evento</button>
+      <div class="ecnModalBody">
+        <div class="ecnAnim" id="ecnSuccessAnim" aria-hidden="true"></div>
+        <h3 class="ecnTitle">Tu reserva ha sido realizada con éxito</h3>
+        <p class="ecnMsg">
+          Pronto te llegará un correo con los detalles.
+        </p>
+        <div class="ecnActions">
+          <button class="ecnBtn" type="button" data-act="close">Cerrar</button>
+          <button class="ecnBtn ecnBtn--primary" type="button" data-act="go">Ver evento</button>
+        </div>
       </div>
     </div>
   `;
 
   document.body.appendChild(overlay);
-  __successModalEl = overlay;
 
-  const closeOnly = () => closeSuccessModal();
+  // Close: X
+  overlay.querySelector(".ecnCloseX")?.addEventListener("click", () => hideSuccessModal());
 
+  // Close: botón
+  overlay.querySelector('[data-act="close"]')?.addEventListener("click", () => hideSuccessModal());
+
+  // Action: go
+  overlay.querySelector('[data-act="go"]')?.addEventListener("click", () => {
+    // ✅ navegación controlada
+    if (window.__ECN_LAST_EVENT_ID) {
+      window.location.href = `./event.html?event=${encodeURIComponent(window.__ECN_LAST_EVENT_ID)}`;
+      return;
+    }
+    // fallback
+    window.location.href = "./home.html";
+  });
+
+  // Close: click afuera
   overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) closeOnly();
+    if (e.target === overlay) hideSuccessModal();
   });
 
-  overlay.querySelector(".regSuccessClose")?.addEventListener("click", closeOnly);
-
-  overlay.querySelector(".regSuccessBtn")?.addEventListener("click", () => {
-    const url = overlay.dataset.redirectUrl || "";
-    if (url) window.location.href = url;
-  });
-
+  // Close: ESC
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && overlay.classList.contains("isOpen")) closeOnly();
+    if (e.key === "Escape") {
+      const o = document.getElementById(SUCCESS.overlayId);
+      if (o && o.getAttribute("aria-hidden") === "false") hideSuccessModal();
+    }
   });
 
   return overlay;
 }
 
-function loadScriptOnce(src) {
-  return new Promise((resolve, reject) => {
-    const exists = [...document.scripts].some((s) => s.src === src);
-    if (exists) return resolve(true);
+let __successAnimInstance = null;
 
-    const s = document.createElement("script");
-    s.src = src;
-    s.async = true;
-    s.onload = () => resolve(true);
-    s.onerror = () => reject(new Error("No se pudo cargar script: " + src));
-    document.head.appendChild(s);
-  });
-}
-
-async function ensureLottie() {
-  await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js");
-  if (!window.lottie) throw new Error("Lottie no está disponible.");
-  return window.lottie;
-}
-
-async function playSuccessAnim() {
-  const overlay = ensureModal();
-  const target = overlay.querySelector("#regSuccessAnim");
-  if (!target) return;
-
-  try {
-    if (__lottiePlayer) __lottiePlayer.destroy();
-  } catch (_) {}
-  __lottiePlayer = null;
-
-  const lottie = await ensureLottie();
-  __lottiePlayer = lottie.loadAnimation({
-    container: target,
-    renderer: "svg",
-    loop: true,
-    autoplay: true,
-    path: ANIM_URL,
-  });
-}
-
-async function openSuccessModal({ redirectUrl } = {}) {
-  const overlay = ensureModal();
-  overlay.dataset.redirectUrl = redirectUrl || "";
-
-  overlay.classList.add("isOpen");
-  document.documentElement.style.overflow = "hidden";
+async function showSuccessModal() {
+  const overlay = ensureSuccessModalDOM();
+  overlay.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
 
+  // Montar animación 1 sola vez
   try {
-    await playSuccessAnim();
+    await ensureLottieLoaded();
+    const holder = document.getElementById("ecnSuccessAnim");
+    if (holder && !__successAnimInstance) {
+      __successAnimInstance = window.lottie.loadAnimation({
+        container: holder,
+        renderer: "svg",
+        loop: true,
+        autoplay: true,
+        path: SUCCESS.lottieJsonUrl,
+      });
+    }
+    // Si ya existe, reinicia
+    __successAnimInstance?.goToAndPlay?.(0, true);
   } catch (e) {
-    console.warn("No se pudo cargar animación Lottie:", e);
+    // Si Lottie falla, no rompemos el modal
+    console.warn("[modal] lottie fail:", e);
   }
 }
 
-function closeSuccessModal() {
-  const overlay = __successModalEl;
+function hideSuccessModal() {
+  const overlay = document.getElementById(SUCCESS.overlayId);
   if (!overlay) return;
-
-  overlay.classList.remove("isOpen");
-  document.documentElement.style.overflow = "";
+  overlay.setAttribute("aria-hidden", "true");
   document.body.style.overflow = "";
-
-  try {
-    if (__lottiePlayer) __lottiePlayer.pause();
-  } catch (_) {}
 }
 
 // ============================================================
 // State
 // ============================================================
 let EVENT_ID = "";
-let EVENT = null;
-let DATES = [];
+let EVENT = null; // {id,title,desc,type,month_key,location,time_range,duration_hours, img}
+let DATES = []; // [{id,label,seats_available,seats_total}]
 let SELECTED_DATE_ID = "";
 let SELECTED_DATE_LABEL = "";
 
@@ -653,14 +690,20 @@ async function submitRegistration() {
     const { error } = await sb.rpc("register_for_event", payload);
     if (error) throw error;
 
+    // Guard para botón "Ver evento"
+    window.__ECN_LAST_EVENT_ID = String(EVENT_ID);
+
+    // Re-cargar cupos actualizados
     const fresh = await fetchEventAndDates(EVENT_ID);
     EVENT = fresh.event;
     DATES = fresh.dates;
 
+    // Reset selección
     SELECTED_DATE_ID = "";
     SELECTED_DATE_LABEL = "";
     setHiddenDateId("");
 
+    // UI reset
     $("#regForm")?.reset();
     const countEl = $("#count");
     if (countEl) countEl.textContent = "0";
@@ -669,15 +712,8 @@ async function submitRegistration() {
     renderHeader();
     syncSubmitAvailability();
 
-    // ✅ Modal (sin timer): redirige SOLO al presionar "Ver evento"
-    const redirectUrl = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
-    await openSuccessModal({ redirectUrl });
-
-    // Opcional: permitir volver a enviar si cerró el modal
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = oldLabel || "Inscribirme";
-    }
+    // ✅ Modal éxito (SIN TIMER)
+    await showSuccessModal();
   } catch (err) {
     console.error(err);
 
@@ -696,12 +732,7 @@ async function submitRegistration() {
       msg.includes("42501")
     ) {
       toast("Permisos", "La base de datos bloqueó la inscripción. Revisemos RLS o SECURITY DEFINER.");
-    } else if (
-      msg.includes("no seats") ||
-      msg.includes("agotado") ||
-      msg.includes("sold out") ||
-      msg.includes("sold")
-    ) {
+    } else if (msg.includes("no seats") || msg.includes("agotado") || msg.includes("sold out") || msg.includes("sold")) {
       toast("Agotado", "Esa fecha ya no tiene cupos disponibles. Elegí otra.");
     } else if (
       msg.includes("duplicate registration") ||
@@ -713,12 +744,7 @@ async function submitRegistration() {
     ) {
       toast("Ya estás inscrito", "Ese correo ya está inscrito para esta fecha.");
       setFieldError("email", "Este correo ya está inscrito para la fecha seleccionada.");
-    } else if (
-      msg.includes("invalid date") ||
-      msg.includes("fecha no existe") ||
-      msg.includes("invalid") ||
-      msg.includes("fecha")
-    ) {
+    } else if (msg.includes("invalid date") || msg.includes("fecha no existe") || msg.includes("invalid") || msg.includes("fecha")) {
       toast("Fecha inválida", "La fecha seleccionada no pertenece a este evento.");
       setFieldError("eventDate", "Fecha inválida. Elegí otra.");
     } else {
@@ -760,9 +786,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  // Back button
   const backBtn = $("#backBtn");
   if (backBtn) backBtn.href = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
 
+  // Counter allergies
   const allergiesEl = $("#allergies");
   const countEl = $("#count");
   const syncCount = () => {
@@ -772,6 +800,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   allergiesEl?.addEventListener("input", syncCount);
   syncCount();
 
+  // Live clear on input
   ["firstName", "lastName", "email", "phone", "eventDate", "allergies"].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -779,6 +808,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     el.addEventListener("change", () => clearFieldError(id));
   });
 
+  // Load data
   try {
     const { event, dates } = await fetchEventAndDates(EVENT_ID);
 
@@ -804,6 +834,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
+  // Date change
   const dateSel = $("#eventDate");
   dateSel?.addEventListener("change", () => {
     const picked = dateSel.value || "";
@@ -823,6 +854,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // Submit
   const form = $("#regForm");
   form?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -834,7 +866,4 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await submitRegistration();
   });
-
-  // Pre-monta el modal
-  ensureModal();
 });
