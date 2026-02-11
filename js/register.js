@@ -4,9 +4,9 @@
    register.js (Supabase) ✅ ALINEADO + MODAL ÉXITO (Lottie)
    - Mantiene tu lógica intacta
    - En éxito: muestra modal centrado con animación + copy
-   - Luego redirige a event.html?event=...
+   - ✅ SIN TIMER: redirige SOLO con botón "Ver evento"
 
-   ✅ Usa Lottie (JSON) del usuario: champagne_13399330.json :contentReference[oaicite:1]{index=1}
+   ✅ Lottie JSON: champagne_13399330.json :contentReference[oaicite:1]{index=1}
 ============================================================ */
 
 // ============================================================
@@ -59,7 +59,6 @@ function safeTrim(v) {
 
 function normalizePhone(raw) {
   const only = String(raw || "").replace(/\D/g, "");
-  // CR: 8 dígitos o 506 + 8 dígitos
   if (only.length === 8) return "506" + only;
   if (only.length === 11 && only.startsWith("506")) return only;
   return null;
@@ -99,7 +98,7 @@ function getSb() {
 }
 
 // ============================================================
-// ✅ Modal Éxito (Lottie)
+// ✅ Modal Éxito (Lottie) — SIN TIMER
 // ============================================================
 
 // 👉 Poné el JSON en tu repo y ajustá este path:
@@ -107,7 +106,6 @@ const ANIM_URL = "/assets/lottie/champagne_13399330.json"; // :contentReference[
 
 let __successModalEl = null;
 let __lottiePlayer = null;
-let __redirectTimer = null;
 
 function injectModalStylesOnce() {
   if (document.getElementById("regSuccessModalStyles")) return;
@@ -237,20 +235,21 @@ function ensureModal() {
   document.body.appendChild(overlay);
   __successModalEl = overlay;
 
-  const close = () => closeSuccessModal();
+  const closeOnly = () => closeSuccessModal();
+
   overlay.addEventListener("click", (e) => {
-    // cerrar si clic fuera de la card
-    if (e.target === overlay) close();
+    if (e.target === overlay) closeOnly();
   });
 
-  overlay.querySelector(".regSuccessClose")?.addEventListener("click", close);
+  overlay.querySelector(".regSuccessClose")?.addEventListener("click", closeOnly);
+
   overlay.querySelector(".regSuccessBtn")?.addEventListener("click", () => {
-    closeSuccessModal(true);
+    const url = overlay.dataset.redirectUrl || "";
+    if (url) window.location.href = url;
   });
 
-  // ESC para cerrar
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && overlay.classList.contains("isOpen")) close();
+    if (e.key === "Escape" && overlay.classList.contains("isOpen")) closeOnly();
   });
 
   return overlay;
@@ -271,7 +270,6 @@ function loadScriptOnce(src) {
 }
 
 async function ensureLottie() {
-  // CDN estable para lottie-web
   await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js");
   if (!window.lottie) throw new Error("Lottie no está disponible.");
   return window.lottie;
@@ -282,7 +280,6 @@ async function playSuccessAnim() {
   const target = overlay.querySelector("#regSuccessAnim");
   if (!target) return;
 
-  // Limpia anim previa (por si re-abren)
   try {
     if (__lottiePlayer) __lottiePlayer.destroy();
   } catch (_) {}
@@ -298,57 +295,29 @@ async function playSuccessAnim() {
   });
 }
 
-async function openSuccessModal({ redirectUrl, autoRedirectMs = 1800 } = {}) {
+async function openSuccessModal({ redirectUrl } = {}) {
   const overlay = ensureModal();
-  overlay.classList.add("isOpen");
+  overlay.dataset.redirectUrl = redirectUrl || "";
 
-  // Bloquea scroll de fondo
+  overlay.classList.add("isOpen");
   document.documentElement.style.overflow = "hidden";
   document.body.style.overflow = "hidden";
 
-  // Animación
   try {
     await playSuccessAnim();
   } catch (e) {
     console.warn("No se pudo cargar animación Lottie:", e);
   }
-
-  // Auto redirect
-  if (__redirectTimer) clearTimeout(__redirectTimer);
-  if (redirectUrl) {
-    __redirectTimer = setTimeout(() => {
-      window.location.href = redirectUrl;
-    }, Math.max(600, Number(autoRedirectMs) || 1800));
-  }
 }
 
-function closeSuccessModal(goNow = false) {
+function closeSuccessModal() {
   const overlay = __successModalEl;
   if (!overlay) return;
 
   overlay.classList.remove("isOpen");
-
-  // Desbloquea scroll
   document.documentElement.style.overflow = "";
   document.body.style.overflow = "";
 
-  if (__redirectTimer) {
-    if (goNow) {
-      const fn = __redirectTimer;
-      clearTimeout(fn);
-      __redirectTimer = null;
-
-      // si ya hay redirect programado, ejecutamos manualmente:
-      // (guardamos el url en dataset cuando abrimos)
-      const url = overlay.dataset.redirectUrl || "";
-      if (url) window.location.href = url;
-    } else {
-      clearTimeout(__redirectTimer);
-      __redirectTimer = null;
-    }
-  }
-
-  // No destruimos el modal, solo pausamos anim para ahorrar
   try {
     if (__lottiePlayer) __lottiePlayer.pause();
   } catch (_) {}
@@ -358,8 +327,8 @@ function closeSuccessModal(goNow = false) {
 // State
 // ============================================================
 let EVENT_ID = "";
-let EVENT = null; // {id,title,desc,type,month_key,location,time_range,duration_hours, img}
-let DATES = []; // [{id,label,seats_available,seats_total}]
+let EVENT = null;
+let DATES = [];
 let SELECTED_DATE_ID = "";
 let SELECTED_DATE_LABEL = "";
 
@@ -473,7 +442,6 @@ function renderDatesSelect(preselectDateId = "", preselectLabel = "") {
     select.appendChild(opt);
   });
 
-  // ✅ Preselect por ID
   if (preselectDateId) {
     const match = DATES.find((x) => String(x.id) === String(preselectDateId));
     if (match && (Number(match.seats_available) || 0) > 0) {
@@ -485,7 +453,6 @@ function renderDatesSelect(preselectDateId = "", preselectLabel = "") {
     }
   }
 
-  // ✅ Fallback por label
   if (preselectLabel) {
     const match = getDateByLabel(preselectLabel);
     if (match && (Number(match.seats_available) || 0) > 0) {
@@ -686,17 +653,14 @@ async function submitRegistration() {
     const { error } = await sb.rpc("register_for_event", payload);
     if (error) throw error;
 
-    // Re-cargar cupos actualizados
     const fresh = await fetchEventAndDates(EVENT_ID);
     EVENT = fresh.event;
     DATES = fresh.dates;
 
-    // Reset selección
     SELECTED_DATE_ID = "";
     SELECTED_DATE_LABEL = "";
     setHiddenDateId("");
 
-    // UI
     $("#regForm")?.reset();
     const countEl = $("#count");
     if (countEl) countEl.textContent = "0";
@@ -705,12 +669,15 @@ async function submitRegistration() {
     renderHeader();
     syncSubmitAvailability();
 
-    // ✅ Modal éxito (centrado)
+    // ✅ Modal (sin timer): redirige SOLO al presionar "Ver evento"
     const redirectUrl = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
-    const modal = ensureModal();
-    modal.dataset.redirectUrl = redirectUrl;
-    await openSuccessModal({ redirectUrl, autoRedirectMs: 1800 });
+    await openSuccessModal({ redirectUrl });
 
+    // Opcional: permitir volver a enviar si cerró el modal
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = oldLabel || "Inscribirme";
+    }
   } catch (err) {
     console.error(err);
 
@@ -763,7 +730,6 @@ async function submitRegistration() {
       submitBtn.textContent = oldLabel || "Inscribirme";
     }
 
-    // Refresca cupos
     try {
       const fresh = await fetchEventAndDates(EVENT_ID);
       EVENT = fresh.event;
@@ -794,11 +760,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // Back button
   const backBtn = $("#backBtn");
   if (backBtn) backBtn.href = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
 
-  // Counter allergies
   const allergiesEl = $("#allergies");
   const countEl = $("#count");
   const syncCount = () => {
@@ -808,7 +772,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   allergiesEl?.addEventListener("input", syncCount);
   syncCount();
 
-  // Live clear on input
   ["firstName", "lastName", "email", "phone", "eventDate", "allergies"].forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -816,7 +779,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     el.addEventListener("change", () => clearFieldError(id));
   });
 
-  // Load data
   try {
     const { event, dates } = await fetchEventAndDates(EVENT_ID);
 
@@ -842,7 +804,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // Date change
   const dateSel = $("#eventDate");
   dateSel?.addEventListener("change", () => {
     const picked = dateSel.value || "";
@@ -862,7 +823,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Submit
   const form = $("#regForm");
   form?.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -875,6 +835,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     await submitRegistration();
   });
 
-  // Pre-carga del modal (opcional, para que se sienta instantáneo)
+  // Pre-monta el modal
   ensureModal();
 });
