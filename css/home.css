@@ -631,9 +631,10 @@
 }
 
 /* ============================================================
-   ✅ ABOUT — EFECTO COMO VIDEO (fondo fijo + overlay oscuro suave)
+   ✅ SERVICIOS — EFECTO COMO VIDEO (fondo fijo + overlay oscuro suave)
+   ✅ CAMBIO: antes era #about, ahora #servicios
 ============================================================ */
-#about.section{
+#servicios.section{
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -646,23 +647,23 @@
 }
 
 @media (max-width: 640px){
-  #about.section{
+  #servicios.section{
     padding: 72px 0;
     background-attachment: scroll;
   }
 }
 
-#about.section > .container{
+#servicios.section > .container{
   position: relative;
   z-index: 1;
 }
 
-/* Título + texto en blanco en About */
-#about .h2{ color: rgba(255,255,255,.96); }
-#about .sub{ color: rgba(255,255,255,.86); }
+/* Título + texto en blanco en Servicios */
+#servicios .h2{ color: rgba(255,255,255,.96); }
+#servicios .sub{ color: rgba(255,255,255,.86); }
 
 /* Velo oscuro suave + blur */
-#about.section::before{
+#servicios.section::before{
   content: "";
   position: absolute;
   inset: 0;
