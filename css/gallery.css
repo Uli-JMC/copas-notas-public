@@ -3,10 +3,18 @@
    - NO redefine body/container/buttons/toasts
    - Tipografía y spacing alineados con home/base
    - ✅ Incluye Reviews + Reactions completos (para gallery.js)
+
+   ✅ PATCH 2026-02-10 (UI PRO):
+   - Hero con COVER (img/gallery/gallery-cover.png) + overlay legible
+   - Hero más alto (franja más amplia)
+   - Selects “pro”: padding, chevron custom, no pegados al borde
+   - Filters como barra limpia (border + radius)
 ============================================================ */
 
 :root{
-  --bggrey:#fcf6ff;  /* fondo suave hero */
+  --bggrey:#fcf6ff;  /* fallback suave */
+  --galleryCover: url("/img/gallery-cover.png"); /* ✅ tu imagen */
+  --heroPurple: var(--drawer-bg); /* ✅ morado del menú (base.css) */
 }
 
 /* Activo en nav */
@@ -19,40 +27,96 @@
 }
 
 /* ============================================================
-   Hero Lite
+   Hero Lite (COVER)
 ============================================================ */
 .heroLite{
   padding: 26px 0 14px;
   background: var(--bggrey);
   border-bottom: 1px solid rgba(18,18,18,.08);
 }
+
+.heroLite--cover{
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+
+  /* ✅ más altura */
+  padding: 54px 0 46px;
+
+  /* ✅ base sólida morada + cover encima */
+  background-color: var(--heroPurple);
+  background-image: var(--galleryCover);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-bottom: 1px solid rgba(18,18,18,.08);
+}
+
+@media (max-width: 640px){
+  .heroLite--cover{
+    padding: 44px 0 38px;
+    background-position: center;
+  }
+}
+
+/* overlay para legibilidad */
+.heroLite--cover::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: linear-gradient(
+    180deg,
+    rgba(0,0,0,.30) 0%,
+    rgba(0,0,0,.34) 45%,
+    rgba(0,0,0,.40) 100%
+  );
+  z-index:0;
+  pointer-events:none;
+}
+
 .heroLite__inner{
   padding: 22px 0;
+  position: relative;
+  z-index: 1;
 }
+
 .kicker{
   display:inline-flex;
   align-items:center;
   padding: 7px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(18,18,18,.12);
-  color: rgba(18,18,18,.62);
+  border: 1px solid rgba(255,255,255,.18);
+  color: rgba(255,255,255,.88);
   font-size: 11px;
   letter-spacing: .18em;
   text-transform: uppercase;
-  background: rgba(18,18,18,.02);
+  background: rgba(0,0,0,.20);
 }
+
 .lead{
   margin-top: 12px;
-  color: rgba(18,18,18,.62);
+  color: rgba(255,255,255,.86);
   line-height: 1.75;
   max-width: 72ch;
   font-size: var(--fs-15);
 }
+
 .heroLite__actions{
   margin-top: 14px;
   display:flex;
   gap: 10px;
   flex-wrap:wrap;
+}
+
+/* que el botón no se pierda en cover */
+.heroLite--cover .btn.primary{
+  background: rgba(255,255,255,.14);
+  border-color: rgba(255,255,255,.22);
+  color: #fff;
+}
+.heroLite--cover .btn.primary:hover{
+  background: rgba(255,255,255,.20);
+  border-color: rgba(255,255,255,.28);
 }
 
 /* ============================================================
@@ -88,7 +152,7 @@
 }
 
 /* ============================================================
-   Filters (Fecha + Tipo + Buscar)
+   Filters (Fecha + Tipo + Buscar) ✅ más pro
 ============================================================ */
 .filters{
   margin: 18px 0 18px;
@@ -96,6 +160,12 @@
   grid-template-columns: 220px 220px 1fr;
   gap: 14px;
   align-items:end;
+
+  /* ✅ barra limpia */
+  padding: 14px;
+  border: 1px solid rgba(18,18,18,.10);
+  background: rgba(18,18,18,.02);
+  border-radius: 18px;
 }
 
 .field{
@@ -105,7 +175,6 @@
   min-width: 0;
 }
 
-/* labels (por si tu HTML usa <label class="..."> o label normal) */
 .field label{
   font-size: 12px;
   letter-spacing:.10em;
@@ -114,7 +183,9 @@
   line-height: 1.25;
 }
 
-/* inputs */
+/* ============================================================
+   Inputs: look PRO (selects sin pegarse + chevron)
+============================================================ */
 .select, .input, .textarea{
   border: 1px solid rgba(18,18,18,.12);
   background: #fff;
@@ -124,6 +195,9 @@
   font-size: var(--fs-14);
   min-height: var(--tap);
   outline: none;
+
+  /* ✅ aire visual */
+  box-shadow: 0 10px 26px rgba(0,0,0,.04);
 }
 
 .input::placeholder,
@@ -137,6 +211,29 @@
 .textarea:focus{
   box-shadow: var(--focusRing);
   border-color: rgba(75,110,255,.35);
+}
+
+/* ✅ SELECT PRO: sin el look default, con chevron */
+.select{
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 46px; /* ✅ espacio para chevron */
+
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(18,18,18,.70) 50%),
+    linear-gradient(135deg, rgba(18,18,18,.70) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 52%,
+    calc(100% - 12px) 52%;
+  background-size:
+    7px 7px,
+    7px 7px;
+  background-repeat: no-repeat;
+}
+
+/* evita que en iOS se vea “pegado” */
+.select, .input, .textarea{
+  background-clip: padding-box;
 }
 
 .field--search .searchWrap{
@@ -170,6 +267,7 @@
 @media (max-width: 760px){
   .filters{
     grid-template-columns: 1fr;
+    padding: 12px;
   }
 }
 
@@ -278,13 +376,8 @@
   transform: scale(1.03);
 }
 
-/* focus visible */
-.gItem:focus{
-  outline:none;
-}
-.gItem:focus-visible{
-  box-shadow: var(--focusRing);
-}
+.gItem:focus{ outline:none; }
+.gItem:focus-visible{ box-shadow: var(--focusRing); }
 
 /* skeleton */
 .gItem--skeleton{
@@ -323,12 +416,8 @@
   padding: 18px;
 }
 
-/* estructura de campos */
-.reviewForm .field{
-  gap: 8px;
-}
+.reviewForm .field{ gap: 8px; }
 
-/* grid nombre + evento (si aplica) */
 .row{
   display:grid;
   grid-template-columns: 1fr 1fr;
@@ -357,11 +446,7 @@
   flex-wrap:wrap;
 }
 
-/* si el botón viene de base.css (.btn) lo respeta;
-   esto solo ayuda a que no se vea “aplastado” en forms */
-.reviewForm .btn{
-  border-radius: 14px;
-}
+.reviewForm .btn{ border-radius: 14px; }
 
 .miniNote{
   margin:0;
@@ -434,9 +519,7 @@
   margin-bottom: 8px;
 }
 
-.reviewWho{
-  min-width: 0;
-}
+.reviewWho{ min-width: 0; }
 
 .reviewName{
   font-weight: 900;
@@ -462,7 +545,7 @@
 }
 
 /* ============================================================
-   ✅ Reactions (❤️ 👍 👎) — tu JS las crea
+   ✅ Reactions (❤️ 👍 👎)
 ============================================================ */
 .reactions{
   margin-top: 10px;
@@ -492,14 +575,9 @@
   border-color: rgba(18,18,18,.18);
 }
 
-.reactBtn:active{
-  transform: translateY(1px);
-}
+.reactBtn:active{ transform: translateY(1px); }
 
-.reactBtn:focus{
-  outline:none;
-}
-
+.reactBtn:focus{ outline:none; }
 .reactBtn:focus-visible{
   box-shadow: var(--focusRing);
   border-color: rgba(75,110,255,.35);
@@ -518,13 +596,11 @@
   text-transform: uppercase;
 }
 
-/* estado activo (aria-pressed=true) */
 .reactBtn[aria-pressed="true"]{
   background: rgba(18,18,18,.10);
   border-color: rgba(18,18,18,.22);
 }
 
-/* Mobile tweaks */
 @media (max-width: 640px){
   .row{ grid-template-columns: 1fr; }
   .reactions{ gap: 8px; }
@@ -532,7 +608,7 @@
 }
 
 /* ============================================================
-   Footer light (mantiene tu look actual)
+   Footer light (igual desktop, centrado solo en mobile)
 ============================================================ */
 .footer.footer--light{
   border-top: 1px solid rgba(18,18,18,.10);

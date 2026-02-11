@@ -36,15 +36,13 @@
           <a class="navLink" href="./gallery.html" aria-current="page">Galería</a>
         </nav>
 
-        <!-- (Opcional) Si ya tenés JS del drawer en otras páginas, podés reutilizarlo aquí -->
-        <button class="hamburgerFab" id="hamburger"
-          aria-label="Abrir menú" aria-expanded="false" aria-controls="mobileDrawer">
+        <button class="hamburgerFab" id="hamburger" aria-label="Abrir menú" aria-expanded="false"
+          aria-controls="mobileDrawer">
           <span></span><span></span><span></span>
         </button>
       </div>
     </div>
 
-    <!-- Drawer (solo si tu base+JS lo manejan; si no, no estorba) -->
     <div class="drawerBackdrop" id="drawerBackdrop" hidden></div>
     <aside class="mobileDrawer" id="mobileDrawer" aria-hidden="true">
       <nav class="drawerNav" aria-label="Menú móvil">
@@ -56,20 +54,18 @@
     </aside>
   </header>
 
-  <!-- Hero -->
-  <section class="heroLite" aria-label="Galería">
+  <!-- ✅ Hero COVER (imagen + overlay via CSS) -->
+  <section class="heroLite heroLite--cover" aria-label="Galería">
     <div class="container">
       <div class="heroLite__inner">
         <div class="kicker">Galería</div>
 
-        <!-- ✅ Quitamos el H1 para no duplicar “Galería” -->
         <p class="lead" id="pageLead">
-          Recorré nuestra galería de cócteles y maridajes, 
-          reviví eventos pasados y descubrí experiencias donde el sabor fue 
+          Recorré nuestra galería de cócteles y maridajes,
+          reviví eventos pasados y descubrí experiencias donde el sabor fue
           el protagonista. Filtrá por fecha y dejate llevar.
         </p>
 
-        <!-- ✅ Solo queda “Leer reseñas” -->
         <div class="heroLite__actions">
           <a class="btn primary" href="#reseñas">Leer reseñas</a>
         </div>
@@ -81,14 +77,13 @@
     <!-- Galería -->
     <section class="section" id="galeria">
       <div class="container">
-        <!-- ✅ Título principal va aquí -->
         <div class="sectionHead sectionHead--left">
           <div>
             <p class="sub" id="gridSub">Filtrá por fecha (evento) y encontrá contenido rápido.</p>
           </div>
         </div>
 
-        <!-- ✅ Filtros: Fecha + Tipo + Buscar -->
+        <!-- ✅ Filtros -->
         <div class="filters">
           <div class="field">
             <label for="filterDate">Fecha</label>
@@ -116,7 +111,6 @@
         </div>
 
         <div class="galleryGrid" id="galleryGrid" aria-label="Galería">
-          <!-- skeletons -->
           <article class="gItem gItem--skeleton" aria-hidden="true"></article>
           <article class="gItem gItem--skeleton" aria-hidden="true"></article>
           <article class="gItem gItem--skeleton" aria-hidden="true"></article>
@@ -157,8 +151,8 @@
 
             <div class="field">
               <label for="reviewText">Tu reseña</label>
-              <textarea id="reviewText" class="textarea" rows="4"
-                placeholder="Contanos cómo estuvo la experiencia…" required maxlength="420"></textarea>
+              <textarea id="reviewText" class="textarea" rows="4" placeholder="Contanos cómo estuvo la experiencia…"
+                required maxlength="420"></textarea>
               <div class="hint"><span id="reviewCount">0</span>/420</div>
             </div>
 
@@ -168,7 +162,6 @@
             </div>
           </form>
 
-          <!-- ✅ Contenedor estilizado para comentarios -->
           <div class="reviewList" id="reviewList" aria-label="Listado de reseñas">
             <div class="reviewHeader">
               <div class="reviewHeader__title">Comentarios</div>
@@ -176,7 +169,6 @@
             </div>
             <div class="reviewDivider"></div>
 
-            <!-- JS puede inyectar aquí -->
             <div class="reviewItems" id="reviewItems"></div>
 
             <div class="reviewEmpty" id="reviewEmpty">
@@ -203,18 +195,15 @@
     </div>
   </footer>
 
-  <!-- ✅ Page type por querystring -->
   <script>
     (function () {
       const params = new URLSearchParams(location.search);
       const t = (params.get("type") || "all").toLowerCase();
       window.ECN_PAGE = { type: t };
 
-      // Sync select Tipo
       const sel = document.getElementById("filterType");
       if (sel) sel.value = (t.includes("coct") ? "cocteles" : (t.includes("marid") ? "maridajes" : "all"));
 
-      // Cambia querystring al cambiar el select (sin botones)
       if (sel) {
         sel.addEventListener("change", () => {
           const next = sel.value || "all";
@@ -224,7 +213,6 @@
         });
       }
 
-      // UI text (solo copy)
       const pageLead = document.getElementById("pageLead");
       const gridTitle = document.getElementById("gridTitle");
 
