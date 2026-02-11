@@ -2,7 +2,7 @@
    home.css ✅ HOME ONLY (2026) — DEPURADO (SIN MENU)
    - Hero carrusel estilo Wix (texto + panel derecha)
    - Meses + listado pro (sin foto, acciones derecha)
-   - About ✅ efecto tipo video: FOTO FIJA “detrás” + panels al frente
+   - Servicios ✅ efecto tipo video: FOTO FIJA “detrás” + panels al frente
    - Galería preview ✅ cuadrada + hover overlay + texto aparece
    - Testimonial + Newsletter
    ⚠️ IMPORTANTE:
@@ -19,8 +19,8 @@
      - Hero: .heroPanelBtn.btn--success / .btn--danger
      - Listado: .btn.primary.inviteBlack.btn--success / .btn--danger
 
-   ✅ PATCH 2026-02-10 (TESTIMONIAL MORADO):
-   - Background morado premium + glow + textura suave (estilo menú)
+   ✅ PATCH 2026-02-10 (TESTIMONIAL SOLIDO):
+   - Background sólido usando var(--drawer-bg) del base.css
 ============================================================ */
 
 /* ============================================================
@@ -250,33 +250,22 @@
 
 /* ============================================================
    ✅ BOTONES DE ESTADO (FINALIZADO/AGOTADO) — GANA A inviteBlack
-   Nota: el JS agrega .btn--success o .btn--danger
 ============================================================ */
 .heroPanelBtn.btn--success{
   background: rgba(34,197,94,.14);
   border-color: rgba(34,197,94,.32);
   color: rgba(22,163,74,.95);
 }
-.heroPanelBtn.btn--success:hover{
-  background: rgba(34,197,94,.20);
-}
-.heroPanelBtn.btn--success:disabled{
-  opacity: 1 !important;         /* ✅ NO gris */
-  cursor: not-allowed;
-}
+.heroPanelBtn.btn--success:hover{ background: rgba(34,197,94,.20); }
+.heroPanelBtn.btn--success:disabled{ opacity: 1 !important; cursor: not-allowed; }
 
 .heroPanelBtn.btn--danger{
   background: rgba(239,68,68,.14);
   border-color: rgba(239,68,68,.32);
   color: rgba(220,38,38,.95);
 }
-.heroPanelBtn.btn--danger:hover{
-  background: rgba(239,68,68,.20);
-}
-.heroPanelBtn.btn--danger:disabled{
-  opacity: 1 !important;         /* ✅ NO gris */
-  cursor: not-allowed;
-}
+.heroPanelBtn.btn--danger:hover{ background: rgba(239,68,68,.20); }
+.heroPanelBtn.btn--danger:disabled{ opacity: 1 !important; cursor: not-allowed; }
 
 /* Dots */
 .heroControls{
@@ -327,19 +316,10 @@
 
 /* Hero responsive */
 @media (max-width: 980px){
-  .heroRow{
-    grid-template-columns: 1fr;
-    gap: 18px;
-  }
-
+  .heroRow{ grid-template-columns: 1fr; gap: 18px; }
   .heroRight{ justify-content: flex-start; }
-
   .heroInfoPanel{ width: min(420px, 100%); }
-
-  .heroLeft,
-  .heroRight{
-    transform: none;
-  }
+  .heroLeft, .heroRight{ transform: none; }
 }
 
 @media (max-width: 640px){
@@ -350,7 +330,7 @@
 }
 
 /* ============================================================
-   SECTIONS (HOME) — espaciado consistente desktop/mobile
+   SECTIONS (HOME)
 ============================================================ */
 .section{
   padding: 72px 0;
@@ -358,13 +338,8 @@
   z-index: 2;
 }
 
-@media (max-width: 980px){
-  .section{ padding: 60px 0; }
-}
-
-@media (max-width: 640px){
-  .section{ padding: 48px 0; }
-}
+@media (max-width: 980px){ .section{ padding: 60px 0; } }
+@media (max-width: 640px){ .section{ padding: 48px 0; } }
 
 .sectionHead{
   display: flex;
@@ -427,14 +402,13 @@
 }
 
 /* ============================================================
-   ✅ LISTADO PRO (Eventbrite/Meetup style)
-   ✅ FIX separación real entre eventos (desktop + mobile)
+   ✅ LISTADO PRO
 ============================================================ */
 #monthGrid{
   display: flex !important;
   flex-direction: column;
-  gap: 14px !important; /* ✅ separación real */
-  padding-top: 6px;     /* ✅ respira del selector */
+  gap: 14px !important;
+  padding-top: 6px;
 }
 
 .eventRow{
@@ -455,9 +429,7 @@
   transition: background .15s ease;
 }
 
-.eventRow:hover .eventRowMain{
-  background: rgba(18,18,18,.02);
-}
+.eventRow:hover .eventRowMain{ background: rgba(18,18,18,.02); }
 
 .eventRow:focus-within .eventRowMain{
   box-shadow: 0 0 0 3px rgba(75,110,255,.18);
@@ -519,11 +491,7 @@
   text-overflow: ellipsis;
 }
 
-.dotSep{
-  display: inline-block;
-  margin: 0 8px;
-  opacity: .55;
-}
+.dotSep{ display: inline-block; margin: 0 8px; opacity: .55; }
 
 .eventRowRight{
   display: flex;
@@ -551,73 +519,44 @@
   border-width: 2px;
 }
 
-.eventRowRight .btn.primary.inviteBlack:hover{
-  filter: brightness(1.06);
-}
+.eventRowRight .btn.primary.inviteBlack:hover{ filter: brightness(1.06); }
 
-/* ✅ Botón de estado sobre inviteBlack (FINALIZADO/AGOTADO) */
+/* ✅ Botón de estado sobre inviteBlack */
 .eventRowRight .btn.primary.inviteBlack.btn--success{
   background: rgba(34,197,94,.14) !important;
   border-color: rgba(34,197,94,.32) !important;
   color: rgba(22,163,74,.95) !important;
 }
-.eventRowRight .btn.primary.inviteBlack.btn--success:hover{
-  background: rgba(34,197,94,.20) !important;
-}
-.eventRowRight .btn.primary.inviteBlack.btn--success[disabled]{
-  opacity: 1 !important; /* ✅ NO gris */
-  cursor: not-allowed;
-}
+.eventRowRight .btn.primary.inviteBlack.btn--success:hover{ background: rgba(34,197,94,.20) !important; }
+.eventRowRight .btn.primary.inviteBlack.btn--success[disabled]{ opacity: 1 !important; cursor: not-allowed; }
 
-/* AGOTADO */
 .eventRowRight .btn.primary.inviteBlack.btn--danger{
   background: rgba(239,68,68,.14) !important;
   border-color: rgba(239,68,68,.32) !important;
   color: rgba(220,38,38,.95) !important;
 }
-.eventRowRight .btn.primary.inviteBlack.btn--danger:hover{
-  background: rgba(239,68,68,.20) !important;
-}
-.eventRowRight .btn.primary.inviteBlack.btn--danger[disabled]{
-  opacity: 1 !important; /* ✅ NO gris */
-  cursor: not-allowed;
-}
+.eventRowRight .btn.primary.inviteBlack.btn--danger:hover{ background: rgba(239,68,68,.20) !important; }
+.eventRowRight .btn.primary.inviteBlack.btn--danger[disabled]{ opacity: 1 !important; cursor: not-allowed; }
 
-.eventRow.isSoldOut{
-  opacity: .92;
-  filter: saturate(.92);
-}
+.eventRow.isSoldOut{ opacity: .92; filter: saturate(.92); }
 
-/* Mobile */
 @media (max-width: 760px){
   #monthGrid{ gap: 12px !important; }
-
   .eventRow{ border-radius: 16px; }
-
   .eventRowMain{
     flex-direction: column;
     align-items: stretch;
     padding: 14px;
     gap: 12px;
   }
-
-  .eventRowMeta{
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-  }
-
+  .eventRowMeta{ white-space: normal; overflow: visible; text-overflow: clip; }
   .eventRowRight{
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
     width: 100%;
   }
-
-  .eventRowRight .btn{
-    width: 100%;
-    justify-content: center;
-  }
+  .eventRowRight .btn{ width: 100%; justify-content: center; }
 }
 
 @media (max-width: 420px){
@@ -634,8 +573,8 @@
 }
 
 /* ============================================================
-   ✅ SERVICIOS — EFECTO COMO VIDEO (fondo fijo + overlay oscuro suave)
-   ✅ CAMBIO: antes era #about, ahora #servicios
+   ✅ SERVICIOS — EFECTO COMO VIDEO (fondo fijo + overlay)
+   (Tu HTML debe tener: <section id="servicios" class="section"> ...)
 ============================================================ */
 #servicios.section{
   position: relative;
@@ -656,16 +595,11 @@
   }
 }
 
-#servicios.section > .container{
-  position: relative;
-  z-index: 1;
-}
+#servicios.section > .container{ position: relative; z-index: 1; }
 
-/* Título + texto en blanco en Servicios */
 #servicios .h2{ color: rgba(255,255,255,.96); }
 #servicios .sub{ color: rgba(255,255,255,.86); }
 
-/* Velo oscuro suave + blur */
 #servicios.section::before{
   content: "";
   position: absolute;
@@ -690,7 +624,6 @@
   .aboutGrid{ grid-template-columns: 1fr; }
 }
 
-/* Cards con glass suave */
 .aboutCard{
   position: relative;
   border: 1px solid rgba(255,255,255,.20);
@@ -711,7 +644,6 @@
   }
 }
 
-/* Icono base */
 .aboutIcon{
   width: 60px;
   height: 60px;
@@ -729,13 +661,11 @@
   transition: box-shadow .25s ease, transform .25s ease;
 }
 
-/* Hover leve */
 .aboutCard:hover .aboutIcon{
   box-shadow: 0 8px 26px rgba(0,0,0,.12);
   transform: translateY(-1px);
 }
 
-/* Sticky SOLO DESKTOP */
 @media (min-width: 900px){
   .aboutIcon{
     position: sticky;
@@ -807,10 +737,7 @@
 }
 
 @supports not (aspect-ratio: 1 / 1){
-  .gpItem{
-    height: 0;
-    padding-bottom: 100%;
-  }
+  .gpItem{ height: 0; padding-bottom: 100%; }
 }
 
 .gpItem::before{
@@ -855,16 +782,9 @@
 .gpItem:hover::before{ transform: scale(1.06); }
 .gpItem:hover span{ opacity: 1; transform: translateY(0); }
 
-.gpItem:focus{
-  outline: none;
-  box-shadow: var(--focusRing);
-}
+.gpItem:focus{ outline: none; box-shadow: var(--focusRing); }
 
-.gpItem:focus-visible span{
-  opacity: 1;
-  transform: translateY(0);
-}
-
+.gpItem:focus-visible span{ opacity: 1; transform: translateY(0); }
 .gpItem:focus-visible::after{ opacity: .85; }
 
 .galleryPreviewCta{
@@ -874,56 +794,37 @@
 }
 
 /* ============================================================
-   ✅ Testimonial — MORADO PREMIUM (estilo menú) + glow effect
+   ✅ TESTIMONIAL — MORADO SÓLIDO (mismo del drawer/menu)
 ============================================================ */
 .testimonial{
   position: relative;
-  padding: 92px 0;
+  padding: 84px 0;
   overflow: hidden;
   isolation: isolate;
 
-  border-top: 1px solid rgba(18,18,18,.08);
-  border-bottom: 1px solid rgba(18,18,18,.08);
+  /* ✅ sólido */
+  background: var(--drawer-bg);
 
-  background:
-    radial-gradient(1200px 520px at 22% 30%, rgba(140, 70, 255, .26), rgba(140, 70, 255, 0) 62%),
-    radial-gradient(900px 460px at 78% 60%, rgba(185, 90, 255, .22), rgba(185, 90, 255, 0) 60%),
-    linear-gradient(180deg, rgba(88, 40, 170, .08) 0%, rgba(88, 40, 170, .13) 55%, rgba(88, 40, 170, .08) 100%),
-    linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
+  /* opcional: separadores súper sutiles */
+  border-top: 1px solid rgba(255,255,255,.16);
+  border-bottom: 1px solid rgba(255,255,255,.16);
 }
 
 @media (max-width: 640px){
   .testimonial{ padding: 64px 0; }
 }
 
-/* “glow” + viñeta suave */
+/* velo para contraste (sigue siendo sólido, solo da profundidad) */
 .testimonial::before{
-  content:"";
-  position:absolute;
-  inset:-2px;
-  z-index:0;
-  pointer-events:none;
-  background:
-    radial-gradient(900px 380px at 35% 45%, rgba(140, 70, 255, .20), rgba(140, 70, 255, 0) 64%),
-    radial-gradient(780px 360px at 70% 55%, rgba(185, 90, 255, .16), rgba(185, 90, 255, 0) 62%),
-    linear-gradient(180deg, rgba(0,0,0,.04) 0%, rgba(0,0,0,0) 22%, rgba(0,0,0,.04) 100%);
-}
-
-/* textura muy sutil */
-.testimonial::after{
   content:"";
   position:absolute;
   inset:0;
   z-index:0;
   pointer-events:none;
   background:
-    radial-gradient(2px 2px at 10% 20%, rgba(120, 70, 255, .12) 0 40%, transparent 41%),
-    radial-gradient(2px 2px at 30% 70%, rgba(120, 70, 255, .10) 0 40%, transparent 41%),
-    radial-gradient(2px 2px at 60% 40%, rgba(120, 70, 255, .10) 0 40%, transparent 41%),
-    radial-gradient(2px 2px at 85% 65%, rgba(120, 70, 255, .12) 0 40%, transparent 41%);
-  opacity: .25;
-  mix-blend-mode: multiply;
-  filter: blur(.2px);
+    radial-gradient(900px 420px at 30% 40%, rgba(0,0,0,.12), rgba(0,0,0,0) 62%),
+    radial-gradient(780px 380px at 75% 60%, rgba(0,0,0,.10), rgba(0,0,0,0) 60%),
+    linear-gradient(180deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,0) 28%, rgba(0,0,0,.14) 100%);
 }
 
 /* contenido arriba */
@@ -934,7 +835,7 @@
 
 .quoteKicker{
   text-align: center;
-  color: rgba(55, 20, 110, .72);
+  color: rgba(255,255,255,.78);
   letter-spacing: .12em;
   text-transform: uppercase;
   font-size: 12px;
@@ -946,13 +847,18 @@
   text-align: center;
   font-size: clamp(18px, 2.4vw, 28px);
   line-height: 1.45;
-  color: rgba(18,18,18,.90);
+  color: rgba(255,255,255,.96);
   font-weight: 650;
   min-height: 4.6em;
   display: grid;
   place-items: center;
   padding: 0 10px;
-  text-shadow: 0 16px 40px rgba(88, 40, 170, .08);
+  text-shadow: 0 18px 60px rgba(0,0,0,.28);
+}
+
+/* nota/sub dentro del testimonial (tu HTML usa .sub inline debajo) */
+.testimonial .sub{
+  color: rgba(255,255,255,.78) !important;
 }
 
 .quote.is-anim{
@@ -974,10 +880,7 @@
    Newsletter (y base de formularios tipo contacto)
 ============================================================ */
 .newsletter{ padding: 72px 0; }
-
-@media (max-width: 640px){
-  .newsletter{ padding: 56px 0; }
-}
+@media (max-width: 640px){ .newsletter{ padding: 56px 0; } }
 
 .newsGrid{
   display: grid;
@@ -1015,10 +918,7 @@
   z-index: 0;
 }
 
-.newsLeft > *{
-  position: relative;
-  z-index: 1;
-}
+.newsLeft > *{ position: relative; z-index: 1; }
 
 .newsLeft h3{
   font-weight: 900;
@@ -1069,9 +969,7 @@
 }
 
 /* Campos sueltos */
-.newsForm > .formField{
-  margin-top: 14px;
-}
+.newsForm > .formField{ margin-top: 14px; }
 
 .formField{
   display: flex;
