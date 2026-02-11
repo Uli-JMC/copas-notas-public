@@ -20,6 +20,11 @@
    - Centrado, overlay, animación Lottie (JSON)
    - Sin auto-cierre (sin timer)
    - Cierra con botón, X, overlay y ESC
+
+   ✅ VALIDACIÓN PRO (2026-02-11):
+   - Borde sutil rojo/verde en inputs/select/textarea
+   - Mensaje bajo el campo (usa tu <p class="err" data-err-for="...">)
+   - Validación "live" por input/change
 ============================================================ */
 
 // ============================================================
@@ -82,22 +87,6 @@ function validEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(String(email || "").trim());
 }
 
-function setFieldError(fieldId, msg) {
-  const field = document.getElementById(fieldId)?.closest(".field");
-  if (!field) return;
-  field.classList.add("invalid");
-  const err = field.querySelector(`[data-err-for="${fieldId}"]`);
-  if (err) err.textContent = msg || "Revisá este campo.";
-}
-
-function clearFieldError(fieldId) {
-  const field = document.getElementById(fieldId)?.closest(".field");
-  if (!field) return;
-  field.classList.remove("invalid");
-  const err = field.querySelector(`[data-err-for="${fieldId}"]`);
-  if (err) err.textContent = "";
-}
-
 function setHiddenDateId(value) {
   const el = $("#dateId");
   if (el) el.value = String(value || "");
@@ -109,6 +98,79 @@ function setHiddenDateId(value) {
 function getSb() {
   if (!window.APP || !APP.supabase) return null;
   return APP.supabase;
+}
+
+// ============================================================
+// ✅ UI helpers: estados visuales de campos (invalid/valid)
+//    - Mantiene tu estructura .field + <p class="err" data-err-for="id">
+// ============================================================
+function setFieldError(fieldId, msg) {
+  const input = document.getElementById(fieldId);
+  const field = input?.closest(".field");
+  if (!field) return;
+
+  field.classList.remove("valid");
+  field.classList.add("invalid");
+
+  const err = field.querySelector(`[data-err-for="${fieldId}"]`);
+  if (err) err.textContent = msg || "Revisá este campo.";
+}
+
+function setFieldValid(fieldId) {
+  const input = document.getElementById(fieldId);
+  const field = input?.closest(".field");
+  if (!field) return;
+
+  field.classList.remove("invalid");
+  field.classList.add("valid");
+
+  const err = field.querySelector(`[data-err-for="${fieldId}"]`);
+  if (err) err.textContent = "";
+}
+
+function clearFieldState(fieldId) {
+  const input = document.getElementById(fieldId);
+  const field = input?.closest(".field");
+  if (!field) return;
+
+  field.classList.remove("invalid");
+  field.classList.remove("valid");
+
+  const err = field.querySelector(`[data-err-for="${fieldId}"]`);
+  if (err) err.textContent = "";
+}
+
+// ============================================================
+// ✅ Inyecta estilos PRO de validación (sin tocar register.css)
+//    (Si preferís en CSS, decime y te lo saco del JS)
+// ============================================================
+function ensureValidationStylesOnce() {
+  if (document.getElementById("ecnValidationStyles")) return;
+
+  const style = document.createElement("style");
+  style.id = "ecnValidationStyles";
+  style.textContent = `
+    /* ===== ECN Validation PRO ===== */
+    .field.invalid input,
+    .field.invalid select,
+    .field.invalid textarea{
+      border-color: rgba(211,51,51,.85) !important;
+      box-shadow: 0 0 0 3px rgba(211,51,51,.10) !important;
+    }
+
+    .field.valid input,
+    .field.valid select,
+    .field.valid textarea{
+      border-color: rgba(26,127,55,.85) !important;
+      box-shadow: 0 0 0 3px rgba(26,127,55,.10) !important;
+    }
+
+    /* Usa tu <p class="err">, solo lo afinamos (si tu CSS lo muestra al invalid, se mantiene) */
+    .field .err{
+      color: rgba(211,51,51,.95);
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 // ============================================================
@@ -299,12 +361,10 @@ function ensureSuccessModalDOM() {
 
   // Action: go
   overlay.querySelector('[data-act="go"]')?.addEventListener("click", () => {
-    // ✅ navegación controlada
     if (window.__ECN_LAST_EVENT_ID) {
       window.location.href = `./event.html?event=${encodeURIComponent(window.__ECN_LAST_EVENT_ID)}`;
       return;
     }
-    // fallback
     window.location.href = "./home.html";
   });
 
@@ -331,7 +391,6 @@ async function showSuccessModal() {
   overlay.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
 
-  // Montar animación 1 sola vez
   try {
     await ensureLottieLoaded();
     const holder = document.getElementById("ecnSuccessAnim");
@@ -344,10 +403,8 @@ async function showSuccessModal() {
         path: SUCCESS.lottieJsonUrl,
       });
     }
-    // Si ya existe, reinicia
     __successAnimInstance?.goToAndPlay?.(0, true);
   } catch (e) {
-    // Si Lottie falla, no rompemos el modal
     console.warn("[modal] lottie fail:", e);
   }
 }
@@ -363,10 +420,13 @@ function hideSuccessModal() {
 // State
 // ============================================================
 let EVENT_ID = "";
-let EVENT = null; // {id,title,desc,type,month_key,location,time_range,duration_hours, img}
-let DATES = []; // [{id,label,seats_available,seats_total}]
+let EVENT = null;
+let DATES = [];
 let SELECTED_DATE_ID = "";
 let SELECTED_DATE_LABEL = "";
+
+// ✅ evita que syncSubmitAvailability te vuelva a pisar el botón en success
+let IS_SUBMITTING = false;
 
 // ============================================================
 // UI: counters + badges
@@ -505,6 +565,9 @@ function syncSubmitAvailability() {
   const select = $("#eventDate");
   if (!submitBtn || !select) return;
 
+  // ✅ Si estamos enviando / ya marcamos enviado, no pisar estado ni texto
+  if (IS_SUBMITTING) return;
+
   const totalAvail = sumAvailableSeatsFromDates(DATES);
   if (totalAvail <= 0) {
     submitBtn.disabled = true;
@@ -565,11 +628,11 @@ async function fetchEventAndDates(eventId) {
 
   const dates = Array.isArray(ds)
     ? ds.map((x) => ({
-      id: x.id,
-      label: safeTrim(x.label),
-      seats_total: Math.max(0, Number(x.seats_total) || 0),
-      seats_available: Math.max(0, Number(x.seats_available) || 0),
-    }))
+        id: x.id,
+        label: safeTrim(x.label),
+        seats_total: Math.max(0, Number(x.seats_total) || 0),
+        seats_available: Math.max(0, Number(x.seats_available) || 0),
+      }))
     : [];
 
   return { event: ev, dates };
@@ -578,62 +641,75 @@ async function fetchEventAndDates(eventId) {
 // ============================================================
 // Validation
 // ============================================================
+function validateFieldById(fieldId) {
+  const el = document.getElementById(fieldId);
+  if (!el) return true;
+
+  const v = (el.value || "").trim();
+
+  if (fieldId === "firstName") {
+    if (!v) return setFieldError(fieldId, "Ingresá tu nombre."), false;
+    return setFieldValid(fieldId), true;
+  }
+
+  if (fieldId === "lastName") {
+    if (!v) return setFieldError(fieldId, "Ingresá tus apellidos."), false;
+    return setFieldValid(fieldId), true;
+  }
+
+  if (fieldId === "email") {
+    if (!v || !validEmail(v)) return setFieldError(fieldId, "Ingresá un correo válido."), false;
+    return setFieldValid(fieldId), true;
+  }
+
+  if (fieldId === "phone") {
+    const normalized = normalizePhone(v);
+    if (!v || !normalized) return setFieldError(fieldId, "Ingresá un teléfono válido (8 dígitos o 506 + 8)."), false;
+    return setFieldValid(fieldId), true;
+  }
+
+  if (fieldId === "eventDate") {
+    const eventDateId = el.value || "";
+    if (!eventDateId) return setFieldError(fieldId, "Seleccioná una fecha del evento."), false;
+
+    const d = getDateById(eventDateId);
+    if (!d) return setFieldError(fieldId, "Fecha inválida. Elegí otra."), false;
+    if ((Number(d.seats_available) || 0) <= 0) return setFieldError(fieldId, "Esa fecha está agotada. Elegí otra."), false;
+
+    return setFieldValid(fieldId), true;
+  }
+
+  if (fieldId === "allergies") {
+    const raw = el.value || "";
+    if (raw && !raw.trim()) return setFieldError(fieldId, "Si lo completás, escribí un detalle."), false;
+    if (raw && raw.length > 120) return setFieldError(fieldId, "Máximo 120 caracteres."), false;
+
+    // si está vacío, lo dejamos neutro (ni verde ni rojo)
+    if (!raw) {
+      clearFieldState(fieldId);
+      return true;
+    }
+    return setFieldValid(fieldId), true;
+  }
+
+  return true;
+}
+
 function validateForm() {
   let ok = true;
 
-  const firstName = ($("#firstName")?.value || "").trim();
-  const lastName = ($("#lastName")?.value || "").trim();
-  const email = ($("#email")?.value || "").trim();
-  const phone = ($("#phone")?.value || "").trim();
-  const eventDateId = $("#eventDate")?.value || "";
+  // Limpia estados antes de validar
+  ["firstName", "lastName", "email", "phone", "eventDate", "allergies"].forEach(clearFieldState);
 
-  ["firstName", "lastName", "email", "phone", "eventDate", "allergies"].forEach(clearFieldError);
+  ok = validateFieldById("firstName") && ok;
+  ok = validateFieldById("lastName") && ok;
+  ok = validateFieldById("email") && ok;
+  ok = validateFieldById("phone") && ok;
+  ok = validateFieldById("eventDate") && ok;
+  ok = validateFieldById("allergies") && ok;
 
-  if (!firstName) {
-    ok = false;
-    setFieldError("firstName", "Ingresá tu nombre.");
-  }
-  if (!lastName) {
-    ok = false;
-    setFieldError("lastName", "Ingresá tus apellidos.");
-  }
-
-  if (!email || !validEmail(email)) {
-    ok = false;
-    setFieldError("email", "Ingresá un correo válido.");
-  }
-
-  const normalized = normalizePhone(phone);
-  if (!phone || !normalized) {
-    ok = false;
-    setFieldError("phone", "Ingresá un teléfono válido (8 dígitos o 506 + 8).");
-  }
-
-  if (!eventDateId) {
-    ok = false;
-    setFieldError("eventDate", "Seleccioná una fecha del evento.");
-  } else {
-    const d = getDateById(eventDateId);
-    if (!d) {
-      ok = false;
-      setFieldError("eventDate", "Fecha inválida. Elegí otra.");
-    } else if ((Number(d.seats_available) || 0) <= 0) {
-      ok = false;
-      setFieldError("eventDate", "Esa fecha está agotada. Elegí otra.");
-    }
-  }
-
-  const allergies = $("#allergies")?.value || "";
-  if (allergies && !allergies.trim()) {
-    ok = false;
-    setFieldError("allergies", "Si lo completás, escribí un detalle.");
-  }
-  if (allergies && allergies.length > 120) {
-    ok = false;
-    setFieldError("allergies", "Máximo 120 caracteres.");
-  }
-
-  return { ok, normalizedPhone: normalized };
+  const normalizedPhone = normalizePhone(($("#phone")?.value || "").trim());
+  return { ok, normalizedPhone };
 }
 
 // ============================================================
@@ -681,6 +757,7 @@ async function submitRegistration() {
   const oldLabel = submitBtn ? submitBtn.textContent : "";
 
   if (submitBtn) {
+    IS_SUBMITTING = true;
     submitBtn.disabled = true;
     submitBtn.textContent = "Enviando…";
   }
@@ -713,6 +790,7 @@ async function submitRegistration() {
     const countEl = $("#count");
     if (countEl) countEl.textContent = "0";
 
+    // ✅ tras reset: dejamos IS_SUBMITTING en true (para no re-habilitar por sync)
     renderDatesSelect("");
     renderHeader();
     syncSubmitAvailability();
@@ -756,9 +834,13 @@ async function submitRegistration() {
       toast("Error", "No se pudo completar la inscripción. Intentá nuevamente.");
     }
 
+    // ✅ restaurar botón
+    IS_SUBMITTING = false;
+
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.textContent = oldLabel || "Inscribirme";
+      submitBtn.classList.remove("isSuccess");
     }
 
     try {
@@ -767,7 +849,7 @@ async function submitRegistration() {
       DATES = fresh.dates;
       renderHeader();
       syncSubmitAvailability();
-    } catch (_) { }
+    } catch (_) {}
   }
 }
 
@@ -775,6 +857,8 @@ async function submitRegistration() {
 // Init
 // ============================================================
 document.addEventListener("DOMContentLoaded", async () => {
+  ensureValidationStylesOnce();
+
   const sb = getSb();
   if (!sb) {
     toast("Error", "Supabase no está cargado. Revisá scripts.");
@@ -805,12 +889,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   allergiesEl?.addEventListener("input", syncCount);
   syncCount();
 
-  // Live clear on input
-  ["firstName", "lastName", "email", "phone", "eventDate", "allergies"].forEach((id) => {
+  // Live validation
+  const liveIds = ["firstName", "lastName", "email", "phone", "eventDate", "allergies"];
+  liveIds.forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener("input", () => clearFieldError(id));
-    el.addEventListener("change", () => clearFieldError(id));
+
+    const run = () => {
+      // si ya se envió y estás mostrando modal, no te marco campos
+      if (IS_SUBMITTING) return;
+      validateFieldById(id);
+    };
+
+    el.addEventListener("input", run);
+    el.addEventListener("change", run);
+    el.addEventListener("blur", run);
   });
 
   // Load data
@@ -842,6 +935,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Date change
   const dateSel = $("#eventDate");
   dateSel?.addEventListener("change", () => {
+    if (IS_SUBMITTING) return;
+
     const picked = dateSel.value || "";
     SELECTED_DATE_ID = picked;
 
@@ -856,6 +951,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (picked && d && (Number(d.seats_available) || 0) <= 0) {
       toast("Agotado", "Esa fecha está agotada. Elegí otra.");
       setFieldError("eventDate", "Esa fecha está agotada. Elegí otra.");
+    } else {
+      validateFieldById("eventDate");
     }
   });
 
