@@ -14,7 +14,7 @@
 
 :root{
   --bggrey:#fcf6ff;  /* fallback suave */
-  --galleryCover: url("/assets/img/gallery/gallery-cover.png"); /* ✅ tu imagen */
+  --galleryCover: url("/assets/img/gallery-cover"); /* ✅ tu imagen */
   --heroPurple: var(--drawer-bg); /* ✅ morado del menú (base.css) */
 }
 
