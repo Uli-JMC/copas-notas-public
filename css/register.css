@@ -568,3 +568,95 @@ select{
 
 /* ✅ Hard rule: hidden siempre oculta */
 [hidden]{ display:none !important; }
+
+/* ============================================================
+   ✅ Success Modal (centrado)
+============================================================ */
+.modalOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: grid;
+  place-items: center;
+
+  padding: 22px;
+  background: rgba(0,0,0,.55);
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.modalCard{
+  width: min(520px, 92vw);
+  border-radius: calc(var(--radius-xl) + 6px);
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.96);
+
+  box-shadow: 0 22px 80px rgba(0,0,0,.35);
+  padding: 22px 20px 18px;
+
+  text-align: center;
+}
+
+.modalIcon{
+  width: 66px;
+  height: 66px;
+  margin: 2px auto 12px;
+
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+
+  background: rgba(0,0,0,.10);
+  border: 1px solid rgba(0,0,0,.10);
+
+  color: #000;
+}
+
+.modalTitle{
+  margin: 0;
+  font-weight: 900;
+  letter-spacing: .02em;
+  line-height: 1.15;
+  font-size: clamp(18px, 2.2vw, 22px);
+  color: rgba(18,18,18,.92);
+  text-transform: uppercase;
+}
+
+.modalDesc{
+  margin: 10px auto 0;
+  max-width: 52ch;
+  color: rgba(18,18,18,.70);
+  line-height: 1.65;
+  font-size: var(--fs-14);
+}
+
+.modalActions{
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.modalActions .btn{
+  min-width: 180px;
+}
+
+/* animación suave */
+.modalOverlay[hidden]{ display:none !important; }
+
+.modalOverlay.isOpen{
+  animation: modalFade .16s ease both;
+}
+.modalOverlay.isOpen .modalCard{
+  animation: modalPop .18s ease both;
+}
+
+@keyframes modalFade{
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modalPop{
+  from { transform: translateY(10px) scale(.985); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}

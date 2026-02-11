@@ -15,6 +15,27 @@
   <link rel="stylesheet" href="./css/register.css" />
 </head>
 
+  <!-- ✅ Success Modal (centrado) -->
+  <div class="modalOverlay" id="successModal" hidden aria-hidden="true">
+    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="successTitle" aria-describedby="successDesc">
+      <div class="modalIcon" aria-hidden="true">
+        <!-- Ícono (check) -->
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+
+      <h2 class="modalTitle" id="successTitle">Tu reserva ha sido realizada con éxito</h2>
+      <p class="modalDesc" id="successDesc">
+        Pronto te llegará un correo con los detalles.
+      </p>
+
+      <div class="modalActions">
+        <button class="btn primary inviteBlack" type="button" id="successOkBtn">Entendido</button>
+      </div>
+    </div>
+  </div>
+
 <body>
   <!-- Toasts -->
   <div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>

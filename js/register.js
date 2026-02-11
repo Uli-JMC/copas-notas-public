@@ -1,24 +1,12 @@
 "use strict";
 
 /* ============================================================
-   register.js (Supabase) ✅ ALINEADO
-   - Lee event + fechas desde Supabase
-   - Permite seleccionar fecha (event_dates)
-   - Muestra cupos disponibles reales (seats_available)
-   - Inserta inscripción + decrementa cupo en UNA operación vía RPC
+   register.js (Supabase) ✅ ALINEADO + MODAL ÉXITO (Lottie)
+   - Mantiene tu lógica intacta
+   - En éxito: muestra modal centrado con animación + copy
+   - Luego redirige a event.html?event=...
 
-   ✅ RPC FIRMA CANÓNICA (dejá SOLO esta en DB):
-     p_event_id uuid,
-     p_event_date_id uuid,
-     p_name text,
-     p_email text,
-     p_phone text,
-     p_marketing_opt_in boolean,
-     p_allergies text   -- opcional (podés mandar null o "")
-
-   Nota:
-   - Este JS SIEMPRE manda p_allergies (string o null) para evitar que
-     Supabase “escoja” otra firma por accidente.
+   ✅ Usa Lottie (JSON) del usuario: champagne_13399330.json :contentReference[oaicite:1]{index=1}
 ============================================================ */
 
 // ============================================================
@@ -98,7 +86,6 @@ function clearFieldError(fieldId) {
 }
 
 function setHiddenDateId(value) {
-  // (opcional) si existe en el HTML
   const el = $("#dateId");
   if (el) el.value = String(value || "");
 }
@@ -109,6 +96,262 @@ function setHiddenDateId(value) {
 function getSb() {
   if (!window.APP || !APP.supabase) return null;
   return APP.supabase;
+}
+
+// ============================================================
+// ✅ Modal Éxito (Lottie)
+// ============================================================
+
+// 👉 Poné el JSON en tu repo y ajustá este path:
+const ANIM_URL = "/assets/lottie/champagne_13399330.json"; // :contentReference[oaicite:2]{index=2}
+
+let __successModalEl = null;
+let __lottiePlayer = null;
+let __redirectTimer = null;
+
+function injectModalStylesOnce() {
+  if (document.getElementById("regSuccessModalStyles")) return;
+  const css = `
+    .regSuccessOverlay{
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(0,0,0,.55);
+      z-index: 9999;
+    }
+    .regSuccessOverlay.isOpen{ display:flex; }
+
+    .regSuccessCard{
+      width: min(520px, 100%);
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.96);
+      box-shadow: 0 28px 90px rgba(0,0,0,.28);
+      overflow: hidden;
+      transform: translateY(6px);
+      opacity: 0;
+      transition: transform .18s ease, opacity .18s ease;
+    }
+    .regSuccessOverlay.isOpen .regSuccessCard{
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .regSuccessTop{
+      padding: 18px 18px 10px;
+      display:flex;
+      justify-content:flex-end;
+    }
+    .regSuccessClose{
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      border: 1px solid rgba(18,18,18,.12);
+      background: rgba(18,18,18,.04);
+      cursor: pointer;
+      display:grid;
+      place-items:center;
+      font-size: 18px;
+      line-height: 1;
+    }
+    .regSuccessClose:hover{ background: rgba(18,18,18,.06); }
+
+    .regSuccessBody{
+      padding: 0 22px 22px;
+      text-align: center;
+    }
+    .regSuccessAnim{
+      width: 120px;
+      height: 120px;
+      margin: 2px auto 10px;
+    }
+    .regSuccessTitle{
+      margin: 6px 0 8px;
+      font-weight: 900;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: rgba(18,18,18,.92);
+      font-size: 14px;
+    }
+    .regSuccessMsg{
+      margin: 0;
+      color: rgba(18,18,18,.70);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+    .regSuccessFoot{
+      padding: 14px 18px 18px;
+      display:flex;
+      justify-content:center;
+    }
+    .regSuccessBtn{
+      min-height: 44px;
+      padding: 11px 16px;
+      border-radius: 14px;
+      border: 2px solid #000;
+      background: #000;
+      color: #fff;
+      font-weight: 900;
+      letter-spacing: .10em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .regSuccessBtn:hover{ filter: brightness(1.06); }
+  `;
+  const style = document.createElement("style");
+  style.id = "regSuccessModalStyles";
+  style.textContent = css;
+  document.head.appendChild(style);
+}
+
+function ensureModal() {
+  injectModalStylesOnce();
+  if (__successModalEl) return __successModalEl;
+
+  const overlay = document.createElement("div");
+  overlay.className = "regSuccessOverlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "Confirmación de reserva");
+  overlay.innerHTML = `
+    <div class="regSuccessCard" role="document">
+      <div class="regSuccessTop">
+        <button class="regSuccessClose" type="button" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="regSuccessBody">
+        <div class="regSuccessAnim" id="regSuccessAnim" aria-hidden="true"></div>
+        <div class="regSuccessTitle">Tu reserva ha sido realizada con éxito</div>
+        <p class="regSuccessMsg">Pronto te llegará un correo con los detalles.</p>
+      </div>
+
+      <div class="regSuccessFoot">
+        <button class="regSuccessBtn" type="button">Ver evento</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  __successModalEl = overlay;
+
+  const close = () => closeSuccessModal();
+  overlay.addEventListener("click", (e) => {
+    // cerrar si clic fuera de la card
+    if (e.target === overlay) close();
+  });
+
+  overlay.querySelector(".regSuccessClose")?.addEventListener("click", close);
+  overlay.querySelector(".regSuccessBtn")?.addEventListener("click", () => {
+    closeSuccessModal(true);
+  });
+
+  // ESC para cerrar
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && overlay.classList.contains("isOpen")) close();
+  });
+
+  return overlay;
+}
+
+function loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    const exists = [...document.scripts].some((s) => s.src === src);
+    if (exists) return resolve(true);
+
+    const s = document.createElement("script");
+    s.src = src;
+    s.async = true;
+    s.onload = () => resolve(true);
+    s.onerror = () => reject(new Error("No se pudo cargar script: " + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function ensureLottie() {
+  // CDN estable para lottie-web
+  await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js");
+  if (!window.lottie) throw new Error("Lottie no está disponible.");
+  return window.lottie;
+}
+
+async function playSuccessAnim() {
+  const overlay = ensureModal();
+  const target = overlay.querySelector("#regSuccessAnim");
+  if (!target) return;
+
+  // Limpia anim previa (por si re-abren)
+  try {
+    if (__lottiePlayer) __lottiePlayer.destroy();
+  } catch (_) {}
+  __lottiePlayer = null;
+
+  const lottie = await ensureLottie();
+  __lottiePlayer = lottie.loadAnimation({
+    container: target,
+    renderer: "svg",
+    loop: true,
+    autoplay: true,
+    path: ANIM_URL,
+  });
+}
+
+async function openSuccessModal({ redirectUrl, autoRedirectMs = 1800 } = {}) {
+  const overlay = ensureModal();
+  overlay.classList.add("isOpen");
+
+  // Bloquea scroll de fondo
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
+
+  // Animación
+  try {
+    await playSuccessAnim();
+  } catch (e) {
+    console.warn("No se pudo cargar animación Lottie:", e);
+  }
+
+  // Auto redirect
+  if (__redirectTimer) clearTimeout(__redirectTimer);
+  if (redirectUrl) {
+    __redirectTimer = setTimeout(() => {
+      window.location.href = redirectUrl;
+    }, Math.max(600, Number(autoRedirectMs) || 1800));
+  }
+}
+
+function closeSuccessModal(goNow = false) {
+  const overlay = __successModalEl;
+  if (!overlay) return;
+
+  overlay.classList.remove("isOpen");
+
+  // Desbloquea scroll
+  document.documentElement.style.overflow = "";
+  document.body.style.overflow = "";
+
+  if (__redirectTimer) {
+    if (goNow) {
+      const fn = __redirectTimer;
+      clearTimeout(fn);
+      __redirectTimer = null;
+
+      // si ya hay redirect programado, ejecutamos manualmente:
+      // (guardamos el url en dataset cuando abrimos)
+      const url = overlay.dataset.redirectUrl || "";
+      if (url) window.location.href = url;
+    } else {
+      clearTimeout(__redirectTimer);
+      __redirectTimer = null;
+    }
+  }
+
+  // No destruimos el modal, solo pausamos anim para ahorrar
+  try {
+    if (__lottiePlayer) __lottiePlayer.pause();
+  } catch (_) {}
 }
 
 // ============================================================
@@ -193,7 +436,6 @@ function renderHeader() {
 
   renderMetaBox();
 
-  // Badge: si hay fecha seleccionada => cupos de esa fecha, si no => total disponibles
   if (SELECTED_DATE_ID) {
     const d = getDateById(SELECTED_DATE_ID);
     const s = d ? Math.max(0, Number(d.seats_available) || 0) : 0;
@@ -231,7 +473,7 @@ function renderDatesSelect(preselectDateId = "", preselectLabel = "") {
     select.appendChild(opt);
   });
 
-  // ✅ Preselect por ID (preferido)
+  // ✅ Preselect por ID
   if (preselectDateId) {
     const match = DATES.find((x) => String(x.id) === String(preselectDateId));
     if (match && (Number(match.seats_available) || 0) > 0) {
@@ -243,7 +485,7 @@ function renderDatesSelect(preselectDateId = "", preselectLabel = "") {
     }
   }
 
-  // ✅ Fallback por label (compat)
+  // ✅ Fallback por label
   if (preselectLabel) {
     const match = getDateByLabel(preselectLabel);
     if (match && (Number(match.seats_available) || 0) > 0) {
@@ -293,7 +535,6 @@ async function fetchEventAndDates(eventId) {
   if (evErr) throw evErr;
   if (!ev) return { event: null, dates: [] };
 
-  // ✅ Orden por created_at si existe, si no por label
   let ds = null;
   let dErr = null;
 
@@ -423,7 +664,6 @@ async function submitRegistration() {
   const allergiesText = ($("#allergies")?.value || "").trim();
   const allergiesSafe = allergiesText ? allergiesText.slice(0, 120) : null;
 
-  // ✅ Payload 100% alineado con la FIRMA CANÓNICA (7 params)
   const payload = {
     p_event_id: String(EVENT_ID),
     p_event_date_id: String(dateId),
@@ -431,7 +671,7 @@ async function submitRegistration() {
     p_email: ($("#email")?.value || "").trim().toLowerCase(),
     p_phone: normalizedPhone,
     p_marketing_opt_in: !!$("#marketingOptIn")?.checked,
-    p_allergies: allergiesSafe, // mandamos null si viene vacío
+    p_allergies: allergiesSafe,
   };
 
   const submitBtn = $("#submitBtn");
@@ -465,38 +705,30 @@ async function submitRegistration() {
     renderHeader();
     syncSubmitAvailability();
 
-    toast("Inscripción completada", "Tu cupo quedó reservado.");
+    // ✅ Modal éxito (centrado)
+    const redirectUrl = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
+    const modal = ensureModal();
+    modal.dataset.redirectUrl = redirectUrl;
+    await openSuccessModal({ redirectUrl, autoRedirectMs: 1800 });
 
-    setTimeout(() => {
-      window.location.href = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
-    }, 1100);
   } catch (err) {
     console.error(err);
 
-    // Supabase suele traer message en error.message
     const rawMsg = String(err?.message || err?.details || "");
     const msg = rawMsg.toLowerCase();
 
-    // 1) RPC / firma
     if (msg.includes("does not exist") && msg.includes("register_for_event")) {
       toast(
         "RPC no alineado",
         "La función register_for_event no coincide con la firma esperada (7 parámetros incluyendo p_allergies)."
       );
-
-    // 2) Permisos / RLS
     } else if (
       msg.includes("permission") ||
       msg.includes("rls") ||
       msg.includes("not allowed") ||
       msg.includes("42501")
     ) {
-      toast(
-        "Permisos",
-        "La base de datos bloqueó la inscripción. Revisemos RLS o SECURITY DEFINER."
-      );
-
-    // 3) Cupos agotados (tu RPC usa 'No seats available' / 'Evento agotado')
+      toast("Permisos", "La base de datos bloqueó la inscripción. Revisemos RLS o SECURITY DEFINER.");
     } else if (
       msg.includes("no seats") ||
       msg.includes("agotado") ||
@@ -504,20 +736,16 @@ async function submitRegistration() {
       msg.includes("sold")
     ) {
       toast("Agotado", "Esa fecha ya no tiene cupos disponibles. Elegí otra.");
-
-    // 4) Duplicados (tu caso real + casos por UNIQUE constraint)
     } else if (
-      msg.includes("duplicate registration") ||                 // tu RAISE
-      msg.includes("registrations_unique_eventdate_email") ||   // nombre del constraint
-      msg.includes("duplicate key value") ||                    // postgres
-      msg.includes("unique constraint") ||                      // postgres
+      msg.includes("duplicate registration") ||
+      msg.includes("registrations_unique_eventdate_email") ||
+      msg.includes("duplicate key value") ||
+      msg.includes("unique constraint") ||
       msg.includes("already exists") ||
       msg.includes("already registered")
     ) {
       toast("Ya estás inscrito", "Ese correo ya está inscrito para esta fecha.");
       setFieldError("email", "Este correo ya está inscrito para la fecha seleccionada.");
-
-    // 5) Fecha inválida
     } else if (
       msg.includes("invalid date") ||
       msg.includes("fecha no existe") ||
@@ -526,8 +754,6 @@ async function submitRegistration() {
     ) {
       toast("Fecha inválida", "La fecha seleccionada no pertenece a este evento.");
       setFieldError("eventDate", "Fecha inválida. Elegí otra.");
-
-    // 6) Fallback
     } else {
       toast("Error", "No se pudo completar la inscripción. Intentá nuevamente.");
     }
@@ -537,7 +763,7 @@ async function submitRegistration() {
       submitBtn.textContent = oldLabel || "Inscribirme";
     }
 
-    // Refresca cupos (por si otro usuario tomó el último cupo)
+    // Refresca cupos
     try {
       const fresh = await fetchEventAndDates(EVENT_ID);
       EVENT = fresh.event;
@@ -616,7 +842,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // Date change: update badge/meta + gate
+  // Date change
   const dateSel = $("#eventDate");
   dateSel?.addEventListener("change", () => {
     const picked = dateSel.value || "";
@@ -648,4 +874,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await submitRegistration();
   });
+
+  // Pre-carga del modal (opcional, para que se sienta instantáneo)
+  ensureModal();
 });
