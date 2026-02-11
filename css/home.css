@@ -1091,15 +1091,4 @@
   }
 }
 
-/* opcional: bloque “pill” suave */
-.footerBottom{
-  width: min(var(--max), calc(100% - (var(--gutter) * 2)));
-  margin-left: auto;
-  margin-right: auto;
-  border-top: 0;
-  padding: 16px 14px;
-  border-radius: 16px;
-  background: rgba(18,18,18,.02);
-  border: 1px solid rgba(18,18,18,.10);
-}
 
