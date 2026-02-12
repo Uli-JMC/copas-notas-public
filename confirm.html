@@ -4,78 +4,121 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#000000" />
-  <title>Confirmación | Entre Copas & Notas</title>
-  <meta name="description" content="Confirmación de inscripción al evento." />
+  <title>Evento | Entre Copas & Notas</title>
+  <meta name="description" content="Detalle del evento: fechas, cupos y descripción." />
 
-  <link rel="stylesheet" href="./css/register.css" />
+  <link rel="stylesheet" href="./css/base.css" />
+  <link rel="stylesheet" href="./css/event.css" />
+
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 
 <body>
   <!-- Toasts -->
   <div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
 
+  <!-- ✅ Loader suave -->
+  <div id="pageLoader" aria-hidden="true"
+    style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);backdrop-filter: blur(6px);z-index:9999;opacity:0;pointer-events:none;transition:opacity .2s ease;">
+    <div
+      style="width:54px;height:54px;border-radius:999px;border:3px solid rgba(255,255,255,.18);border-top-color:rgba(255,255,255,.75);animation:spin 1s linear infinite;">
+    </div>
+  </div>
+
   <!-- Header -->
   <header class="topbar">
     <div class="container">
       <div class="nav">
-        <a class="brand" id="backBtn" href="./home.html" aria-label="Volver a Home">
+        <a class="brand" href="./home.html#proximos" aria-label="Volver a próximos eventos">
           <span class="backIcon" aria-hidden="true">←</span>
-          <span class="backText">Home</span>
+          <span class="backText">Volver</span>
         </a>
 
+        <!-- ✅ SIN LOGO: solo texto -->
         <a class="brandRight" href="./home.html" aria-label="Ir a home">
-          <img src="./assets/img/logocuadrado-entrecopasynotas.png" alt="Logo" />
           <span>Entre Copas &amp; Notas</span>
         </a>
       </div>
     </div>
   </header>
 
-  <!-- Main -->
-  <main class="page">
-    <div class="container">
-      <section class="card">
-        <div class="cardTop">
-          <div class="cardTopRow">
-            <p class="kicker">Confirmación</p>
-            <span class="cuposBadge" id="statusBadge">LISTO ✅</span>
-          </div>
+  <!-- Hero -->
+  <section class="hero" aria-label="Detalle del evento">
+    <div class="heroBg" id="heroBg"></div>
 
-          <div>
-            <h1 class="title" id="eventTitle">¡Inscripción confirmada!</h1>
-            <p class="sub" id="eventDesc">Te esperamos. Guardá estos detalles.</p>
-          </div>
+    <div class="container heroWrap">
+      <div class="heroCard" id="heroCard">
+        <div class="heroMeta" id="metaRow"></div>
 
-          <div class="metaBox" id="metaBox"></div>
-        </div>
+        <h1 class="title" id="evTitle">Evento</h1>
+        <p class="desc" id="evDesc">Descripción del evento.</p>
 
-        <div class="formWrap">
-          <div class="grid">
-            <div class="field full">
-              <label>¿Qué sigue?</label>
-              <div class="hint" style="margin-top:6px">
-                • Si marcaste “recibir info”, te contactamos por WhatsApp o correo.<br/>
-                • Llegá con 10–15 min de anticipación.<br/>
-                • Si tenés alergias, avisá al staff al llegar.
-              </div>
+        <div class="grid">
+          <div class="panel">
+            <h2 class="h2">Fechas disponibles</h2>
+            <p class="sub">Seleccioná una fecha para tu inscripción (si hay más de una).</p>
+
+            <div class="dates" id="dateList"></div>
+
+            <div class="notice" id="availNotice" hidden>
+              <span class="badge">Inscripciones disponibles</span>
+              <p class="noticeLegend">Inscribite y disfrutá de esta experiencia.</p>
             </div>
 
-            <div class="btnsub" style="display:flex; gap:10px; flex-wrap:wrap;">
-              <a class="btn" id="btnBackEvent" href="./event.html">Ver evento</a>
-              <a class="btn primary" href="./home.html#proximos">Ver próximos eventos</a>
-              <a class="btn" id="btnWA"
-                 href="https://wa.me/50688323801?ext=Hola%20👋%20me%20inscribí%20a%20un%20evento%20y%20quiero%20confirmar%20detalles."
-                 target="_blank" rel="noopener">WhatsApp</a>
+            <div class="notice" id="soldNotice" hidden>
+              <span class="badge danger">Agotado</span>
+              <p class="noticeLegend">Este evento no tiene cupos disponibles.</p>
             </div>
 
-            <p class="fine" style="margin-top:10px">
-              Si ocupás ayuda con tu reserva, escribinos por WhatsApp.
+            <div class="notice" id="pendingNotice" hidden>
+              <span class="badge">Cupos por confirmar</span>
+              <p class="noticeLegend">Estamos actualizando las fechas y cupos. Probá en unos segundos.</p>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2 class="h2">Detalles</h2>
+
+            <div class="kv" id="kv"></div>
+
+            <div class="actions">
+              <a class="btn" id="btnHome" href="./home.html#proximos">Ver otros eventos</a>
+              <a class="btn primary" id="btnRegister" href="./register.html">Inscribirme</a>
+            </div>
+
+            <p class="fine">
+              Al inscribirte, te llega confirmación al correo. Si seleccionás “recibir info”, también por WhatsApp.
             </p>
           </div>
         </div>
-      </section>
+
+        <div class="divider"></div>
+
+        <div class="miniCards">
+          <div class="miniCard">
+            <p class="miniTitle">¿Qué incluye?</p>
+            <ul class="miniList">
+              <li>Guía durante la experiencia</li>
+              <li>Degustación según el formato del evento</li>
+              <li>Dinámica y recomendaciones prácticas</li>
+            </ul>
+          </div>
+
+          <div class="miniCard">
+            <p class="miniTitle">Recomendaciones</p>
+            <ul class="miniList">
+              <li>Llegá 10–15 min antes</li>
+              <li>Traé buena vibra y curiosidad</li>
+              <li>Indicá alergias al inscribirte</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
     </div>
-  </main>
+  </section>
 
   <!-- Footer -->
   <footer class="footer">
@@ -84,21 +127,21 @@
         <div>Entre Copas &amp; Notas · Experiencias</div>
         <div class="social">
           <a class="icon-btn"
-             href="https://wa.me/5068845123?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
-             target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
-          <a class="icon-btn"
-             href="https://instagram.com/entrecopasynotas"
-             target="_blank" rel="noopener" aria-label="Instagram">IG</a>
+            href="https://wa.me/50688323801?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
+            target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
+
+          <a class="icon-btn" href="https://instagram.com/entrecopasynotas" target="_blank" rel="noopener"
+            aria-label="Instagram">IG</a>
         </div>
       </div>
     </div>
   </footer>
 
-  <!-- ✅ Supabase -->
+  <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./js/supabaseClient.js"></script>
 
-  <!-- ✅ Lógica -->
-  <script src="./js/confirm.js"></script>
+  <!-- Lógica -->
+  <script src="./js/event.js"></script>
 </body>
 </html>
