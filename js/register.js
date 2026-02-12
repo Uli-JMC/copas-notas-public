@@ -25,6 +25,10 @@
    - Borde sutil rojo/verde en inputs/select/textarea
    - Mensaje bajo el campo (usa tu <p class="err" data-err-for="...">)
    - Validación "live" por input/change
+
+   ✅ UPDATE (2026-02-11.2):
+   - Botón principal del modal ahora es "Confirmación"
+   - Redirige a confirm.html?event=...&date_id=...&reg=ok
 ============================================================ */
 
 // ============================================================
@@ -142,7 +146,6 @@ function clearFieldState(fieldId) {
 
 // ============================================================
 // ✅ Inyecta estilos PRO de validación (sin tocar register.css)
-//    (Si preferís en CSS, decime y te lo saco del JS)
 // ============================================================
 function ensureValidationStylesOnce() {
   if (document.getElementById("ecnValidationStyles")) return;
@@ -165,7 +168,6 @@ function ensureValidationStylesOnce() {
       box-shadow: 0 0 0 3px rgba(26,127,55,.10) !important;
     }
 
-    /* Usa tu <p class="err">, solo lo afinamos (si tu CSS lo muestra al invalid, se mantiene) */
     .field .err{
       color: rgba(211,51,51,.95);
     }
@@ -330,7 +332,7 @@ function ensureSuccessModalDOM() {
   overlay.className = "ecnModalOverlay";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
-  overlay皮erlay.setAttribute("aria-hidden", "true");
+  overlay.setAttribute("aria-hidden", "true");
 
   overlay.innerHTML = `
     <div class="ecnModal" role="document">
@@ -359,27 +361,23 @@ function ensureSuccessModalDOM() {
   // Close: botón
   overlay.querySelector('[data-act="close"]')?.addEventListener("click", () => hideSuccessModal());
 
-  // ✅ Action: go -> confirmación
+  // Action: go (✅ ahora va a confirm.html)
   overlay.querySelector('[data-act="go"]')?.addEventListener("click", () => {
-    hideSuccessModal();
+    const evId = window.__ECN_LAST_EVENT_ID ? String(window.__ECN_LAST_EVENT_ID) : "";
+    const dtId = window.__ECN_LAST_DATE_ID ? String(window.__ECN_LAST_DATE_ID) : "";
 
-    setTimeout(() => {
-      const evId = window.__ECN_LAST_EVENT_ID ? String(window.__ECN_LAST_EVENT_ID) : "";
-      const dtId = window.__ECN_LAST_DATE_ID ? String(window.__ECN_LAST_DATE_ID) : "";
+    if (evId && dtId) {
+      window.location.href =
+        `./confirm.html?event=${encodeURIComponent(evId)}&date_id=${encodeURIComponent(dtId)}&reg=ok`;
+      return;
+    }
 
-      if (evId && dtId) {
-        window.location.href =
-          `./confirm.html?event=${encodeURIComponent(evId)}&date_id=${encodeURIComponent(dtId)}&reg=ok`;
-        return;
-      }
-
-      if (evId) {
-        window.location.href = `./event.html?event=${encodeURIComponent(evId)}`;
-        return;
-      }
-
-      window.location.href = "./home.html#proximos";
-    }, 180);
+    // fallback seguro
+    if (evId) {
+      window.location.href = `./event.html?event=${encodeURIComponent(evId)}`;
+      return;
+    }
+    window.location.href = "./home.html#proximos";
   });
 
   // Close: click afuera
@@ -698,7 +696,6 @@ function validateFieldById(fieldId) {
     if (raw && !raw.trim()) return setFieldError(fieldId, "Si lo completás, escribí un detalle."), false;
     if (raw && raw.length > 120) return setFieldError(fieldId, "Máximo 120 caracteres."), false;
 
-    // si está vacío, lo dejamos neutro (ni verde ni rojo)
     if (!raw) {
       clearFieldState(fieldId);
       return true;
@@ -712,7 +709,6 @@ function validateFieldById(fieldId) {
 function validateForm() {
   let ok = true;
 
-  // Limpia estados antes de validar
   ["firstName", "lastName", "email", "phone", "eventDate", "allergies"].forEach(clearFieldState);
 
   ok = validateFieldById("firstName") && ok;
@@ -786,7 +782,7 @@ async function submitRegistration() {
       submitBtn.classList.add("isSuccess");
     }
 
-    // ✅ Guards para botón "Confirmación"
+    // ✅ Guard para CTA del modal (Confirmación)
     window.__ECN_LAST_EVENT_ID = String(EVENT_ID);
     window.__ECN_LAST_DATE_ID = String(dateId);
 
@@ -805,7 +801,6 @@ async function submitRegistration() {
     const countEl = $("#count");
     if (countEl) countEl.textContent = "0";
 
-    // ✅ tras reset: dejamos IS_SUBMITTING en true (para no re-habilitar por sync)
     renderDatesSelect("");
     renderHeader();
     syncSubmitAvailability();
@@ -911,7 +906,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!el) return;
 
     const run = () => {
-      // si ya se envió y estás mostrando modal, no te marco campos
       if (IS_SUBMITTING) return;
       validateFieldById(id);
     };
