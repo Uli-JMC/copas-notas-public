@@ -1,10 +1,13 @@
 "use strict";
 
 /* ============================================================
-   confirm.js
-   - Lee event + date_id desde querystring
+   confirm.js ✅ FIX 2026-02
+   - Lee event + date_id (+ reg=ok) desde querystring
    - Carga info de events + event_dates desde Supabase
-   - Renderiza MetaBox y botones
+   - Renderiza MetaBox + botones
+   - FIX: WhatsApp link correcto (?text=)
+   - FIX: columna "desc" con comillas
+   - PLUS: muestra precio si existe (price_amount/currency)
 ============================================================ */
 
 const $ = (sel) => document.querySelector(sel);
@@ -49,12 +52,27 @@ function getParam(name) {
 }
 
 function safeTrim(v) {
-  return String(v || "").trim();
+  return String(v ?? "").trim();
 }
 
 function getSb() {
-  if (!window.APP || !APP.supabase) return null;
-  return APP.supabase;
+  return window.APP && APP.supabase ? APP.supabase : null;
+}
+
+function normalizeCurrency(cur) {
+  const c = safeTrim(cur).toUpperCase();
+  return c || "USD";
+}
+
+function formatPrice(amount, currency) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return null;
+
+  // Mantengo simple y estable (sin Intl para evitar variaciones de locale)
+  // Ej: "USD 49.00"
+  const cur = normalizeCurrency(currency);
+  const fixed = n.toFixed(2);
+  return `${cur} ${fixed}`;
 }
 
 function renderMetaBox(event, dateLabel) {
@@ -65,6 +83,8 @@ function renderMetaBox(event, dateLabel) {
   const location = safeTrim(event?.location) || "Por confirmar";
   const duration = safeTrim(event?.duration_hours) || "Por confirmar";
   const timeRange = safeTrim(event?.time_range) || "Por confirmar";
+
+  const priceText = formatPrice(event?.price_amount, event?.price_currency);
 
   metaBox.innerHTML = `
     <div class="mHead">
@@ -92,6 +112,15 @@ function renderMetaBox(event, dateLabel) {
         <div class="mLabel">Hora</div>
         <div class="mValue">${escapeHtml(timeRange)}</div>
       </div>
+
+      ${
+        priceText
+          ? `<div class="mRow">
+               <div class="mLabel">Precio</div>
+               <div class="mValue">${escapeHtml(priceText)}</div>
+             </div>`
+          : ``
+      }
     </div>
   `;
 }
@@ -130,10 +159,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   try {
-    // 1) Event
+    // 1) Event (FIX: "desc" con comillas + agregamos precio)
     const { data: ev, error: evErr } = await sb
       .from("events")
-      .select("id, title, desc, type, location, time_range, duration_hours")
+      .select('id, title, "desc", type, location, time_range, duration_hours, price_amount, price_currency')
       .eq("id", eventId)
       .maybeSingle();
 
@@ -158,11 +187,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     renderMetaBox(ev, d?.label || "Fecha confirmada");
 
-    // Ajusta WA con contexto
+    // WhatsApp (FIX: ?text=)
     const btnWA = $("#btnWA");
-    if (btnWA && ev.title) {
-      const txt = `Hola 👋 me inscribí a "${ev.title}" (${d?.label || "fecha confirmada"}). ¿Me confirman detalles?`;
-      btnWA.href = `https://wa.me/50688323801text=${encodeURIComponent(txt)}`;
+    if (btnWA) {
+      const txt = `Hola 👋 me inscribí a "${ev.title || "un evento"}" (${d?.label || "fecha confirmada"}). ¿Me confirman detalles?`;
+      btnWA.href = `https://wa.me/50688323801?text=${encodeURIComponent(txt)}`;
     }
   } catch (err) {
     console.error(err);

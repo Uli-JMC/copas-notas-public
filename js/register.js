@@ -330,7 +330,7 @@ function ensureSuccessModalDOM() {
   overlay.className = "ecnModalOverlay";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
-  overlay.setAttribute("aria-hidden", "true");
+  overlay皮erlay.setAttribute("aria-hidden", "true");
 
   overlay.innerHTML = `
     <div class="ecnModal" role="document">
@@ -345,7 +345,7 @@ function ensureSuccessModalDOM() {
         </p>
         <div class="ecnActions">
           <button class="ecnBtn" type="button" data-act="close">Cerrar</button>
-          <button class="ecnBtn ecnBtn--primary" type="button" data-act="go">Ver evento</button>
+          <button class="ecnBtn ecnBtn--primary" type="button" data-act="go">Confirmación</button>
         </div>
       </div>
     </div>
@@ -359,13 +359,27 @@ function ensureSuccessModalDOM() {
   // Close: botón
   overlay.querySelector('[data-act="close"]')?.addEventListener("click", () => hideSuccessModal());
 
-  // Action: go
+  // ✅ Action: go -> confirmación
   overlay.querySelector('[data-act="go"]')?.addEventListener("click", () => {
-    if (window.__ECN_LAST_EVENT_ID) {
-      window.location.href = `./event.html?event=${encodeURIComponent(window.__ECN_LAST_EVENT_ID)}`;
-      return;
-    }
-    window.location.href = "./home.html";
+    hideSuccessModal();
+
+    setTimeout(() => {
+      const evId = window.__ECN_LAST_EVENT_ID ? String(window.__ECN_LAST_EVENT_ID) : "";
+      const dtId = window.__ECN_LAST_DATE_ID ? String(window.__ECN_LAST_DATE_ID) : "";
+
+      if (evId && dtId) {
+        window.location.href =
+          `./confirm.html?event=${encodeURIComponent(evId)}&date_id=${encodeURIComponent(dtId)}&reg=ok`;
+        return;
+      }
+
+      if (evId) {
+        window.location.href = `./event.html?event=${encodeURIComponent(evId)}`;
+        return;
+      }
+
+      window.location.href = "./home.html#proximos";
+    }, 180);
   });
 
   // Close: click afuera
@@ -772,8 +786,9 @@ async function submitRegistration() {
       submitBtn.classList.add("isSuccess");
     }
 
-    // Guard para botón "Ver evento"
+    // ✅ Guards para botón "Confirmación"
     window.__ECN_LAST_EVENT_ID = String(EVENT_ID);
+    window.__ECN_LAST_DATE_ID = String(dateId);
 
     // Re-cargar cupos actualizados
     const fresh = await fetchEventAndDates(EVENT_ID);
