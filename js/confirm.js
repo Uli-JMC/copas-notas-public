@@ -1,12 +1,13 @@
 "use strict";
 
 /* ============================================================
-   confirm.js ✅ FIX 2026-02 (NO REDIRECT) — versión para confirm.html “limpio”
+   confirm.js ✅ 2026-02 (NO REDIRECT + RESERVA + WA)
    - Lee event + date_id (+ reg=ok) desde querystring
-   - Fallback: si faltan params, intenta sessionStorage (última reserva)
-   - Carga info de events + event_dates desde Supabase
-   - Renderiza MetaBox (Tu reserva)
-   - ✅ NO redirige nunca (se queda en pantalla con mensaje)
+   - Fallback: sessionStorage (última reserva)
+   - Carga events + event_dates desde Supabase
+   - Renderiza MetaBox + botones
+   - ✅ Agrega "Reserva #" debajo de Hora (si existe en DB)
+   - ✅ FIX hover no depende de JS (va por CSS)
 ============================================================ */
 
 const $ = (sel) => document.querySelector(sel);
@@ -74,15 +75,13 @@ function setUiInfoState(title, desc) {
   const badge = $("#statusBadge");
   const titleEl = $("#eventTitle");
   const descEl = $("#eventDesc");
-  const metaBox = $("#metaBox");
 
   if (badge) badge.textContent = "INFO";
   if (titleEl) titleEl.textContent = title || "Confirmación";
   if (descEl) descEl.textContent = desc || "No encontramos datos de la reserva.";
-  if (metaBox) metaBox.innerHTML = "";
 }
 
-function renderMetaBox(event, dateLabel) {
+function renderMetaBox(event, dateLabel, reservationCode) {
   const metaBox = $("#metaBox");
   if (!metaBox) return;
 
@@ -92,6 +91,14 @@ function renderMetaBox(event, dateLabel) {
   const timeRange = safeTrim(event?.time_range) || "Por confirmar";
 
   const priceText = formatPrice(event?.price_amount, event?.price_currency);
+
+  // ✅ Reserva # (debajo de hora)
+  const reserveRow = reservationCode
+    ? `<div class="mRow">
+         <div class="mLabel">Reserva #</div>
+         <div class="mValue">${escapeHtml(reservationCode)}</div>
+       </div>`
+    : ``;
 
   metaBox.innerHTML = `
     <div class="mHead">
@@ -120,6 +127,8 @@ function renderMetaBox(event, dateLabel) {
         <div class="mValue">${escapeHtml(timeRange)}</div>
       </div>
 
+      ${reserveRow}
+
       ${
         priceText
           ? `<div class="mRow">
@@ -130,6 +139,40 @@ function renderMetaBox(event, dateLabel) {
       }
     </div>
   `;
+}
+
+/**
+ * Intenta obtener un “número de reserva” desde DB.
+ * Depende de tu schema, así que:
+ * - Primero usa sessionStorage (si register.js lo guardó)
+ * - Luego intenta tabla `registrations` por date_id, order created_at desc
+ * - No rompe si no existe la tabla o columnas
+ */
+async function tryGetReservationCode(sb, eventId, dateId) {
+  // 1) sessionStorage (lo más confiable)
+  const ss = safeTrim(sessionStorage.getItem("ecn_last_reservation_code"));
+  if (ss) return ss;
+
+  // 2) DB best-effort (no romper si no existe)
+  try {
+    const { data, error } = await sb
+      .from("registrations")
+      .select("id, reservation_code, code, created_at")
+      .eq("event_id", eventId)
+      .eq("event_date_id", dateId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return "";
+
+    // Prioridad: reservation_code -> code -> id
+    return String(data.reservation_code || data.code || data.id || "").trim();
+  } catch (e) {
+    // Silencioso: no todos tienen esa tabla/campos
+    return "";
+  }
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -152,25 +195,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!dateId && ssDate) dateId = ssDate;
   }
 
-  // ✅ NO redirect. Si faltan datos, se queda en pantalla.
+  // ✅ NO redirect
   if (!eventId || !dateId) {
     setUiInfoState(
       "Confirmación",
       "No encontramos el ID del evento o la fecha. Volvé al evento y generá la confirmación otra vez."
     );
-    toast("Faltan datos", "Abriste confirmación sin parámetros (event/date_id).");
+    toast("Faltan datos", "Abriste la confirmación sin parámetros (event/date_id).");
     console.warn("[confirm] Missing params:", { eventId, dateId, href: window.location.href });
     return;
   }
 
-  // Badge si no venís del registro
+  // Guardamos para próximas aperturas
+  sessionStorage.setItem("ecn_last_event_id", String(eventId));
+  sessionStorage.setItem("ecn_last_date_id", String(dateId));
+
   if (!regOk) {
     const badge = $("#statusBadge");
     if (badge) badge.textContent = "OK";
   }
 
   try {
-    // Event (desc con comillas + precio)
+    // 1) Event
     const { data: ev, error: evErr } = await sb
       .from("events")
       .select('id, title, "desc", type, location, time_range, duration_hours, price_amount, price_currency')
@@ -180,7 +226,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (evErr) throw evErr;
     if (!ev) throw new Error("Evento no existe");
 
-    // Date
+    // 2) Date
     const { data: d, error: dErr } = await sb
       .from("event_dates")
       .select("id, event_id, label")
@@ -190,17 +236,24 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (dErr) throw dErr;
 
-    // Guardamos fallback
-    sessionStorage.setItem("ecn_last_event_id", String(eventId));
-    sessionStorage.setItem("ecn_last_date_id", String(dateId));
-
     const titleEl = $("#eventTitle");
     const descEl = $("#eventDesc");
 
     if (titleEl) titleEl.textContent = regOk ? "¡Inscripción confirmada!" : (ev.title || "Evento");
     if (descEl) descEl.textContent = ev.title ? `Evento: ${ev.title}` : "Te esperamos.";
 
-    renderMetaBox(ev, d?.label || "Fecha confirmada");
+    // ✅ Reserva #
+    const reservationCode = await tryGetReservationCode(sb, eventId, dateId);
+
+    renderMetaBox(ev, d?.label || "Fecha confirmada", reservationCode);
+
+    // WhatsApp link
+    const btnWA = $("#btnWA");
+    if (btnWA) {
+      const txt = `Hola 👋 me inscribí a "${ev.title || "un evento"}" (${d?.label || "fecha confirmada"}). ¿Me confirman detalles?` +
+        (reservationCode ? ` Mi reserva es #${reservationCode}.` : "");
+      btnWA.href = `https://wa.me/50688323801?text=${encodeURIComponent(txt)}`;
+    }
   } catch (err) {
     console.error(err);
     setUiInfoState("Confirmación", "No se pudo cargar la confirmación. Probá recargar.");
