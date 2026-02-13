@@ -1,12 +1,14 @@
 "use strict";
 
 /* ============================================================
-   confirm.js ✅ FIX 2026-02 (NO REDIRECT) — versión para confirm.html “limpio”
+   confirm.js ✅ FIX 2026-02 (NO REDIRECT) — confirm “limpio”
    - Lee event + date_id (+ reg=ok) desde querystring
-   - Fallback: si faltan params, intenta sessionStorage (última reserva)
+   - Fallback: sessionStorage (última reserva)
    - Carga info de events + event_dates desde Supabase
    - Renderiza MetaBox (Tu reserva)
-   - ✅ NO redirige nunca (se queda en pantalla con mensaje)
+   - ✅ NO redirige nunca
+   - ✅ Reserva # debajo de Hora (registrations.reservation_number)
+   - ✅ WhatsApp dinámico
 ============================================================ */
 
 const $ = (sel) => document.querySelector(sel);
@@ -17,7 +19,7 @@ function escapeHtml(str) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replaceAll("'", "&apos;");
 }
 
 function toast(title, msg, timeoutMs = 3500) {
@@ -82,7 +84,30 @@ function setUiInfoState(title, desc) {
   if (metaBox) metaBox.innerHTML = "";
 }
 
-function renderMetaBox(event, dateLabel) {
+/* ✅ Reserva #: usa registrations.reservation_number */
+async function getReservationNumber(sb, eventId, dateId) {
+  // 1) sessionStorage (si lo guardás desde register.js)
+  const ss = safeTrim(sessionStorage.getItem("ecn_last_reservation_number"));
+  if (ss) return ss;
+
+  // 2) buscar último registro de esa fecha/evento
+  const { data, error } = await sb
+    .from("registrations")
+    .select("id, reservation_number, created_at")
+    .eq("event_id", eventId)
+    .eq("event_date_id", dateId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return "";
+
+  const rn = safeTrim(data.reservation_number);
+  return rn || safeTrim(data.id) || "";
+}
+
+function renderMetaBox(event, dateLabel, reservationNumber) {
   const metaBox = $("#metaBox");
   if (!metaBox) return;
 
@@ -90,8 +115,14 @@ function renderMetaBox(event, dateLabel) {
   const location = safeTrim(event?.location) || "Por confirmar";
   const duration = safeTrim(event?.duration_hours) || "Por confirmar";
   const timeRange = safeTrim(event?.time_range) || "Por confirmar";
-
   const priceText = formatPrice(event?.price_amount, event?.price_currency);
+
+  const reserveRow = reservationNumber
+    ? `<div class="mRow">
+         <div class="mLabel">Reserva #</div>
+         <div class="mValue">${escapeHtml(reservationNumber)}</div>
+       </div>`
+    : ``;
 
   metaBox.innerHTML = `
     <div class="mHead">
@@ -120,6 +151,8 @@ function renderMetaBox(event, dateLabel) {
         <div class="mValue">${escapeHtml(timeRange)}</div>
       </div>
 
+      ${reserveRow}
+
       ${
         priceText
           ? `<div class="mRow">
@@ -139,12 +172,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // 1) Querystring
+  // Querystring
   let eventId = getParam("event") || "";
   let dateId = getParam("date_id") || "";
   const regOk = (getParam("reg") || "") === "ok";
 
-  // 2) Fallback: sessionStorage
+  // Fallback: sessionStorage
   if (!eventId || !dateId) {
     const ssEvent = safeTrim(sessionStorage.getItem("ecn_last_event_id"));
     const ssDate = safeTrim(sessionStorage.getItem("ecn_last_date_id"));
@@ -152,25 +185,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!dateId && ssDate) dateId = ssDate;
   }
 
-  // ✅ NO redirect. Si faltan datos, se queda en pantalla.
   if (!eventId || !dateId) {
     setUiInfoState(
       "Confirmación",
       "No encontramos el ID del evento o la fecha. Volvé al evento y generá la confirmación otra vez."
     );
     toast("Faltan datos", "Abriste confirmación sin parámetros (event/date_id).");
-    console.warn("[confirm] Missing params:", { eventId, dateId, href: window.location.href });
     return;
   }
 
-  // Badge si no venís del registro
   if (!regOk) {
     const badge = $("#statusBadge");
     if (badge) badge.textContent = "OK";
   }
 
   try {
-    // Event (desc con comillas + precio)
     const { data: ev, error: evErr } = await sb
       .from("events")
       .select('id, title, "desc", type, location, time_range, duration_hours, price_amount, price_currency')
@@ -180,7 +209,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (evErr) throw evErr;
     if (!ev) throw new Error("Evento no existe");
 
-    // Date
     const { data: d, error: dErr } = await sb
       .from("event_dates")
       .select("id, event_id, label")
@@ -190,17 +218,36 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (dErr) throw dErr;
 
-    // Guardamos fallback
     sessionStorage.setItem("ecn_last_event_id", String(eventId));
     sessionStorage.setItem("ecn_last_date_id", String(dateId));
 
     const titleEl = $("#eventTitle");
     const descEl = $("#eventDesc");
-
     if (titleEl) titleEl.textContent = regOk ? "¡Inscripción confirmada!" : (ev.title || "Evento");
     if (descEl) descEl.textContent = ev.title ? `Evento: ${ev.title}` : "Te esperamos.";
 
-    renderMetaBox(ev, d?.label || "Fecha confirmada");
+    // ✅ Reserva #
+    let reservationNumber = "";
+    try {
+      reservationNumber = await getReservationNumber(sb, String(eventId), String(dateId));
+      if (reservationNumber) {
+        sessionStorage.setItem("ecn_last_reservation_number", reservationNumber);
+      }
+    } catch (e) {
+      console.warn("[confirm] no reservation_number:", e);
+    }
+
+    renderMetaBox(ev, d?.label || "Fecha confirmada", reservationNumber);
+
+    // ✅ WhatsApp dinámico (usa el botón del HTML id="btnWA")
+    const btnWA = $("#btnWA");
+    if (btnWA) {
+      const txt =
+        `Hola 👋 me inscribí a "${ev.title || "un evento"}" (${d?.label || "fecha confirmada"}). ` +
+        (reservationNumber ? `Mi reserva es #${reservationNumber}. ` : "") +
+        `¿Me confirman detalles?`;
+      btnWA.href = `https://wa.me/50688323801?text=${encodeURIComponent(txt)}`;
+    }
   } catch (err) {
     console.error(err);
     setUiInfoState("Confirmación", "No se pudo cargar la confirmación. Probá recargar.");

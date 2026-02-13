@@ -3,17 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#000000" />
+  <meta name="theme-color" content="#0e0f12" />
   <title>Confirmación | Entre Copas &amp; Notas</title>
   <meta name="description" content="Confirmación de inscripción al evento." />
 
   <!-- ✅ Base solo para toasts / tipografía si la usás ahí -->
   <link rel="stylesheet" href="./css/base.css" />
 
-  <!-- ✅ Estilos aislados SOLO para confirm (evita que register.css meta fondos/hero/logos) -->
+  <!-- ✅ Estilos aislados SOLO para confirm -->
   <style>
     :root{
-      --bg:#070708;
+      /* ✅ Fondo más suave (gris) */
+      --bg:#0e0f12;
+      --bg2:#14161b;
+
       --card:rgba(18,18,20,.88);
       --stroke:rgba(255,255,255,.10);
       --stroke2:rgba(255,255,255,.08);
@@ -24,16 +27,17 @@
       --shadow:0 28px 90px rgba(0,0,0,.55);
     }
 
-    /* ✅ “corta” cualquier background raro heredado de otros CSS */
     html, body{ height:100%; }
     body{
       margin:0;
-      background: var(--bg);
+      background:
+        radial-gradient(1100px 700px at 20% 10%, rgba(255,255,255,.06), transparent 60%),
+        radial-gradient(900px 600px at 80% 25%, rgba(255,255,255,.04), transparent 55%),
+        linear-gradient(180deg, var(--bg), var(--bg2));
       color: var(--text);
       overflow-x:hidden;
     }
 
-    /* Contenedor centrado */
     .confirmWrap{
       min-height: 100vh;
       display:flex;
@@ -112,11 +116,10 @@
       margin-top: 14px;
       border-radius: 18px;
       border: 1px solid var(--stroke);
-      background: rgba(0,0,0,.22);
+      background: rgba(0,0,0,.20);
       padding: 12px;
     }
 
-    /* Layout del metabox que genera confirm.js */
     .metaBox .mHead{
       display:flex;
       align-items:flex-start;
@@ -195,7 +198,7 @@
       text-transform: uppercase;
       font-size: 12px;
       flex: 1 1 220px;
-      transition: transform .10s ease, background .15s ease, border-color .15s ease;
+      transition: transform .10s ease, background .15s ease, border-color .15s ease, color .15s ease;
     }
     .btn:hover{
       background: rgba(255,255,255,.08);
@@ -207,8 +210,36 @@
       background: #fff;
       color: #000;
       border-color: #fff;
+      opacity: 1;
     }
-    .btn.primary:hover{ filter: brightness(1.06); }
+
+    /* ✅ FIX: en hover NO puede volverse invisible por filtros globales */
+    .btn.primary:hover,
+    .btn.primary:focus{
+      background: #fff !important;
+      color: #000 !important;
+      border-color: #fff !important;
+      opacity: 1 !important;
+      filter: none !important;
+      -webkit-text-fill-color: #000 !important;
+    }
+
+    /* WhatsApp */
+    .btn.wa{
+      background: rgba(37,211,102,.14);
+      border-color: rgba(37,211,102,.35);
+      color: rgba(255,255,255,.94);
+    }
+    .btn.wa:hover{
+      background: rgba(37,211,102,.18);
+      border-color: rgba(37,211,102,.55);
+    }
+    .waIcon{
+      width: 18px;
+      height: 18px;
+      display:inline-block;
+      flex: 0 0 18px;
+    }
 
     .fine{
       margin-top: 10px;
@@ -228,7 +259,6 @@
 </head>
 
 <body>
-  <!-- Toasts -->
   <div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
 
   <main class="confirmWrap">
@@ -255,6 +285,16 @@
         <div class="actions">
           <a class="btn" href="./home.html">Home</a>
           <a class="btn primary" href="./home.html#proximos">Ver más eventos</a>
+
+          <a class="btn wa" id="btnWA"
+             href="https://wa.me/50688323801?text=Hola%20%F0%9F%91%8B%20quiero%20confirmar%20detalles."
+             target="_blank" rel="noopener">
+            <svg class="waIcon" viewBox="0 0 32 32" aria-hidden="true">
+              <path fill="currentColor" d="M19.11 17.27c-.28-.14-1.64-.81-1.89-.9-.25-.09-.44-.14-.62.14-.18.28-.71.9-.87 1.08-.16.18-.32.21-.6.07-.28-.14-1.17-.43-2.23-1.38-.82-.73-1.38-1.63-1.54-1.91-.16-.28-.02-.43.12-.57.12-.12.28-.32.41-.48.14-.16.18-.28.28-.46.09-.18.05-.34-.02-.48-.07-.14-.62-1.5-.85-2.06-.22-.53-.45-.46-.62-.47h-.53c-.18 0-.48.07-.73.34-.25.28-.96.94-.96 2.29s.99 2.66 1.13 2.84c.14.18 1.95 2.98 4.72 4.18.66.28 1.17.45 1.57.57.66.21 1.27.18 1.74.11.53-.08 1.64-.67 1.87-1.31.23-.64.23-1.19.16-1.31-.07-.12-.25-.18-.53-.32z"/>
+              <path fill="currentColor" d="M26.67 5.33A13.2 13.2 0 0 0 16 1C8.28 1 2 7.28 2 15c0 2.47.65 4.88 1.88 7.01L2 31l9.19-1.82A13.92 13.92 0 0 0 16 29c7.72 0 14-6.28 14-14 0-3.74-1.46-7.26-3.33-9.67zM16 26.6c-2.1 0-4.16-.56-5.96-1.63l-.43-.25-5.45 1.08 1.12-5.31-.28-.54A11.56 11.56 0 0 1 4.4 15C4.4 8.61 9.61 3.4 16 3.4S27.6 8.61 27.6 15 22.39 26.6 16 26.6z"/>
+            </svg>
+            Ir a WhatsApp
+          </a>
         </div>
 
         <p class="fine">
@@ -264,11 +304,8 @@
     </section>
   </main>
 
-  <!-- ✅ Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./js/supabaseClient.js"></script>
-
-  <!-- ✅ Lógica -->
   <script src="./js/confirm.js"></script>
 </body>
 </html>
