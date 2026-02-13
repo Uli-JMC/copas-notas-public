@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="es">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -12,41 +13,45 @@
 
   <!-- ✅ Estilos aislados SOLO para confirm -->
   <style>
-    :root{
+    :root {
       /* ✅ Fondo más suave (gris) */
-      --bg:#0e0f12;
-      --bg2:#14161b;
+      --bg: #0e0f12;
+      --bg2: #14161b;
 
-      --card:rgba(18,18,20,.88);
-      --stroke:rgba(255,255,255,.10);
-      --stroke2:rgba(255,255,255,.08);
-      --text:rgba(255,255,255,.92);
-      --muted:rgba(255,255,255,.72);
-      --muted2:rgba(255,255,255,.62);
-      --pill:rgba(255,255,255,.06);
-      --shadow:0 28px 90px rgba(0,0,0,.55);
+      --card: rgba(18, 18, 20, .88);
+      --stroke: rgba(255, 255, 255, .10);
+      --stroke2: rgba(255, 255, 255, .08);
+      --text: rgba(255, 255, 255, .92);
+      --muted: rgba(255, 255, 255, .72);
+      --muted2: rgba(255, 255, 255, .62);
+      --pill: rgba(255, 255, 255, .06);
+      --shadow: 0 28px 90px rgba(0, 0, 0, .55);
     }
 
-    html, body{ height:100%; }
-    body{
-      margin:0;
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
       background:
-        radial-gradient(1100px 700px at 20% 10%, rgba(255,255,255,.06), transparent 60%),
-        radial-gradient(900px 600px at 80% 25%, rgba(255,255,255,.04), transparent 55%),
+        radial-gradient(1100px 700px at 20% 10%, rgba(255, 255, 255, .06), transparent 60%),
+        radial-gradient(900px 600px at 80% 25%, rgba(255, 255, 255, .04), transparent 55%),
         linear-gradient(180deg, var(--bg), var(--bg2));
       color: var(--text);
-      overflow-x:hidden;
+      overflow-x: hidden;
     }
 
-    .confirmWrap{
+    .confirmWrap {
       min-height: 100vh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       padding: 28px 16px;
     }
 
-    .card{
+    .card {
       width: min(920px, 100%);
       border-radius: 22px;
       overflow: hidden;
@@ -56,46 +61,46 @@
       backdrop-filter: blur(10px);
     }
 
-    .cardTop{
+    .cardTop {
       padding: 22px 22px 16px;
       border-bottom: 1px solid var(--stroke2);
       position: relative;
     }
 
-    .cardTopRow{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
+    .cardTopRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
       margin-bottom: 10px;
     }
 
-    .kicker{
-      margin:0;
-      letter-spacing:.10em;
+    .kicker {
+      margin: 0;
+      letter-spacing: .10em;
       text-transform: uppercase;
       font-weight: 900;
       font-size: 12px;
       color: var(--muted);
     }
 
-    .cuposBadge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
+    .cuposBadge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       padding: 8px 12px;
       border-radius: 999px;
       font-weight: 900;
       letter-spacing: .08em;
       text-transform: uppercase;
       font-size: 11px;
-      border: 1px solid rgba(255,255,255,.14);
+      border: 1px solid rgba(255, 255, 255, .14);
       background: var(--pill);
       color: var(--text);
       white-space: nowrap;
     }
 
-    .title{
+    .title {
       margin: 0;
       font-weight: 900;
       letter-spacing: .02em;
@@ -104,7 +109,7 @@
       color: #fff;
     }
 
-    .sub{
+    .sub {
       margin: 10px 0 0;
       color: var(--muted);
       line-height: 1.6;
@@ -112,84 +117,88 @@
       max-width: 70ch;
     }
 
-    .metaBox{
+    .metaBox {
       margin-top: 14px;
       border-radius: 18px;
       border: 1px solid var(--stroke);
-      background: rgba(0,0,0,.20);
+      background: rgba(0, 0, 0, .20);
       padding: 12px;
     }
 
-    .metaBox .mHead{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
+    .metaBox .mHead {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
       padding: 6px 8px 10px;
       border-bottom: 1px solid var(--stroke2);
       margin-bottom: 10px;
     }
-    .metaBox .mBody{
-      display:grid;
+
+    .metaBox .mBody {
+      display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px 14px;
       padding: 0 8px 6px;
     }
-    .metaBox .mRow{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
+
+    .metaBox .mRow {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
       padding: 10px 12px;
       border-radius: 14px;
       border: 1px solid var(--stroke2);
-      background: rgba(255,255,255,.04);
+      background: rgba(255, 255, 255, .04);
     }
-    .metaBox .mLabel{
-      color: rgba(255,255,255,.64);
+
+    .metaBox .mLabel {
+      color: rgba(255, 255, 255, .64);
       font-weight: 800;
       font-size: 12px;
       letter-spacing: .08em;
       text-transform: uppercase;
       white-space: nowrap;
     }
-    .metaBox .mValue{
+
+    .metaBox .mValue {
       color: var(--text);
       font-weight: 800;
       font-size: 13px;
       text-align: right;
     }
 
-    .cardBody{
+    .cardBody {
       padding: 16px 22px 22px;
     }
 
-    .hint{
+    .hint {
       margin-top: 6px;
       color: var(--muted);
       line-height: 1.75;
       font-size: 14px;
     }
 
-    .actions{
+    .actions {
       margin-top: 14px;
-      display:flex;
+      display: flex;
       gap: 10px;
       flex-wrap: wrap;
-      align-items:center;
-      justify-content:center;
+      align-items: center;
+      justify-content: center;
     }
 
-    .btn{
-      appearance:none;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
+    .btn {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, .14);
+      background: rgba(255, 255, 255, .06);
       color: var(--text);
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
       padding: 12px 16px;
       border-radius: 14px;
       min-height: 46px;
@@ -200,13 +209,17 @@
       flex: 1 1 220px;
       transition: transform .10s ease, background .15s ease, border-color .15s ease, color .15s ease;
     }
-    .btn:hover{
-      background: rgba(255,255,255,.08);
-      border-color: rgba(255,255,255,.22);
-    }
-    .btn:active{ transform: translateY(1px); }
 
-    .btn.primary{
+    .btn:hover {
+      background: rgba(255, 255, 255, .08);
+      border-color: rgba(255, 255, 255, .22);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn.primary {
       background: #fff;
       color: #000;
       border-color: #fff;
@@ -215,7 +228,7 @@
 
     /* ✅ FIX: en hover NO puede volverse invisible por filtros globales */
     .btn.primary:hover,
-    .btn.primary:focus{
+    .btn.primary:focus {
       background: #fff !important;
       color: #000 !important;
       border-color: #fff !important;
@@ -225,35 +238,48 @@
     }
 
     /* WhatsApp */
-    .btn.wa{
-      background: rgba(37,211,102,.14);
-      border-color: rgba(37,211,102,.35);
-      color: rgba(255,255,255,.94);
+    .btn.wa {
+      background: rgba(37, 211, 102, .14);
+      border-color: rgba(37, 211, 102, .35);
+      color: rgba(255, 255, 255, .94);
     }
-    .btn.wa:hover{
-      background: rgba(37,211,102,.18);
-      border-color: rgba(37,211,102,.55);
+
+    .btn.wa:hover {
+      background: rgba(37, 211, 102, .18);
+      border-color: rgba(37, 211, 102, .55);
     }
-    .waIcon{
+
+    .waIcon {
       width: 18px;
       height: 18px;
-      display:inline-block;
+      display: inline-block;
       flex: 0 0 18px;
     }
 
-    .fine{
+    .fine {
       margin-top: 10px;
-      text-align:center;
+      text-align: center;
       color: var(--muted2);
       font-size: 13px;
       line-height: 1.6;
     }
 
-    @media (max-width: 720px){
-      .cardTop{ padding: 18px 16px 14px; }
-      .cardBody{ padding: 14px 16px 18px; }
-      .metaBox .mBody{ grid-template-columns: 1fr; }
-      .metaBox .mValue{ text-align:left; }
+    @media (max-width: 720px) {
+      .cardTop {
+        padding: 18px 16px 14px;
+      }
+
+      .cardBody {
+        padding: 14px 16px 18px;
+      }
+
+      .metaBox .mBody {
+        grid-template-columns: 1fr;
+      }
+
+      .metaBox .mValue {
+        text-align: left;
+      }
     }
   </style>
 </head>
@@ -277,8 +303,8 @@
 
       <div class="cardBody">
         <div class="hint">
-          • Si marcaste “recibir info”, te contactamos por WhatsApp o correo.<br/>
-          • Llegá con 10–15 min de anticipación.<br/>
+          • Si marcaste “recibir info”, te contactamos por WhatsApp o correo.<br />
+          • Llegá con 10–15 min de anticipación.<br />
           • Si tenés alergias, avisá al staff al llegar.
         </div>
 
@@ -287,13 +313,22 @@
           <a class="btn primary" href="./home.html#proximos">Ver más eventos</a>
 
           <a class="btn wa" id="btnWA"
-             href="https://wa.me/50688323801?text=Hola%20%F0%9F%91%8B%20quiero%20confirmar%20detalles."
-             target="_blank" rel="noopener">
-            <svg class="waIcon" viewBox="0 0 32 32" aria-hidden="true">
-              <path fill="currentColor" d="M19.11 17.27c-.28-.14-1.64-.81-1.89-.9-.25-.09-.44-.14-.62.14-.18.28-.71.9-.87 1.08-.16.18-.32.21-.6.07-.28-.14-1.17-.43-2.23-1.38-.82-.73-1.38-1.63-1.54-1.91-.16-.28-.02-.43.12-.57.12-.12.28-.32.41-.48.14-.16.18-.28.28-.46.09-.18.05-.34-.02-.48-.07-.14-.62-1.5-.85-2.06-.22-.53-.45-.46-.62-.47h-.53c-.18 0-.48.07-.73.34-.25.28-.96.94-.96 2.29s.99 2.66 1.13 2.84c.14.18 1.95 2.98 4.72 4.18.66.28 1.17.45 1.57.57.66.21 1.27.18 1.74.11.53-.08 1.64-.67 1.87-1.31.23-.64.23-1.19.16-1.31-.07-.12-.25-.18-.53-.32z"/>
-              <path fill="currentColor" d="M26.67 5.33A13.2 13.2 0 0 0 16 1C8.28 1 2 7.28 2 15c0 2.47.65 4.88 1.88 7.01L2 31l9.19-1.82A13.92 13.92 0 0 0 16 29c7.72 0 14-6.28 14-14 0-3.74-1.46-7.26-3.33-9.67zM16 26.6c-2.1 0-4.16-.56-5.96-1.63l-.43-.25-5.45 1.08 1.12-5.31-.28-.54A11.56 11.56 0 0 1 4.4 15C4.4 8.61 9.61 3.4 16 3.4S27.6 8.61 27.6 15 22.39 26.6 16 26.6z"/>
-            </svg>
-            Ir a WhatsApp
+            href="https://wa.me/50688323801?text=Hola%20%F0%9F%91%8B%20quiero%20confirmar%20detalles." target="_blank"
+            rel="noopener">
+              <svg class="waIcon" clip-rule="evenodd" fill-rule="evenodd" height="512" image-rendering="optimizeQuality"
+                shape-rendering="geometricPrecision" text-rendering="geometricPrecision" viewBox="0 0 512 512"
+                width="512" xmlns="http://www.w3.org/2000/svg" xmlns:xodm="http://www.corel.com/coreldraw/odm/2003"
+                id="fi_4423488">
+              </svg>
+
+                <g id="Layer_x0020_1">
+                  <path
+                    d="m317.12 285.93c-9.69 3.96-15.88 19.13-22.16 26.88-3.22 3.97-7.06 4.59-12.01 2.6-36.37-14.49-64.25-38.76-84.32-72.23-3.4-5.19-2.79-9.29 1.31-14.11 6.06-7.14 13.68-15.25 15.32-24.87 3.64-21.28-24.18-87.29-60.92-57.38-105.72 86.15 176.36 314.64 227.27 191.06 14.4-35.03-48.43-58.53-64.49-51.95zm-61.12 181.35c-37.39 0-74.18-9.94-106.39-28.76-5.17-3.03-11.42-3.83-17.2-2.26l-69.99 19.21 24.38-53.71c3.32-7.31 2.47-15.82-2.22-22.32-26.08-36.15-39.87-78.83-39.87-123.44 0-116.51 94.78-211.29 211.29-211.29s211.28 94.78 211.28 211.29c0 116.5-94.78 211.28-211.28 211.28zm0-467.28c-141.16 0-256 114.84-256 256 0 49.66 14.1 97.35 40.89 138.74l-38.89 85.65c-3.59 7.91-2.28 17.17 3.34 23.76 4.32 5.05 10.57 7.85 17.02 7.85 14.42 0 93.05-24.71 113.06-30.2 36.99 19.79 78.48 30.2 120.58 30.2 141.15 0 256-114.85 256-256 0-141.16-114.85-256-256-256z">
+                  </path>
+                </g>
+              </svg>
+
+              Ir a WhatsApp
           </a>
         </div>
 
@@ -308,4 +343,5 @@
   <script src="./js/supabaseClient.js"></script>
   <script src="./js/confirm.js"></script>
 </body>
+
 </html>
