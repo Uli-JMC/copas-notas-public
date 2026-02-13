@@ -4,14 +4,195 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#000000" />
-  <title>Evento | Entre Copas & Notas</title>
-  <meta name="description" content="Detalle del evento: fechas, cupos y descripción." />
+  <title>Confirmación | Entre Copas &amp; Notas</title>
+  <meta name="description" content="Confirmación de inscripción al evento." />
 
+  <!-- ✅ Base primero (estructura global) -->
   <link rel="stylesheet" href="./css/base.css" />
-  <link rel="stylesheet" href="./css/event.css" />
+  <!-- ✅ Register después (reusa card + forms) -->
+  <link rel="stylesheet" href="./css/register.css" />
 
+  <!-- ✅ Ajustes específicos SOLO para confirm (sin tocar tus CSS existentes) -->
   <style>
-    @keyframes spin { to { transform: rotate(360deg); } }
+    /* Fondo y espaciado más “premium” (sin romper base/register) */
+    body{
+      background: #0b0b0c;
+      color: rgba(255,255,255,.92);
+    }
+
+    /* Asegura que el layout no se “encoj(a)” raro */
+    .page{
+      padding-top: 26px;
+      padding-bottom: 34px;
+    }
+
+    /* Card centrada y consistente */
+    .card{
+      width: min(920px, 100%);
+      margin: 0 auto;
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(18,18,20,.88);
+      box-shadow: 0 28px 90px rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+    }
+
+    /* Header de card con mejor jerarquía */
+    .cardTop{
+      padding: 22px 22px 16px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+
+    .cardTopRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom: 10px;
+    }
+
+    /* Kicker más visible */
+    .kicker{
+      letter-spacing:.10em;
+      text-transform: uppercase;
+      font-weight: 900;
+      font-size: 12px;
+      color: rgba(255,255,255,.72);
+      margin: 0;
+    }
+
+    /* Badge alineado a look dark */
+    .cuposBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-size: 11px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.92);
+      white-space: nowrap;
+    }
+
+    /* Título + sub */
+    .title{
+      margin: 0;
+      font-weight: 900;
+      letter-spacing: .02em;
+      line-height: 1.1;
+      font-size: clamp(28px, 3.4vw, 42px);
+      color: #fff;
+    }
+    .sub{
+      margin: 10px 0 0;
+      color: rgba(255,255,255,.72);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    /* MetaBox más “tabla” y sin descuadres */
+    .metaBox{
+      margin-top: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.22);
+      padding: 12px;
+    }
+
+    /* Si confirm.js renderiza .mHead / .mBody / .mRow, esto lo deja bonito */
+    .metaBox .mHead{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      padding: 6px 8px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      margin-bottom: 10px;
+    }
+    .metaBox .mBody{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 14px;
+      padding: 0 8px 6px;
+    }
+    .metaBox .mRow{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.04);
+    }
+    .metaBox .mLabel{
+      color: rgba(255,255,255,.64);
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .metaBox .mValue{
+      color: rgba(255,255,255,.92);
+      font-weight: 800;
+      font-size: 13px;
+      text-align: right;
+    }
+
+    /* Bloque inferior */
+    .formWrap{
+      padding: 16px 22px 22px;
+    }
+
+    /* Botones: que no se rompan en mobile */
+    .btnsub{
+      display:flex !important;
+      gap:10px !important;
+      flex-wrap: wrap !important;
+      margin-top: 10px;
+    }
+    .btnsub .btn{
+      flex: 1 1 180px;
+      justify-content:center;
+      min-height: 46px;
+      border-radius: 14px;
+    }
+    .btnsub .btn.primary{
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+      font-weight: 900;
+    }
+
+    /* Footer para dark */
+    .footer{
+      margin-top: 26px;
+      border-top: 1px solid rgba(255,255,255,.08);
+      background: transparent;
+    }
+    .footerRow{
+      color: rgba(255,255,255,.62);
+    }
+    .icon-btn{
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.92);
+    }
+
+    /* Responsive */
+    @media (max-width: 720px){
+      .cardTop{ padding: 18px 16px 14px; }
+      .formWrap{ padding: 14px 16px 18px; }
+      .metaBox .mBody{ grid-template-columns: 1fr; }
+      .metaBox .mRow{ padding: 10px 10px; }
+      .metaBox .mValue{ text-align:left; }
+    }
   </style>
 </head>
 
@@ -19,106 +200,68 @@
   <!-- Toasts -->
   <div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
 
-  <!-- ✅ Loader suave -->
-  <div id="pageLoader" aria-hidden="true"
-    style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);backdrop-filter: blur(6px);z-index:9999;opacity:0;pointer-events:none;transition:opacity .2s ease;">
-    <div
-      style="width:54px;height:54px;border-radius:999px;border:3px solid rgba(255,255,255,.18);border-top-color:rgba(255,255,255,.75);animation:spin 1s linear infinite;">
-    </div>
-  </div>
-
   <!-- Header -->
   <header class="topbar">
     <div class="container">
       <div class="nav">
-        <a class="brand" href="./home.html#proximos" aria-label="Volver a próximos eventos">
+        <a class="brand" id="backBtn" href="./home.html" aria-label="Volver a Home">
           <span class="backIcon" aria-hidden="true">←</span>
-          <span class="backText">Volver</span>
+          <span class="backText">Home</span>
         </a>
 
-        <!-- ✅ SIN LOGO: solo texto -->
         <a class="brandRight" href="./home.html" aria-label="Ir a home">
+          <img src="./assets/img/logocuadrado-entrecopasynotas.png" alt="Logo" />
           <span>Entre Copas &amp; Notas</span>
         </a>
       </div>
     </div>
   </header>
 
-  <!-- Hero -->
-  <section class="hero" aria-label="Detalle del evento">
-    <div class="heroBg" id="heroBg"></div>
-
-    <div class="container heroWrap">
-      <div class="heroCard" id="heroCard">
-        <div class="heroMeta" id="metaRow"></div>
-
-        <h1 class="title" id="evTitle">Evento</h1>
-        <p class="desc" id="evDesc">Descripción del evento.</p>
-
-        <div class="grid">
-          <div class="panel">
-            <h2 class="h2">Fechas disponibles</h2>
-            <p class="sub">Seleccioná una fecha para tu inscripción (si hay más de una).</p>
-
-            <div class="dates" id="dateList"></div>
-
-            <div class="notice" id="availNotice" hidden>
-              <span class="badge">Inscripciones disponibles</span>
-              <p class="noticeLegend">Inscribite y disfrutá de esta experiencia.</p>
-            </div>
-
-            <div class="notice" id="soldNotice" hidden>
-              <span class="badge danger">Agotado</span>
-              <p class="noticeLegend">Este evento no tiene cupos disponibles.</p>
-            </div>
-
-            <div class="notice" id="pendingNotice" hidden>
-              <span class="badge">Cupos por confirmar</span>
-              <p class="noticeLegend">Estamos actualizando las fechas y cupos. Probá en unos segundos.</p>
-            </div>
+  <!-- Main -->
+  <main class="page">
+    <div class="container">
+      <section class="card">
+        <div class="cardTop">
+          <div class="cardTopRow">
+            <p class="kicker">Confirmación</p>
+            <span class="cuposBadge" id="statusBadge">LISTO ✅</span>
           </div>
 
-          <div class="panel">
-            <h2 class="h2">Detalles</h2>
+          <div>
+            <h1 class="title" id="eventTitle">¡Inscripción confirmada!</h1>
+            <p class="sub" id="eventDesc">Te esperamos. Guardá estos detalles.</p>
+          </div>
 
-            <div class="kv" id="kv"></div>
+          <div class="metaBox" id="metaBox"></div>
+        </div>
 
-            <div class="actions">
-              <a class="btn" id="btnHome" href="./home.html#proximos">Ver otros eventos</a>
-              <a class="btn primary" id="btnRegister" href="./register.html">Inscribirme</a>
+        <div class="formWrap">
+          <div class="grid">
+            <div class="field full">
+              <label>¿Qué sigue?</label>
+              <div class="hint" style="margin-top:6px; color: rgba(255,255,255,.72); line-height:1.75">
+                • Si marcaste “recibir info”, te contactamos por WhatsApp o correo.<br/>
+                • Llegá con 10–15 min de anticipación.<br/>
+                • Si tenés alergias, avisá al staff al llegar.
+              </div>
             </div>
 
-            <p class="fine">
-              Al inscribirte, te llega confirmación al correo. Si seleccionás “recibir info”, también por WhatsApp.
+            <div class="btnsub">
+              <a class="btn" id="btnBackEvent" href="./event.html">Ver evento</a>
+              <a class="btn primary" href="./home.html#proximos">Ver próximos eventos</a>
+              <a class="btn" id="btnWA"
+                 href="https://wa.me/50688323801?text=Hola%20%F0%9F%91%8B%20me%20inscrib%C3%AD%20a%20un%20evento%20y%20quiero%20confirmar%20detalles."
+                 target="_blank" rel="noopener">WhatsApp</a>
+            </div>
+
+            <p class="fine" style="margin-top:10px; color: rgba(255,255,255,.62)">
+              Si ocupás ayuda con tu reserva, escribinos por WhatsApp.
             </p>
           </div>
         </div>
-
-        <div class="divider"></div>
-
-        <div class="miniCards">
-          <div class="miniCard">
-            <p class="miniTitle">¿Qué incluye?</p>
-            <ul class="miniList">
-              <li>Guía durante la experiencia</li>
-              <li>Degustación según el formato del evento</li>
-              <li>Dinámica y recomendaciones prácticas</li>
-            </ul>
-          </div>
-
-          <div class="miniCard">
-            <p class="miniTitle">Recomendaciones</p>
-            <ul class="miniList">
-              <li>Llegá 10–15 min antes</li>
-              <li>Traé buena vibra y curiosidad</li>
-              <li>Indicá alergias al inscribirte</li>
-            </ul>
-          </div>
-        </div>
-
-      </div>
+      </section>
     </div>
-  </section>
+  </main>
 
   <!-- Footer -->
   <footer class="footer">
@@ -127,21 +270,21 @@
         <div>Entre Copas &amp; Notas · Experiencias</div>
         <div class="social">
           <a class="icon-btn"
-            href="https://wa.me/50688323801?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
-            target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
-
-          <a class="icon-btn" href="https://instagram.com/entrecopasynotas" target="_blank" rel="noopener"
-            aria-label="Instagram">IG</a>
+             href="https://wa.me/5068845123?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
+             target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
+          <a class="icon-btn"
+             href="https://instagram.com/entrecopasynotas"
+             target="_blank" rel="noopener" aria-label="Instagram">IG</a>
         </div>
       </div>
     </div>
   </footer>
 
-  <!-- Supabase -->
+  <!-- ✅ Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./js/supabaseClient.js"></script>
 
-  <!-- Lógica -->
-  <script src="./js/event.js"></script>
+  <!-- ✅ Lógica -->
+  <script src="./js/confirm.js"></script>
 </body>
 </html>
