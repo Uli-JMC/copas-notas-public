@@ -640,11 +640,11 @@ async function fetchEventAndDates(eventId) {
 
   const dates = Array.isArray(ds)
     ? ds.map((x) => ({
-        id: x.id,
-        label: safeTrim(x.label),
-        seats_total: Math.max(0, Number(x.seats_total) || 0),
-        seats_available: Math.max(0, Number(x.seats_available) || 0),
-      }))
+      id: x.id,
+      label: safeTrim(x.label),
+      seats_total: Math.max(0, Number(x.seats_total) || 0),
+      seats_available: Math.max(0, Number(x.seats_available) || 0),
+    }))
     : [];
 
   return { event: ev, dates };
@@ -776,6 +776,19 @@ async function submitRegistration() {
     const { error } = await sb.rpc("register_for_event", payload);
     if (error) throw error;
 
+    // ✅ Guardar reserva para confirm.html (si la RPC retorna)
+    if (data) {
+      const rn =
+        (typeof data === "object" && (data.reservation_number || data.reservationNumber)) ? (data.reservation_number || data.reservationNumber) :
+          (typeof data === "string" ? data : "");
+
+      const rid =
+        (typeof data === "object" && data.id) ? String(data.id) : "";
+
+      if (rn) sessionStorage.setItem("ecn_last_reservation_number", String(rn));
+      if (rid) sessionStorage.setItem("ecn_last_registration_id", rid);
+    }
+
     // ✅ Cambiar a estado enviado
     if (submitBtn) {
       submitBtn.textContent = "Enviado ✓";
@@ -859,7 +872,7 @@ async function submitRegistration() {
       DATES = fresh.dates;
       renderHeader();
       syncSubmitAvailability();
-    } catch (_) {}
+    } catch (_) { }
   }
 }
 
