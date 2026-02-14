@@ -153,7 +153,8 @@ function ensureValidationStylesOnce() {
 // ============================================================
 const SUCCESS = {
   overlayId: "ecnSuccessOverlay",
-  lottieJsonUrl: "/assets/img/lottie/champagne_13399330.json",
+  // ✅ más robusto en subpaths / archivos (misma lógica que el resto del proyecto)
+  lottieJsonUrl: "./assets/img/lottie/champagne_13399330.json",
   lottieLib: "https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js",
 };
 
@@ -565,11 +566,14 @@ async function fetchEventAndDates(eventId) {
   const sb = getSb();
   if (!sb) throw new Error("APP.supabase no existe. Revisá el orden de scripts.");
 
+  const eid = String(eventId ?? "").trim();
+  if (!eid) return { event: null, dates: [] };
+
   // ✅ FIX: description (antes desc)
   const { data: ev, error: evErr } = await sb
     .from("events")
     .select("id, title, description, type, month_key, img, location, time_range, duration_hours")
-    .eq("id", eventId)
+    .eq("id", eid)
     .maybeSingle();
 
   if (evErr) throw evErr;
@@ -581,14 +585,14 @@ async function fetchEventAndDates(eventId) {
   const tryCreatedAt = await sb
     .from("event_dates")
     .select("id, event_id, label, seats_total, seats_available, created_at")
-    .eq("event_id", eventId)
+    .eq("event_id", eid)
     .order("created_at", { ascending: true });
 
   if (tryCreatedAt.error) {
     const fallback = await sb
       .from("event_dates")
       .select("id, event_id, label, seats_total, seats_available")
-      .eq("event_id", eventId)
+      .eq("event_id", eid)
       .order("label", { ascending: true });
 
     ds = fallback.data;
@@ -864,9 +868,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  EVENT_ID = getParam("event") || "";
-  const dateIdFromUrl = getParam("date_id") || "";
-  const dateLabelFromUrl = getParam("date_label") || "";
+  EVENT_ID = String(getParam("event") || "").trim();
+  const dateIdFromUrl = String(getParam("date_id") || "").trim();
+  const dateLabelFromUrl = String(getParam("date_label") || "").trim();
 
   if (!EVENT_ID) {
     toast("Falta evento", "Volviendo a Home…");

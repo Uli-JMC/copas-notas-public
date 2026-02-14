@@ -158,7 +158,9 @@ async function fetchEventFromSupabase(eventId) {
     toast("Error", "Supabase no está listo.");
     return null;
   }
-  if (!eventId) return null;
+
+  const eid = String(eventId ?? "").trim();
+  if (!eid) return null;
 
   // 1) Evento
   const evRes = await APP.supabase
@@ -166,7 +168,7 @@ async function fetchEventFromSupabase(eventId) {
     .select(
       "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at"
     )
-    .eq("id", eventId)
+    .eq("id", eid)
     .maybeSingle();
 
   if (evRes.error) {
@@ -182,7 +184,7 @@ async function fetchEventFromSupabase(eventId) {
   const datesRes = await APP.supabase
     .from("event_dates")
     .select("id,event_id,label,seats_total,seats_available,created_at")
-    .eq("event_id", eventId);
+    .eq("event_id", eid);
 
   if (datesRes.error) {
     console.error(datesRes.error);
@@ -218,7 +220,10 @@ async function fetchEventFromSupabase(eventId) {
     type: String(evRes.data.type || "Experiencia"),
     monthKey: String(evRes.data.month_key || "—").toUpperCase(),
     title: String(evRes.data.title || "Evento"),
-    desc: String(evRes.data.description || ""), // ✅ FIX
+
+    // ✅ FIX: ahora viene de events.description (no events.desc)
+    desc: String(evRes.data.description || ""),
+
     img: normalizeImgPath(evRes.data.img || getDefaultHero()),
 
     dates,
@@ -463,7 +468,7 @@ function renderEvent(ev) {
 (async function init() {
   ensurePickListener();
 
-  const eventId = getParam("event");
+  const eventId = String(getParam("event") ?? "").trim();
   if (!eventId) {
     toast("Falta el evento", "Volviendo a la lista…");
     setTimeout(() => (window.location.href = "./home.html#proximos"), 700);
