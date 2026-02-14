@@ -18,6 +18,10 @@
 
    ✅ PATCH 2026-02-14: DB schema rename
    - events.desc  -> events.description
+
+   ✅ PATCH 2026-02-14: HERO MOBILE CTAs
+   - Agrega .heroMobileActions dentro de .heroLeft (Inscribirme + Ver más)
+   - Respeta finalized/soldOut (usa goRegister + toast)
 ============================================================ */
 
 // ============================================================
@@ -708,7 +712,15 @@ function renderEmptyState() {
           <div class="heroRow">
             <div class="heroLeft">
               <h1 class="heroTitle heroTitle--wix">NO HAY EVENTOS</h1>
+              <p class="heroDesc heroDesc--wix">Muy pronto publicaremos nuevas experiencias.</p>
+
+              <!-- ✅ Mobile CTAs -->
+              <div class="heroMobileActions">
+                <a class="btn primary" href="#proximos">Ver más</a>
+                <a class="btn" href="./gallery.html">Galería</a>
+              </div>
             </div>
+
             <div class="heroRight">
               <div class="heroInfoPanel">
                 <div class="heroTag">PRONTO</div>
@@ -716,6 +728,7 @@ function renderEmptyState() {
                 <a class="heroPanelBtn" href="#proximos">VER EVENTOS</a>
               </div>
             </div>
+
           </div>
         </div>
       </div>
@@ -758,10 +771,16 @@ function renderSlides() {
 
     const ctaText = finalized ? "EVENTO FINALIZADO" : soldOut ? "AGOTADO" : "INSCRIBIRME";
 
+    // ✅ Botón móvil: siempre visible en mobile (CSS lo muestra), y respeta estados
+    const mobilePrimaryText = finalized ? "Finalizado" : soldOut ? "Agotado" : "Inscribirme";
+    const mobilePrimaryClass = finalized ? "btn--success" : soldOut ? "btn--danger" : "";
+    const mobilePrimaryDisabled = blocked ? "aria-disabled='true'" : "";
+
     slide.innerHTML = `
       <div class="container heroCard">
         <div class="heroInnerPanel">
           <div class="heroRow">
+
             <div class="heroLeft">
               <div class="heroMeta">
                 <span class="pill">${escapeHtml(ev.type || "EXPERIENCIA")}</span>
@@ -770,6 +789,14 @@ function renderSlides() {
 
               <h1 class="heroTitle heroTitle--wix">${escapeHtml(ev.title)}</h1>
               <p class="heroDesc heroDesc--wix">${escapeHtml(ev.desc)}</p>
+
+              <!-- ✅ Mobile CTAs (no afecta desktop) -->
+              <div class="heroMobileActions">
+                <button class="btn primary ${mobilePrimaryClass}" data-action="register" data-id="${ev.id}" ${mobilePrimaryDisabled}>
+                  ${escapeHtml(mobilePrimaryText)}
+                </button>
+                <a class="btn" href="#proximos">Ver más</a>
+              </div>
             </div>
 
             <div class="heroRight">
@@ -778,12 +805,14 @@ function renderSlides() {
                 <div class="heroTag">${escapeHtml(labelB)}</div>
                 <div class="heroTag">${escapeHtml(labelC)}</div>
 
-                <button class="heroPanelBtn" data-action="register" data-id="${ev.id}"
-                  ${blocked ? "disabled style='opacity:.55;cursor:not-allowed'" : ""}>
+                <button class="heroPanelBtn ${finalized ? "btn--success" : soldOut ? "btn--danger" : ""}"
+                  data-action="register" data-id="${ev.id}"
+                  ${blocked ? "disabled" : ""}>
                   ${escapeHtml(ctaText)}
                 </button>
               </div>
             </div>
+
           </div>
         </div>
       </div>
@@ -880,7 +909,8 @@ function renderMonthGrid() {
     const time = String(ev?.timeRange || "").trim() || "Horario por definir";
 
     const row = document.createElement("div");
-    row.className = "eventRow" + (blocked ? " isBlocked" : "");
+    // ✅ Align con CSS: isSoldOut (estilo de opacidad)
+    row.className = "eventRow" + (blocked ? " isSoldOut" : "");
     row.setAttribute("role", "listitem");
 
     const statusPill = finalized
@@ -890,6 +920,9 @@ function renderMonthGrid() {
       : "";
 
     const regText = finalized ? "Finalizado" : soldOut ? "Agotado" : "Inscribirme";
+
+    // ✅ Clase para que el botón tome el color de estado (aunque esté disabled)
+    const regClass = finalized ? "btn--success" : soldOut ? "btn--danger" : "";
 
     row.innerHTML = `
       <div class="eventRowMain">
@@ -912,12 +945,12 @@ function renderMonthGrid() {
 
         <div class="eventRowRight">
           <button class="btn" data-action="info" data-id="${ev.id}"
-            ${finalized ? "disabled style='opacity:.55;cursor:not-allowed'" : ""}>
+            ${finalized ? "disabled" : ""}>
             Más info
           </button>
 
-          <button class="btn primary inviteBlack" data-action="register" data-id="${ev.id}"
-            ${blocked ? "disabled style='opacity:.55;cursor:not-allowed'" : ""}>
+          <button class="btn primary inviteBlack ${regClass}" data-action="register" data-id="${ev.id}"
+            ${blocked ? "disabled" : ""}>
             ${escapeHtml(regText)}
           </button>
         </div>
@@ -934,6 +967,12 @@ function renderMonthGrid() {
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-action]");
   if (!btn) return;
+
+  // ✅ si viene de aria-disabled (mobile CTA), bloqueamos click nativo
+  if (btn.getAttribute("aria-disabled") === "true") {
+    e.preventDefault();
+    return;
+  }
 
   const id = btn.dataset.id || "";
   const ev = EVENTS.find((x) => x.id === id);
