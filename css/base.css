@@ -94,6 +94,13 @@ h1,h2,h3,h4{ margin:0; }
   :root{ --gutter: 16px; }
 }
 
+/* ✅ Motion accessibility (PRO, no rompe nada) */
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior: auto; }
+  .btn:hover{ transform: none !important; }
+  .hamburgerFab:active{ transform: none !important; }
+}
+
 /* ============================================================
    Loader anti-flash
 ============================================================ */

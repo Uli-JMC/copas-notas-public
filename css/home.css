@@ -21,6 +21,12 @@
 
    ✅ PATCH 2026-02-10 (TESTIMONIAL SOLIDO):
    - Background sólido usando var(--drawer-bg) del base.css
+
+   ✅ PATCH 2026-02-14 (HERO MOBILE CLEAN PRO):
+   - Móvil: oculta panel derecho (heroInfoPanel)
+   - Móvil: baja el texto para lucir imagen
+   - Móvil: CTAs Inscribirme + Ver más (usa .heroMobileActions)
+   - Overlay móvil + mejor encuadre
 ============================================================ */
 
 /* ============================================================
@@ -330,6 +336,86 @@
 }
 
 /* ============================================================
+   ✅ HERO MOBILE CLEAN PRO — 2026-02-14
+   Requiere que el slide incluya dentro de .heroLeft:
+   <div class="heroMobileActions">
+     <a class="btn primary" href="./register.html">Inscribirme</a>
+     <a class="btn" href="#proximos">Ver más</a>
+   </div>
+============================================================ */
+@media (max-width: 640px){
+  /* overlay + encuadre mejor (botella/mano) */
+  .slide::before{
+    background-image:
+      linear-gradient(
+        180deg,
+        rgba(0,0,0,.16) 0%,
+        rgba(0,0,0,.22) 40%,
+        rgba(0,0,0,.66) 100%
+      ),
+      var(--bgimg);
+    background-position: 70% center;
+  }
+
+  /* Oculta panel derecho completo */
+  .heroRight{ display:none !important; }
+
+  /* Baja contenido para lucir la foto (copy abajo) */
+  .slide{
+    align-items: flex-end;
+    padding-top: 44px;
+    padding-bottom: 92px;
+  }
+
+  .heroMeta{
+    padding-bottom: 8px;
+    opacity: .92;
+  }
+
+  .heroDesc--wix{
+    font-size: 14.5px;
+    line-height: 1.55;
+    margin-top: 12px;
+  }
+
+  /* Acciones móviles */
+  .heroMobileActions{
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 18px;
+    width: min(520px, 100%);
+  }
+  .heroMobileActions .btn{
+    width: 100%;
+    justify-content: center;
+    border-radius: 14px;
+  }
+
+  /* Primario negro premium */
+  .heroMobileActions .btn.primary{
+    background: #000 !important;
+    border-color: #000 !important;
+    color: #fff !important;
+    border-width: 2px;
+  }
+  .heroMobileActions .btn.primary:hover{ filter: brightness(1.06); }
+
+  /* Secundario “glass” */
+  .heroMobileActions .btn:not(.primary){
+    background: rgba(255,255,255,.14);
+    border-color: rgba(255,255,255,.26);
+    color: rgba(255,255,255,.96);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .heroMobileActions .btn:not(.primary):hover{
+    background: rgba(255,255,255,.18);
+    border-color: rgba(255,255,255,.34);
+  }
+}
+
+/* ============================================================
    SECTIONS (HOME)
 ============================================================ */
 .section{
@@ -574,7 +660,6 @@
 
 /* ============================================================
    ✅ SERVICIOS — EFECTO COMO VIDEO (fondo fijo + overlay)
-   (Tu HTML debe tener: <section id="servicios" class="section"> ...)
 ============================================================ */
 #servicios.section{
   position: relative;
@@ -1032,19 +1117,16 @@
 /* ============================================================
    FOOTER — MOBILE ONLY (centrado, desktop intacto)
 ============================================================ */
-
 @media (max-width: 560px){
-
   .footerBottom{
-    flex-direction: column;   /* antes era row */
-    align-items: center;      /* centra todo */
+    flex-direction: column;
+    align-items: center;
     justify-content: center;
     gap: 14px;
     text-align: center;
   }
 
   .footerBottom .social{
-    justify-content: center;  /* centra WA / IG */
+    justify-content: center;
   }
-
 }
