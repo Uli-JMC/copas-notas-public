@@ -22,6 +22,11 @@
    ✅ PATCH 2026-02-14: HERO MOBILE CTAs
    - Agrega .heroMobileActions dentro de .heroLeft (Inscribirme + Ver más)
    - Respeta finalized/soldOut (usa goRegister + toast)
+
+   ✅ PATCH 2026-02-14: Scroll reveal (animación al bajar)
+   - Aplica .reveal a secciones/items (sin romper nada)
+   - IntersectionObserver + fallback
+   - Respeta prefers-reduced-motion
 ============================================================ */
 
 // ============================================================
@@ -306,6 +311,77 @@ function initMobileDrawer() {
 }
 
 // ============================================================
+// ✅ Scroll reveal (IntersectionObserver)
+// - Agrega clase .reveal a elementos objetivo
+// - Cuando entran al viewport => .is-in
+// ============================================================
+function initScrollReveal() {
+  // respeta accesibilidad
+  try {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  } catch (_) {}
+
+  // (A) marcá targets por secciones comunes
+  const selectors = [
+    "section",
+    ".heroCard",
+    ".eventRow",
+    ".serviceCard",
+    ".galleryGrid > *",
+    ".footerWide",
+    ".newsWrap",
+  ];
+
+  const found = new Set();
+
+  selectors.forEach((sel) => {
+    document.querySelectorAll(sel).forEach((el) => {
+      if (!el || el.classList.contains("reveal")) return;
+
+      // evita animar cosas “estructurales” del header/nav
+      if (el.closest(".siteHeader") || el.id === "mobileDrawer" || el.id === "drawerBackdrop") return;
+
+      el.classList.add("reveal");
+      found.add(el);
+    });
+  });
+
+  // ✅ también: los anchors/meses (si existen)
+  document.querySelectorAll("#monthAnchors a, #monthAnchors .monthBtn").forEach((el) => {
+    if (!el || el.classList.contains("reveal")) return;
+    el.classList.add("reveal");
+    found.add(el);
+  });
+
+  const items = Array.from(found);
+  if (!items.length) return;
+
+  // (B) observer
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((ent) => {
+          if (!ent.isIntersecting) return;
+          ent.target.classList.add("is-in");
+          io.unobserve(ent.target);
+        });
+      },
+      {
+        root: null,
+        rootMargin: "0px 0px -10% 0px",
+        threshold: 0.12,
+      }
+    );
+
+    items.forEach((el) => io.observe(el));
+    return;
+  }
+
+  // (C) fallback simple
+  items.forEach((el) => el.classList.add("is-in"));
+}
+
+// ============================================================
 // Supabase helpers
 // ============================================================
 function hardFail(msg) {
@@ -581,6 +657,11 @@ async function renderHomeGalleryPreview() {
     item.innerHTML = `<span>${escapeHtml(label)}</span>`;
     grid.appendChild(item);
   });
+
+  // ✅ Importante: luego de render dinámico, volvemos a aplicar reveal a nuevos items
+  try {
+    requestAnimationFrame(() => initScrollReveal());
+  } catch (_) {}
 }
 
 // ============================================================
@@ -827,6 +908,11 @@ function renderSlides() {
   });
 
   updateTransform();
+
+  // ✅ luego de render, habilitamos reveal en lo nuevo
+  try {
+    requestAnimationFrame(() => initScrollReveal());
+  } catch (_) {}
 }
 
 function updateTransform() {
@@ -884,6 +970,11 @@ function renderMonths() {
   });
 
   renderMonthGrid();
+
+  // ✅ reveal en anchors recién pintados
+  try {
+    requestAnimationFrame(() => initScrollReveal());
+  } catch (_) {}
 }
 
 function renderMonthGrid() {
@@ -959,6 +1050,11 @@ function renderMonthGrid() {
 
     monthGrid.appendChild(row);
   });
+
+  // ✅ reveal en rows recién pintadas
+  try {
+    requestAnimationFrame(() => initScrollReveal());
+  } catch (_) {}
 }
 
 // ============================================================
@@ -1014,6 +1110,10 @@ window.addEventListener("ecn:events-updated", () => {
 
   try {
     initMobileDrawer();
+
+    // ✅ prepara reveal antes de renders (para que no se vea “pop” raro)
+    initScrollReveal();
+
     await refreshFromSupabase();
   } finally {
     setLoading(false);
@@ -1022,6 +1122,11 @@ window.addEventListener("ecn:events-updated", () => {
   renderHomeGalleryPreview().catch(() => {});
   initQuoteRotator();
   initNewsletterForm();
+
+  // ✅ (re)aplica reveal por si hay secciones no tocadas por renders
+  try {
+    setTimeout(() => initScrollReveal(), 60);
+  } catch (_) {}
 
   setTimeout(() => toast("Bienvenido", "Revisá los próximos eventos."), 800);
 })();
