@@ -627,11 +627,11 @@ async function fetchEventAndDates(eventId) {
 
   const dates = Array.isArray(ds)
     ? ds.map((x) => ({
-        id: x.id,
-        label: safeTrim(x.label),
-        seats_total: Math.max(0, Number(x.seats_total) || 0),
-        seats_available: Math.max(0, Number(x.seats_available) || 0),
-      }))
+      id: x.id,
+      label: safeTrim(x.label),
+      seats_total: Math.max(0, Number(x.seats_total) || 0),
+      seats_available: Math.max(0, Number(x.seats_available) || 0),
+    }))
     : [];
 
   return { event: ev, dates };
@@ -764,6 +764,17 @@ async function submitRegistration() {
     const { data, error } = await sb.rpc("register_for_event", payload);
     if (error) throw error;
 
+    // data viene como arreglo con 1 fila (por RETURNS TABLE)
+    const row = Array.isArray(data) ? data[0] : null;
+
+    if (row?.reservation_number) {
+      sessionStorage.setItem("ecn_last_reservation_number", String(row.reservation_number));
+    }
+    if (row?.registration_id) {
+      sessionStorage.setItem("ecn_last_registration_id", String(row.registration_id));
+    }
+
+
     // ✅ Guardar datos reales para confirm.html (sin inventar)
     // - Si la función retorna TABLE: data = [{ registration_id, reservation_number }]
     // - Si retorna uuid: data = "uuid"
@@ -868,7 +879,7 @@ async function submitRegistration() {
       DATES = fresh.dates;
       renderHeader();
       syncSubmitAvailability();
-    } catch (_) {}
+    } catch (_) { }
   }
 }
 
