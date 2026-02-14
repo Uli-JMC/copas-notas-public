@@ -337,14 +337,8 @@
 
 /* ============================================================
    ✅ HERO MOBILE CLEAN PRO — 2026-02-14
-   Requiere que el slide incluya dentro de .heroLeft:
-   <div class="heroMobileActions">
-     <a class="btn primary" href="./register.html">Inscribirme</a>
-     <a class="btn" href="#proximos">Ver más</a>
-   </div>
 ============================================================ */
 @media (max-width: 640px){
-  /* overlay + encuadre mejor (botella/mano) */
   .slide::before{
     background-image:
       linear-gradient(
@@ -357,10 +351,8 @@
     background-position: 70% center;
   }
 
-  /* Oculta panel derecho completo */
   .heroRight{ display:none !important; }
 
-  /* Baja contenido para lucir la foto (copy abajo) */
   .slide{
     align-items: flex-end;
     padding-top: 44px;
@@ -378,7 +370,6 @@
     margin-top: 12px;
   }
 
-  /* Acciones móviles */
   .heroMobileActions{
     display: grid;
     grid-template-columns: 1fr;
@@ -392,7 +383,6 @@
     border-radius: 14px;
   }
 
-  /* Primario negro premium */
   .heroMobileActions .btn.primary{
     background: #000 !important;
     border-color: #000 !important;
@@ -401,7 +391,6 @@
   }
   .heroMobileActions .btn.primary:hover{ filter: brightness(1.06); }
 
-  /* Secundario “glass” */
   .heroMobileActions .btn:not(.primary){
     background: rgba(255,255,255,.14);
     border-color: rgba(255,255,255,.26);
@@ -886,11 +875,7 @@
   padding: 84px 0;
   overflow: hidden;
   isolation: isolate;
-
-  /* ✅ sólido */
   background: var(--drawer-bg);
-
-  /* opcional: separadores súper sutiles */
   border-top: 1px solid rgba(255,255,255,.16);
   border-bottom: 1px solid rgba(255,255,255,.16);
 }
@@ -899,7 +884,6 @@
   .testimonial{ padding: 64px 0; }
 }
 
-/* velo para contraste (sigue siendo sólido, solo da profundidad) */
 .testimonial::before{
   content:"";
   position:absolute;
@@ -912,7 +896,6 @@
     linear-gradient(180deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,0) 28%, rgba(0,0,0,.14) 100%);
 }
 
-/* contenido arriba */
 .testimonial .container{
   position: relative;
   z-index: 1;
@@ -941,7 +924,6 @@
   text-shadow: 0 18px 60px rgba(0,0,0,.28);
 }
 
-/* nota/sub dentro del testimonial (tu HTML usa .sub inline debajo) */
 .testimonial .sub{
   color: rgba(255,255,255,.78) !important;
 }
@@ -1047,13 +1029,11 @@
   .formRow{ grid-template-columns: 1fr; }
 }
 
-/* ✅ FIX desktop: anula margin-top heredado SOLO en row */
 .formRow .formField{
   margin-top: 0 !important;
   align-self: start;
 }
 
-/* Campos sueltos */
 .newsForm > .formField{ margin-top: 14px; }
 
 .formField{
@@ -1093,7 +1073,7 @@
 
 .formActions{
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start; /* ✅ CAMBIO: botón ENVIAR a la izquierda */
   margin-top: 14px;
 }
 
