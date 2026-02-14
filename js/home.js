@@ -15,6 +15,9 @@
    - AGOTADO solo cuando hay fechas vigentes pero cupos=0
    - Botones bloqueados si FINALIZADO o AGOTADO
    - Si ends_at es null: se calcula con start_at + duration_hours
+
+   ✅ PATCH 2026-02-14: DB schema rename
+   - events.desc  -> events.description
 ============================================================ */
 
 // ============================================================
@@ -140,7 +143,6 @@ function toast(title, msg, timeout = 3800) {
 // Nav helpers (rutas)
 // ============================================================
 function goEvent(id, finalized) {
-  // ✅ si querés permitir ver detalle aunque esté finalizado, borrá este if.
   if (finalized) {
     toast("Evento finalizado", "Este evento ya terminó.");
     return;
@@ -327,7 +329,7 @@ function computeEventStatus(dates, durationHours) {
     const endMs = Number.isFinite(endDirect) ? endDirect : addHoursMs(startMs, durationHours);
 
     const ended = Number.isFinite(endMs) ? endMs < now : false;
-    const upcomingOrLive = Number.isFinite(endMs) ? endMs >= now : true; // si no puedo calcular end, NO bloqueo
+    const upcomingOrLive = Number.isFinite(endMs) ? endMs >= now : true;
 
     return {
       id: d.id,
@@ -398,9 +400,10 @@ async function fetchEventsFromSupabase() {
     return [];
   }
 
+  // ✅ FIX: description (antes "desc")
   const evRes = await APP.supabase
     .from("events")
-    .select('id,title,type,month_key,"desc",img,location,time_range,duration_hours,created_at,updated_at')
+    .select("id,title,type,month_key,description,img,location,time_range,duration_hours,created_at,updated_at")
     .order("created_at", { ascending: false });
 
   if (evRes.error) {
@@ -455,7 +458,7 @@ async function fetchEventsFromSupabase() {
       nextDateLabel: status.nextLabel || "",
       nextDateISO: status.nextIso || "",
       title: ev?.title || "Evento",
-      desc: ev?.desc || "",
+      desc: ev?.description || "", // ✅ FIX
       img: normalizeImgPath(ev?.img),
       location: ev?.location || "",
       timeRange: ev?.time_range || "",
@@ -940,7 +943,6 @@ document.addEventListener("click", (e) => {
   const soldOut = !!ev.soldOut;
 
   if (btn.dataset.action === "info") {
-    // ✅ ya está bloqueado por disabled, pero por si acaso:
     goEvent(ev.id, finalized);
     return;
   }

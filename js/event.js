@@ -6,6 +6,9 @@
    - Loader suave para evitar “brinco” visual al refrescar
    - ✅ Muestra Precio (events.price_amount + events.price_currency)
      - Si no hay precio => "Por confirmar"
+
+   ✅ PATCH 2026-02-14:
+   - events.desc -> events.description
 ============================================================ */
 
 // ============================================================
@@ -107,7 +110,6 @@ function formatMoney(amount, currency) {
   const n = Number(amount);
   if (!cur || !Number.isFinite(n)) return "Por confirmar";
 
-  // CRC normalmente sin decimales, USD con 2
   const isCRC = cur === "CRC";
   const decimals = isCRC ? 0 : 2;
 
@@ -118,7 +120,6 @@ function formatMoney(amount, currency) {
     });
     return isCRC ? `₡${formatted}` : `$${formatted}`;
   } catch (_) {
-    // fallback simple
     const fixed = n.toFixed(decimals);
     return isCRC ? `₡${fixed}` : `$${fixed}`;
   }
@@ -163,7 +164,7 @@ async function fetchEventFromSupabase(eventId) {
   const evRes = await APP.supabase
     .from("events")
     .select(
-      'id,title,type,month_key,"desc",img,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at'
+      "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at"
     )
     .eq("id", eventId)
     .maybeSingle();
@@ -201,10 +202,8 @@ async function fetchEventFromSupabase(eventId) {
     }))
     .filter((d) => d.id);
 
-  // Si no hubo error pero vienen 0 fechas, lo tratamos como "pendiente"
   if (!datesRes.error && dates.length === 0) datesOk = false;
 
-  // Orden estable
   dates.sort((a, b) => {
     const ta = a.created_at ? Date.parse(a.created_at) : 0;
     const tb = b.created_at ? Date.parse(b.created_at) : 0;
@@ -219,19 +218,17 @@ async function fetchEventFromSupabase(eventId) {
     type: String(evRes.data.type || "Experiencia"),
     monthKey: String(evRes.data.month_key || "—").toUpperCase(),
     title: String(evRes.data.title || "Evento"),
-    // ✅ FIX: la columna se llama "desc"
-    desc: String(evRes.data["desc"] || ""),
+    desc: String(evRes.data.description || ""), // ✅ FIX
     img: normalizeImgPath(evRes.data.img || getDefaultHero()),
 
     dates,
-    seats: seatsTotalAvailable, // suma seats_available (solo si datesOk)
+    seats: seatsTotalAvailable,
     datesOk,
 
     location: safeText(evRes.data.location, "Por confirmar"),
     timeRange: safeText(evRes.data.time_range, "Por confirmar"),
     durationHours: safeText(evRes.data.duration_hours, "Por confirmar"),
 
-    // ✅ precio (Opción A)
     priceAmount: evRes.data.price_amount,
     priceCurrency: evRes.data.price_currency,
     priceText: safePriceText(evRes.data.price_amount, evRes.data.price_currency),
@@ -287,13 +284,11 @@ function setNotices({ sold, available, pending }) {
   const availNotice = $("#availNotice");
   const pendingNotice = $("#pendingNotice");
 
-  // ✅ primero ocultar todos (por si CSS raro)
   [soldNotice, availNotice, pendingNotice].forEach((el) => {
     if (!el) return;
     el.setAttribute("hidden", "");
   });
 
-  // ✅ luego mostrar SOLO el que corresponde
   if (sold && soldNotice) soldNotice.removeAttribute("hidden");
   else if (available && availNotice) availNotice.removeAttribute("hidden");
   else if (pending && pendingNotice) pendingNotice.removeAttribute("hidden");
@@ -308,10 +303,8 @@ function renderEvent(ev) {
     return;
   }
 
-  // ✅ SOLO es agotado si fechas están OK y el total de seats es 0
   const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
 
-  // Background hero
   const heroBg = $("#heroBg");
   if (heroBg) {
     const bg = normalizeImgPath(ev.img || getDefaultHero());
@@ -319,7 +312,6 @@ function renderEvent(ev) {
     heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
   }
 
-  // Meta pills
   const metaRow = $("#metaRow");
   const datesText = (ev.dates || []).map((d) => d.label).filter(Boolean).join(" • ");
 
@@ -332,13 +324,11 @@ function renderEvent(ev) {
     `;
   }
 
-  // Title + desc
   const t = $("#evTitle");
   const d = $("#evDesc");
   if (t) t.textContent = ev.title;
   if (d) d.textContent = ev.desc || "";
 
-  // Dates list
   const dateList = $("#dateList");
   if (dateList) {
     dateList.innerHTML = "";
@@ -394,7 +384,6 @@ function renderEvent(ev) {
     }
   }
 
-  // KV (DETALLES)
   const kv = $("#kv");
   if (kv) {
     kv.innerHTML = `
@@ -427,7 +416,6 @@ function renderEvent(ev) {
     `;
   }
 
-  // Notices
   if (!ev.datesOk) {
     setNotices({ sold: false, available: false, pending: true });
   } else if (soldOutTotal) {
@@ -436,7 +424,6 @@ function renderEvent(ev) {
     setNotices({ sold: false, available: true, pending: false });
   }
 
-  // Register button (sin fecha seleccionada)
   const btnRegister = $("#btnRegister");
   if (btnRegister) {
     const firstAvailable = (ev.dates || []).find((x) => (Number(x?.seats) || 0) > 0);
@@ -448,7 +435,6 @@ function renderEvent(ev) {
       btnRegister.href = `./register.html?event=${encodeURIComponent(ev.id)}`;
     }
 
-    // Si cupos por confirmar, no bloqueamos (pero no prometemos cupos)
     if (soldOutTotal) {
       btnRegister.setAttribute("aria-disabled", "true");
       btnRegister.classList.remove("primary");

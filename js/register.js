@@ -2,33 +2,9 @@
 
 /* ============================================================
    register.js (Supabase) ✅ ALINEADO + MODAL ÉXITO (SIN TIMER)
-   - Lee event + fechas desde Supabase
-   - Permite seleccionar fecha (event_dates)
-   - Muestra cupos disponibles reales (seats_available)
-   - Inserta inscripción + decrementa cupo en UNA operación vía RPC
-
-   ✅ RPC FIRMA CANÓNICA (dejá SOLO esta en DB):
-     p_event_id uuid,
-     p_event_date_id uuid,
-     p_name text,
-     p_email text,
-     p_phone text,
-     p_marketing_opt_in boolean,
-     p_allergies text   -- opcional (podés mandar null o "")
-
-   ✅ MODAL ÉXITO (2026-02-10):
-   - Centrado, overlay, animación Lottie (JSON)
-   - Sin auto-cierre (sin timer)
-   - Cierra con botón, X, overlay y ESC
-
-   ✅ VALIDACIÓN PRO (2026-02-11):
-   - Borde sutil rojo/verde en inputs/select/textarea
-   - Mensaje bajo el campo (usa tu <p class="err" data-err-for="...">)
-   - Validación "live" por input/change
-
-   ✅ UPDATE (2026-02-11.2):
-   - Botón principal del modal ahora es "Confirmación"
-   - Redirige a confirm.html?event=...&date_id=...&reg=ok
+   ...
+   ✅ PATCH 2026-02-14:
+   - events.desc -> events.description
 ============================================================ */
 
 // ============================================================
@@ -81,7 +57,6 @@ function safeTrim(v) {
 
 function normalizePhone(raw) {
   const only = String(raw || "").replace(/\D/g, "");
-  // CR: 8 dígitos o 506 + 8 dígitos
   if (only.length === 8) return "506" + only;
   if (only.length === 11 && only.startsWith("506")) return only;
   return null;
@@ -152,7 +127,6 @@ function ensureValidationStylesOnce() {
   const style = document.createElement("style");
   style.id = "ecnValidationStyles";
   style.textContent = `
-    /* ===== ECN Validation PRO ===== */
     .field.invalid input,
     .field.invalid select,
     .field.invalid textarea{
@@ -591,9 +565,10 @@ async function fetchEventAndDates(eventId) {
   const sb = getSb();
   if (!sb) throw new Error("APP.supabase no existe. Revisá el orden de scripts.");
 
+  // ✅ FIX: description (antes desc)
   const { data: ev, error: evErr } = await sb
     .from("events")
-    .select("id, title, desc, type, month_key, img, location, time_range, duration_hours")
+    .select("id, title, description, type, month_key, img, location, time_range, duration_hours")
     .eq("id", eventId)
     .maybeSingle();
 
@@ -627,14 +602,20 @@ async function fetchEventAndDates(eventId) {
 
   const dates = Array.isArray(ds)
     ? ds.map((x) => ({
-      id: x.id,
-      label: safeTrim(x.label),
-      seats_total: Math.max(0, Number(x.seats_total) || 0),
-      seats_available: Math.max(0, Number(x.seats_available) || 0),
-    }))
+        id: x.id,
+        label: safeTrim(x.label),
+        seats_total: Math.max(0, Number(x.seats_total) || 0),
+        seats_available: Math.max(0, Number(x.seats_available) || 0),
+      }))
     : [];
 
-  return { event: ev, dates };
+  // ✅ mantener compat: el resto del archivo usa EVENT.desc
+  const event = {
+    ...ev,
+    desc: String(ev.description || ""),
+  };
+
+  return { event, dates };
 }
 
 // ============================================================
@@ -760,11 +741,9 @@ async function submitRegistration() {
   }
 
   try {
-    // ✅ FIX: capturar data + error correctamente
     const { data, error } = await sb.rpc("register_for_event", payload);
     if (error) throw error;
 
-    // data viene como arreglo con 1 fila (por RETURNS TABLE)
     const row = Array.isArray(data) ? data[0] : null;
 
     if (row?.reservation_number) {
@@ -774,10 +753,6 @@ async function submitRegistration() {
       sessionStorage.setItem("ecn_last_registration_id", String(row.registration_id));
     }
 
-
-    // ✅ Guardar datos reales para confirm.html (sin inventar)
-    // - Si la función retorna TABLE: data = [{ registration_id, reservation_number }]
-    // - Si retorna uuid: data = "uuid"
     const emailLower = String(payload.p_email || "").toLowerCase();
     if (emailLower) sessionStorage.setItem("ecn_last_email", emailLower);
 
@@ -788,7 +763,7 @@ async function submitRegistration() {
       regId = data[0].registration_id ? String(data[0].registration_id) : "";
       rn = data[0].reservation_number ? String(data[0].reservation_number) : "";
     } else if (typeof data === "string") {
-      regId = data; // uuid viejo
+      regId = data;
     } else if (data && typeof data === "object") {
       regId = data.registration_id ? String(data.registration_id) : (data.id ? String(data.id) : "");
       rn = data.reservation_number ? String(data.reservation_number) : "";
@@ -797,27 +772,22 @@ async function submitRegistration() {
     if (regId) sessionStorage.setItem("ecn_last_registration_id", regId);
     if (rn) sessionStorage.setItem("ecn_last_reservation_number", rn);
 
-    // ✅ Cambiar a estado enviado
     if (submitBtn) {
       submitBtn.textContent = "Enviado ✓";
       submitBtn.classList.add("isSuccess");
     }
 
-    // ✅ Guard para CTA del modal (Confirmación)
     window.__ECN_LAST_EVENT_ID = String(EVENT_ID);
     window.__ECN_LAST_DATE_ID = String(dateId);
 
-    // Re-cargar cupos actualizados
     const fresh = await fetchEventAndDates(EVENT_ID);
     EVENT = fresh.event;
     DATES = fresh.dates;
 
-    // Reset selección
     SELECTED_DATE_ID = "";
     SELECTED_DATE_LABEL = "";
     setHiddenDateId("");
 
-    // UI reset
     $("#regForm")?.reset();
     const countEl = $("#count");
     if (countEl) countEl.textContent = "0";
@@ -826,7 +796,6 @@ async function submitRegistration() {
     renderHeader();
     syncSubmitAvailability();
 
-    // ✅ Modal éxito (SIN TIMER)
     await showSuccessModal();
   } catch (err) {
     console.error(err);
@@ -879,7 +848,7 @@ async function submitRegistration() {
       DATES = fresh.dates;
       renderHeader();
       syncSubmitAvailability();
-    } catch (_) { }
+    } catch (_) {}
   }
 }
 
