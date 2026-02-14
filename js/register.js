@@ -106,7 +106,6 @@ function getSb() {
 
 // ============================================================
 // ✅ UI helpers: estados visuales de campos (invalid/valid)
-//    - Mantiene tu estructura .field + <p class="err" data-err-for="id">
 // ============================================================
 function setFieldError(fieldId, msg) {
   const input = document.getElementById(fieldId);
@@ -355,13 +354,9 @@ function ensureSuccessModalDOM() {
 
   document.body.appendChild(overlay);
 
-  // Close: X
   overlay.querySelector(".ecnCloseX")?.addEventListener("click", () => hideSuccessModal());
-
-  // Close: botón
   overlay.querySelector('[data-act="close"]')?.addEventListener("click", () => hideSuccessModal());
 
-  // Action: go (✅ ahora va a confirm.html)
   overlay.querySelector('[data-act="go"]')?.addEventListener("click", () => {
     const evId = window.__ECN_LAST_EVENT_ID ? String(window.__ECN_LAST_EVENT_ID) : "";
     const dtId = window.__ECN_LAST_DATE_ID ? String(window.__ECN_LAST_DATE_ID) : "";
@@ -371,8 +366,6 @@ function ensureSuccessModalDOM() {
         `./confirm.html?event=${encodeURIComponent(evId)}&date_id=${encodeURIComponent(dtId)}&reg=ok`;
       return;
     }
-
-    // fallback seguro
     if (evId) {
       window.location.href = `./event.html?event=${encodeURIComponent(evId)}`;
       return;
@@ -380,12 +373,10 @@ function ensureSuccessModalDOM() {
     window.location.href = "./home.html#proximos";
   });
 
-  // Close: click afuera
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) hideSuccessModal();
   });
 
-  // Close: ESC
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       const o = document.getElementById(SUCCESS.overlayId);
@@ -436,8 +427,6 @@ let EVENT = null;
 let DATES = [];
 let SELECTED_DATE_ID = "";
 let SELECTED_DATE_LABEL = "";
-
-// ✅ evita que syncSubmitAvailability te vuelva a pisar el botón en success
 let IS_SUBMITTING = false;
 
 // ============================================================
@@ -468,7 +457,6 @@ function renderMetaBox() {
   if (!metaBox) return;
 
   const datesText = (DATES || []).map((d) => d.label).filter(Boolean).join(" • ");
-
   const type = safeTrim(EVENT?.type) || "—";
   const location = safeTrim(EVENT?.location) || "Por confirmar";
   const duration = safeTrim(EVENT?.duration_hours) || "Por confirmar";
@@ -577,7 +565,6 @@ function syncSubmitAvailability() {
   const select = $("#eventDate");
   if (!submitBtn || !select) return;
 
-  // ✅ Si estamos enviando / ya marcamos enviado, no pisar estado ni texto
   if (IS_SUBMITTING) return;
 
   const totalAvail = sumAvailableSeatsFromDates(DATES);
@@ -640,11 +627,11 @@ async function fetchEventAndDates(eventId) {
 
   const dates = Array.isArray(ds)
     ? ds.map((x) => ({
-      id: x.id,
-      label: safeTrim(x.label),
-      seats_total: Math.max(0, Number(x.seats_total) || 0),
-      seats_available: Math.max(0, Number(x.seats_available) || 0),
-    }))
+        id: x.id,
+        label: safeTrim(x.label),
+        seats_total: Math.max(0, Number(x.seats_total) || 0),
+        seats_available: Math.max(0, Number(x.seats_available) || 0),
+      }))
     : [];
 
   return { event: ev, dates };
@@ -773,21 +760,31 @@ async function submitRegistration() {
   }
 
   try {
-    const { error } = await sb.rpc("register_for_event", payload);
+    // ✅ FIX: capturar data + error correctamente
+    const { data, error } = await sb.rpc("register_for_event", payload);
     if (error) throw error;
 
-    // ✅ Guardar reserva para confirm.html (si la RPC retorna)
-    if (data) {
-      const rn =
-        (typeof data === "object" && (data.reservation_number || data.reservationNumber)) ? (data.reservation_number || data.reservationNumber) :
-          (typeof data === "string" ? data : "");
+    // ✅ Guardar datos reales para confirm.html (sin inventar)
+    // - Si la función retorna TABLE: data = [{ registration_id, reservation_number }]
+    // - Si retorna uuid: data = "uuid"
+    const emailLower = String(payload.p_email || "").toLowerCase();
+    if (emailLower) sessionStorage.setItem("ecn_last_email", emailLower);
 
-      const rid =
-        (typeof data === "object" && data.id) ? String(data.id) : "";
+    let regId = "";
+    let rn = "";
 
-      if (rn) sessionStorage.setItem("ecn_last_reservation_number", String(rn));
-      if (rid) sessionStorage.setItem("ecn_last_registration_id", rid);
+    if (Array.isArray(data) && data[0] && typeof data[0] === "object") {
+      regId = data[0].registration_id ? String(data[0].registration_id) : "";
+      rn = data[0].reservation_number ? String(data[0].reservation_number) : "";
+    } else if (typeof data === "string") {
+      regId = data; // uuid viejo
+    } else if (data && typeof data === "object") {
+      regId = data.registration_id ? String(data.registration_id) : (data.id ? String(data.id) : "");
+      rn = data.reservation_number ? String(data.reservation_number) : "";
     }
+
+    if (regId) sessionStorage.setItem("ecn_last_registration_id", regId);
+    if (rn) sessionStorage.setItem("ecn_last_reservation_number", rn);
 
     // ✅ Cambiar a estado enviado
     if (submitBtn) {
@@ -857,7 +854,6 @@ async function submitRegistration() {
       toast("Error", "No se pudo completar la inscripción. Intentá nuevamente.");
     }
 
-    // ✅ restaurar botón
     IS_SUBMITTING = false;
 
     if (submitBtn) {
@@ -872,7 +868,7 @@ async function submitRegistration() {
       DATES = fresh.dates;
       renderHeader();
       syncSubmitAvailability();
-    } catch (_) { }
+    } catch (_) {}
   }
 }
 
@@ -898,11 +894,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // Back button
   const backBtn = $("#backBtn");
   if (backBtn) backBtn.href = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
 
-  // Counter allergies
   const allergiesEl = $("#allergies");
   const countEl = $("#count");
   const syncCount = () => {
@@ -912,7 +906,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   allergiesEl?.addEventListener("input", syncCount);
   syncCount();
 
-  // Live validation
   const liveIds = ["firstName", "lastName", "email", "phone", "eventDate", "allergies"];
   liveIds.forEach((id) => {
     const el = document.getElementById(id);
@@ -928,7 +921,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     el.addEventListener("blur", run);
   });
 
-  // Load data
   try {
     const { event, dates } = await fetchEventAndDates(EVENT_ID);
 
@@ -954,7 +946,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  // Date change
   const dateSel = $("#eventDate");
   dateSel?.addEventListener("change", () => {
     if (IS_SUBMITTING) return;
@@ -978,7 +969,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Submit
   const form = $("#regForm");
   form?.addEventListener("submit", async (e) => {
     e.preventDefault();
