@@ -31,6 +31,10 @@
    ✅ PATCH 2026-02-15 (HERO VIDEO):
    - Soporta <video class="heroBgVideo"> inyectado por home.js
    - Cover + z-index correcto sin romper overlay ni fallback de imagen
+
+   ✅ PATCH 2026-02-15.1 (REVEAL + VIDEO PERF)
+   - Estilos .reveal/.is-in para tu IntersectionObserver
+   - Micro fixes para video (flicker, interacción, blur)
 ============================================================ */
 
 /* ============================================================
@@ -42,6 +46,42 @@
 
   /* ✅ Hero “más metido” solo desktop (mobile lo apaga el media query) */
   --heroShift: clamp(36px, 5vw, 96px);
+
+  /* ✅ NEW: reveal tuning */
+  --reveal-y: 14px;
+  --reveal-dur: .75s;
+  --reveal-ease: cubic-bezier(.16,1,.3,1);
+}
+
+/* ============================================================
+   ✅ NEW: SCROLL REVEAL (para .reveal + .is-in)
+   - Tu JS ya agrega estas clases; aquí está la animación real
+============================================================ */
+.reveal{
+  opacity: 0;
+  transform: translateY(var(--reveal-y));
+  filter: blur(2px);
+  transition:
+    opacity var(--reveal-dur) var(--reveal-ease),
+    transform var(--reveal-dur) var(--reveal-ease),
+    filter var(--reveal-dur) var(--reveal-ease);
+  will-change: transform, opacity, filter;
+}
+
+.reveal.is-in{
+  opacity: 1;
+  transform: translateY(0);
+  filter: blur(0);
+}
+
+/* Evita animaciones si el usuario lo pide */
+@media (prefers-reduced-motion: reduce){
+  .reveal{
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
 }
 
 /* ============================================================
@@ -101,9 +141,20 @@
   z-index: -2; /* arriba del ::before (-3), debajo del ::after (-1) */
   pointer-events: none;
   transform: scale(1.02);
-  /* Evita “parpadeo” en algunos navegadores */
+
+  /* ✅ NEW: mejor rendering / evita flicker */
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  -webkit-transform: translateZ(0) scale(1.02);
+  transform: translateZ(0) scale(1.02);
+
+  /* ✅ NEW: mejora “cinema” suave sin romper branding */
+  filter: saturate(1.02) contrast(1.02);
+}
+
+/* ✅ NEW: solo si el browser soporta performance hints */
+.heroBgVideo{
+  will-change: transform, filter, opacity;
 }
 
 /* Fallback suave si el navegador no puede renderizar video */
@@ -137,6 +188,16 @@
   background: radial-gradient(70% 55% at 35% 45%, rgba(0,0,0,.18), rgba(0,0,0,0) 62%);
   z-index: -1;
   pointer-events: none;
+}
+
+/* ✅ NEW: overlay extra solo cuando hay video (más legibilidad)
+   - No podemos detectar “si hay video” en CSS puro sin selector :has() estable,
+     pero el overlay es suficientemente suave para ambos casos.
+*/
+.slide::after{
+  background:
+    radial-gradient(70% 55% at 35% 45%, rgba(0,0,0,.18), rgba(0,0,0,0) 62%),
+    linear-gradient(180deg, rgba(0,0,0,.06) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,.10) 100%);
 }
 
 .heroCard{
@@ -387,7 +448,10 @@
   }
 
   /* ✅ video con encuadre tipo “reel” (más a la derecha como tu bg) */
-  .heroBgVideo{ object-position: 70% center; }
+  .heroBgVideo{
+    object-position: 70% center;
+    filter: saturate(1.05) contrast(1.03);
+  }
 
   .heroRight{ display:none !important; }
 

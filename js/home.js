@@ -36,6 +36,11 @@
    ✅ PATCH 2026-02-15: HERO VIDEO (events.video_url)
    - Soporta video de fondo por slide (autoplay muted loop playsinline)
    - Mantiene --bgimg como fallback (no rompe CSS existente)
+
+   ✅ PATCH 2026-02-15.1: HERO VIDEO PERF
+   - Solo reproduce el video del slide activo
+   - Pausa los demás para ahorrar CPU/batería
+   - Pausa cuando la pestaña no está visible
 ============================================================ */
 
 // ============================================================
@@ -183,6 +188,15 @@ function safeCssUrl(url) {
     .replaceAll('"', "%22")
     .replaceAll(")", "%29")
     .trim();
+}
+
+// ✅ deduce mime por extensión (si no, lo omitimos)
+function guessVideoMime(url) {
+  const u = String(url || "").toLowerCase();
+  if (u.endsWith(".webm")) return "video/webm";
+  if (u.endsWith(".mp4")) return "video/mp4";
+  if (u.endsWith(".mov")) return "video/quicktime";
+  return "";
 }
 
 // ============================================================
@@ -380,8 +394,6 @@ function initMobileDrawer() {
 
 // ============================================================
 // ✅ Scroll reveal (IntersectionObserver)
-// - Agrega clase .reveal a elementos objetivo
-// - Cuando entran al viewport => .is-in
 // ============================================================
 function initScrollReveal() {
   try {
@@ -811,6 +823,47 @@ let autoTimer = null;
 const AUTO_MS = 7000;
 let EVENTS = [];
 
+// ✅ Control de videos para performance
+function pauseAllHeroVideos() {
+  if (!slidesEl) return;
+  slidesEl.querySelectorAll("video.heroBgVideo").forEach((v) => {
+    try {
+      v.pause();
+      // “reset” suave para evitar descargar demasiado (sin romper)
+      v.currentTime = 0;
+    } catch (_) {}
+  });
+}
+
+function playActiveHeroVideo() {
+  if (!slidesEl) return;
+  const slide = slidesEl.children?.[idx];
+  if (!slide) return;
+
+  const v = slide.querySelector("video.heroBgVideo");
+  if (!v) return;
+
+  try {
+    // Asegura policy autoplay: muted + playsinline ya vienen en HTML
+    const p = v.play();
+    if (p && typeof p.catch === "function") p.catch(() => {});
+  } catch (_) {}
+}
+
+function syncHeroVideos() {
+  // Solo uno activo
+  pauseAllHeroVideos();
+  playActiveHeroVideo();
+}
+
+// Pausa cuando la pestaña no está visible (mobile / ahorro)
+document.addEventListener("visibilitychange", () => {
+  try {
+    if (document.hidden) pauseAllHeroVideos();
+    else playActiveHeroVideo();
+  } catch (_) {}
+});
+
 function getDefaultHero() {
   try {
     const media = window.ECN?.getMedia?.();
@@ -905,12 +958,13 @@ function renderSlides() {
     const mobilePrimaryClass = finalized ? "btn--success" : soldOut ? "btn--danger" : "";
     const mobilePrimaryDisabled = blocked ? "aria-disabled='true'" : "";
 
-    // ✅ HERO VIDEO (opcional)
+    // ✅ HERO VIDEO (opcional) — sin forzar mp4
     const v = String(ev?.videoUrl || "").trim();
+    const mime = v ? guessVideoMime(v) : "";
     const videoHtml = v
       ? `
         <video class="heroBgVideo" autoplay muted loop playsinline preload="metadata" poster="${safeAttr(bgImg)}">
-          <source src="${safeAttr(v)}" type="video/mp4" />
+          <source src="${safeAttr(v)}" ${mime ? `type="${mime}"` : ""} />
         </video>
       `
       : "";
@@ -968,8 +1022,12 @@ function renderSlides() {
 
   updateTransform();
 
+  // ✅ asegura video correcto al render inicial
   try {
-    requestAnimationFrame(() => initScrollReveal());
+    requestAnimationFrame(() => {
+      syncHeroVideos();
+      initScrollReveal();
+    });
   } catch (_) {}
 }
 
@@ -983,6 +1041,10 @@ function goTo(next, user) {
   if (!EVENTS.length) return;
   idx = (next + EVENTS.length) % EVENTS.length;
   updateTransform();
+
+  // ✅ PERF: solo reproduce el slide activo
+  syncHeroVideos();
+
   if (user) restartAuto();
 }
 
@@ -1148,6 +1210,11 @@ async function refreshFromSupabase() {
   renderSlides();
   restartAuto();
   renderMonths();
+
+  // ✅ por si cambió el idx / DOM
+  try {
+    requestAnimationFrame(() => syncHeroVideos());
+  } catch (_) {}
 }
 
 window.addEventListener("ecn:events-updated", () => {
@@ -1177,6 +1244,11 @@ window.addEventListener("ecn:events-updated", () => {
 
   try {
     setTimeout(() => initScrollReveal(), 60);
+  } catch (_) {}
+
+  // ✅ asegura que el primer slide intente play cuando ya está todo listo
+  try {
+    setTimeout(() => syncHeroVideos(), 120);
   } catch (_) {}
 
   setTimeout(() => toast("Bienvenido", "Revisá los próximos eventos."), 800);

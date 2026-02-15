@@ -796,3 +796,48 @@ textarea{ resize: vertical; }
   .pmodalCard{ grid-template-columns: 1fr; }
   .pmodalMedia{ min-height: 240px; }
 }
+
+/* ✅ FIX: soporta #pageLoader (id) y .pageLoader (class) */
+#pageLoader,
+.pageLoader{
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  display:grid;
+  place-items:center;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+}
+
+body.is-loading #pageLoader,
+body.is-loading .pageLoader{
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ✅ FIX: soporta #pageLoader (id) y .pageLoader (class) */
+#pageLoader,
+.pageLoader{
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  display:grid;
+  place-items:center;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+}
+
+body.is-loading #pageLoader,
+body.is-loading .pageLoader{
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mobileDrawer{
+  padding-top: calc(28px + env(safe-area-inset-top));
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
+}
