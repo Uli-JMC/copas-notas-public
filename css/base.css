@@ -841,3 +841,11 @@ body.is-loading .pageLoader{
   padding-top: calc(28px + env(safe-area-inset-top));
   padding-bottom: calc(28px + env(safe-area-inset-bottom));
 }
+
+
+/* ✅ hidden siempre manda */
+[hidden]{ display:none !important; }
+
+/* ✅ cuando el drawer está cerrado que no capture clicks */
+.mobileDrawer[aria-hidden="true"]{ pointer-events:none; }
+.mobileDrawer[aria-hidden="false"]{ pointer-events:auto; }
