@@ -32,6 +32,10 @@
    - Quita hash (#proximos etc.) al cargar
    - Desactiva scrollRestoration
    - Fuerza scrollTo(0,0) temprano + RAF + load
+
+   ✅ PATCH 2026-02-15: HERO VIDEO (events.video_url)
+   - Soporta video de fondo por slide (autoplay muted loop playsinline)
+   - Mantiene --bgimg como fallback (no rompe CSS existente)
 ============================================================ */
 
 // ============================================================
@@ -74,6 +78,16 @@ function escapeHtml(str) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function safeAttr(str) {
+  // Para atributos HTML (src/poster). Evita comillas y < >
+  return String(str ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 const qs = (sel) => document.querySelector(sel);
@@ -142,6 +156,25 @@ function normalizeImgPath(input) {
   if (p.startsWith("img/")) return "/assets/" + p + (rest || "");
 
   return "/assets/img/" + p + (rest || "");
+}
+
+function normalizeVideoUrl(input) {
+  // ✅ Mínimo: soporta absolute http(s), absolute /, o relativo tipo ./assets/video/...
+  const raw = String(input ?? "").trim();
+  if (!raw) return "";
+
+  if (/^https?:\/\//i.test(raw)) return raw;
+
+  const [pathPart, rest] = raw.split(/(?=[?#])/);
+  let p = pathPart.replaceAll("\\", "/");
+
+  if (p.startsWith("./")) p = p.slice(2);
+  if (p.startsWith("/")) return p + (rest || "");
+  // si viene "assets/..." lo normalizamos a "/assets/..."
+  if (p.startsWith("assets/")) return "/" + p + (rest || "");
+
+  // fallback: lo tratamos como asset dentro de /assets/
+  return "/assets/" + p + (rest || "");
 }
 
 function safeCssUrl(url) {
@@ -498,7 +531,7 @@ async function fetchEventsFromSupabase() {
 
   const evRes = await APP.supabase
     .from("events")
-    .select("id,title,type,month_key,description,img,location,time_range,duration_hours,created_at,updated_at")
+    .select("id,title,type,month_key,description,img,video_url,location,time_range,duration_hours,created_at,updated_at")
     .order("created_at", { ascending: false });
 
   if (evRes.error) {
@@ -554,6 +587,7 @@ async function fetchEventsFromSupabase() {
       title: ev?.title || "Evento",
       desc: ev?.description || "",
       img: normalizeImgPath(ev?.img),
+      videoUrl: normalizeVideoUrl(ev?.video_url),
       location: ev?.location || "",
       timeRange: ev?.time_range || "",
       durationHours: ev?.duration_hours || "",
@@ -851,7 +885,9 @@ function renderSlides() {
 
     const slide = document.createElement("article");
     slide.className = "slide";
-    slide.style.setProperty("--bgimg", `url('${safeCssUrl(ev.img || getDefaultHero())}')`);
+
+    const bgImg = ev.img || getDefaultHero();
+    slide.style.setProperty("--bgimg", `url('${safeCssUrl(bgImg)}')`);
 
     const labelA = getHeroDayLabel(ev);
     const labelB = String(ev?.timeRange || "").trim().toUpperCase() || "19:00";
@@ -869,7 +905,18 @@ function renderSlides() {
     const mobilePrimaryClass = finalized ? "btn--success" : soldOut ? "btn--danger" : "";
     const mobilePrimaryDisabled = blocked ? "aria-disabled='true'" : "";
 
+    // ✅ HERO VIDEO (opcional)
+    const v = String(ev?.videoUrl || "").trim();
+    const videoHtml = v
+      ? `
+        <video class="heroBgVideo" autoplay muted loop playsinline preload="metadata" poster="${safeAttr(bgImg)}">
+          <source src="${safeAttr(v)}" type="video/mp4" />
+        </video>
+      `
+      : "";
+
     slide.innerHTML = `
+      ${videoHtml}
       <div class="container heroCard">
         <div class="heroInnerPanel">
           <div class="heroRow">
