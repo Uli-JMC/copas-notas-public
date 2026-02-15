@@ -41,6 +41,12 @@
    - Solo reproduce el video del slide activo
    - Pausa los demás para ahorrar CPU/batería
    - Pausa cuando la pestaña no está visible
+
+   ✅ PATCH 2026-02-15.2: HERO VIDEO PLAY FIX
+   - NO resetea currentTime al pausar (Safari/iOS bug)
+   - Fuerza muted/playsinline por JS antes de play()
+   - Retry con canplay si play() falla
+   - guessVideoMime ignora query/hash
 ============================================================ */
 
 // ============================================================
@@ -190,9 +196,9 @@ function safeCssUrl(url) {
     .trim();
 }
 
-// ✅ deduce mime por extensión (si no, lo omitimos)
+// ✅ deduce mime por extensión (ignora query/hash)
 function guessVideoMime(url) {
-  const u = String(url || "").toLowerCase();
+  const u = String(url || "").toLowerCase().split("?")[0].split("#")[0];
   if (u.endsWith(".webm")) return "video/webm";
   if (u.endsWith(".mp4")) return "video/mp4";
   if (u.endsWith(".mov")) return "video/quicktime";
@@ -400,15 +406,7 @@ function initScrollReveal() {
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   } catch (_) {}
 
-  const selectors = [
-    "section",
-    ".heroCard",
-    ".eventRow",
-    ".serviceCard",
-    ".galleryGrid > *",
-    ".footerWide",
-    ".newsWrap",
-  ];
+  const selectors = ["section", ".heroCard", ".eventRow", ".serviceCard", ".galleryGrid > *", ".footerWide", ".newsWrap"];
 
   const found = new Set();
 
@@ -752,8 +750,8 @@ function initQuoteRotator() {
 
   let i = 0;
 
-  const setQuote = (idx) => {
-    const q = quotes[idx];
+  const setQuote = (idx0) => {
+    const q = quotes[idx0];
     if (!q) return;
 
     el.classList.remove("is-anim");
@@ -829,8 +827,8 @@ function pauseAllHeroVideos() {
   slidesEl.querySelectorAll("video.heroBgVideo").forEach((v) => {
     try {
       v.pause();
-      // “reset” suave para evitar descargar demasiado (sin romper)
-      v.currentTime = 0;
+      // ✅ NO resetear currentTime aquí (Safari/iOS puede romper autoplay)
+      // v.currentTime = 0;
     } catch (_) {}
   });
 }
@@ -844,14 +842,38 @@ function playActiveHeroVideo() {
   if (!v) return;
 
   try {
-    // Asegura policy autoplay: muted + playsinline ya vienen en HTML
+    // ✅ fuerza policy autoplay (Safari/iOS lo necesita a veces explícito)
+    v.muted = true;
+    v.defaultMuted = true;
+    v.setAttribute("muted", "");
+    v.playsInline = true;
+    v.setAttribute("playsinline", "");
+    v.setAttribute("webkit-playsinline", "");
+
+    // ✅ si aún no cargó metadata, ayuda
+    if (v.readyState < 2) {
+      v.preload = "metadata";
+      try {
+        v.load();
+      } catch (_) {}
+    }
+
     const p = v.play();
-    if (p && typeof p.catch === "function") p.catch(() => {});
+    if (p && typeof p.catch === "function") {
+      p.catch(() => {
+        const once = () => {
+          v.removeEventListener("canplay", once);
+          try {
+            v.play().catch(() => {});
+          } catch (_) {}
+        };
+        v.addEventListener("canplay", once, { once: true });
+      });
+    }
   } catch (_) {}
 }
 
 function syncHeroVideos() {
-  // Solo uno activo
   pauseAllHeroVideos();
   playActiveHeroVideo();
 }
@@ -958,7 +980,7 @@ function renderSlides() {
     const mobilePrimaryClass = finalized ? "btn--success" : soldOut ? "btn--danger" : "";
     const mobilePrimaryDisabled = blocked ? "aria-disabled='true'" : "";
 
-    // ✅ HERO VIDEO (opcional) — sin forzar mp4
+    // ✅ HERO VIDEO (opcional)
     const v = String(ev?.videoUrl || "").trim();
     const mime = v ? guessVideoMime(v) : "";
     const videoHtml = v
