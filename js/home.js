@@ -27,7 +27,42 @@
    - Aplica .reveal a secciones/items (sin romper nada)
    - IntersectionObserver + fallback
    - Respeta prefers-reduced-motion
+
+   ✅ PATCH 2026-02-14: FORCE TOP ON HOME
+   - Quita hash (#proximos etc.) al cargar
+   - Desactiva scrollRestoration
+   - Fuerza scrollTo(0,0) temprano + RAF + load
 ============================================================ */
+
+// ============================================================
+// ✅ FORCE TOP ON HOME (evita que cargue en #proximos)
+// ============================================================
+(function forceTopOnHome() {
+  try {
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+
+    // Si entran con hash (ej: /index.html#proximos), lo limpiamos
+    if (location.hash && location.hash.length > 1) {
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+
+    // Fuerza arriba lo antes posible
+    window.scrollTo(0, 0);
+
+    // Re-fuerza al siguiente frame (por si el browser ajusta scroll)
+    requestAnimationFrame(() => window.scrollTo(0, 0));
+
+    // Y al terminar load (por layout/imagenes)
+    window.addEventListener(
+      "load",
+      () => {
+        window.scrollTo(0, 0);
+        setTimeout(() => window.scrollTo(0, 0), 60);
+      },
+      { once: true }
+    );
+  } catch (_) {}
+})();
 
 // ============================================================
 // Helpers
@@ -316,12 +351,10 @@ function initMobileDrawer() {
 // - Cuando entran al viewport => .is-in
 // ============================================================
 function initScrollReveal() {
-  // respeta accesibilidad
   try {
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   } catch (_) {}
 
-  // (A) marcá targets por secciones comunes
   const selectors = [
     "section",
     ".heroCard",
@@ -337,16 +370,12 @@ function initScrollReveal() {
   selectors.forEach((sel) => {
     document.querySelectorAll(sel).forEach((el) => {
       if (!el || el.classList.contains("reveal")) return;
-
-      // evita animar cosas “estructurales” del header/nav
       if (el.closest(".siteHeader") || el.id === "mobileDrawer" || el.id === "drawerBackdrop") return;
-
       el.classList.add("reveal");
       found.add(el);
     });
   });
 
-  // ✅ también: los anchors/meses (si existen)
   document.querySelectorAll("#monthAnchors a, #monthAnchors .monthBtn").forEach((el) => {
     if (!el || el.classList.contains("reveal")) return;
     el.classList.add("reveal");
@@ -356,7 +385,6 @@ function initScrollReveal() {
   const items = Array.from(found);
   if (!items.length) return;
 
-  // (B) observer
   if ("IntersectionObserver" in window) {
     const io = new IntersectionObserver(
       (entries) => {
@@ -366,18 +394,13 @@ function initScrollReveal() {
           io.unobserve(ent.target);
         });
       },
-      {
-        root: null,
-        rootMargin: "0px 0px -10% 0px",
-        threshold: 0.12,
-      }
+      { root: null, rootMargin: "0px 0px -10% 0px", threshold: 0.12 }
     );
 
     items.forEach((el) => io.observe(el));
     return;
   }
 
-  // (C) fallback simple
   items.forEach((el) => el.classList.add("is-in"));
 }
 
@@ -424,13 +447,7 @@ function computeEventStatus(dates, durationHours) {
   });
 
   if (!parsed.length) {
-    return {
-      finalized: false,
-      soldOut: false,
-      seatsUpcoming: 0,
-      nextLabel: "",
-      nextIso: "",
-    };
+    return { finalized: false, soldOut: false, seatsUpcoming: 0, nextLabel: "", nextIso: "" };
   }
 
   const ends = parsed.map((x) => x.endMs).filter((x) => Number.isFinite(x));
@@ -450,7 +467,6 @@ function computeEventStatus(dates, durationHours) {
   const next = viable[0] || null;
 
   const seatsUpcoming = viable.reduce((acc, x) => acc + (Number(x.seats_available) || 0), 0);
-
   const hasUpcoming = viable.length > 0;
   const soldOut = !finalized && hasUpcoming && seatsUpcoming <= 0;
 
@@ -462,8 +478,8 @@ function computeEventStatus(dates, durationHours) {
     const last = parsed
       .slice()
       .sort((a, b) => {
-        const ea = Number.isFinite(a.endMs) ? a.endMs : (Number.isFinite(a.startMs) ? a.startMs : -Infinity);
-        const eb = Number.isFinite(b.endMs) ? b.endMs : (Number.isFinite(b.startMs) ? b.startMs : -Infinity);
+        const ea = Number.isFinite(a.endMs) ? a.endMs : Number.isFinite(a.startMs) ? a.startMs : -Infinity;
+        const eb = Number.isFinite(b.endMs) ? b.endMs : Number.isFinite(b.startMs) ? b.startMs : -Infinity;
         return ea - eb;
       })
       .pop();
@@ -480,7 +496,6 @@ async function fetchEventsFromSupabase() {
     return [];
   }
 
-  // ✅ FIX: description (antes "desc")
   const evRes = await APP.supabase
     .from("events")
     .select("id,title,type,month_key,description,img,location,time_range,duration_hours,created_at,updated_at")
@@ -527,7 +542,6 @@ async function fetchEventsFromSupabase() {
   return events.map((ev) => {
     const evDates = byEvent.get(ev.id) || [];
     const status = computeEventStatus(evDates, ev?.duration_hours);
-
     const labels = evDates.map((x) => x.label).filter(Boolean);
 
     return {
@@ -538,7 +552,7 @@ async function fetchEventsFromSupabase() {
       nextDateLabel: status.nextLabel || "",
       nextDateISO: status.nextIso || "",
       title: ev?.title || "Evento",
-      desc: ev?.description || "", // ✅ FIX
+      desc: ev?.description || "",
       img: normalizeImgPath(ev?.img),
       location: ev?.location || "",
       timeRange: ev?.time_range || "",
@@ -658,7 +672,6 @@ async function renderHomeGalleryPreview() {
     grid.appendChild(item);
   });
 
-  // ✅ Importante: luego de render dinámico, volvemos a aplicar reveal a nuevos items
   try {
     requestAnimationFrame(() => initScrollReveal());
   } catch (_) {}
@@ -852,7 +865,6 @@ function renderSlides() {
 
     const ctaText = finalized ? "EVENTO FINALIZADO" : soldOut ? "AGOTADO" : "INSCRIBIRME";
 
-    // ✅ Botón móvil: siempre visible en mobile (CSS lo muestra), y respeta estados
     const mobilePrimaryText = finalized ? "Finalizado" : soldOut ? "Agotado" : "Inscribirme";
     const mobilePrimaryClass = finalized ? "btn--success" : soldOut ? "btn--danger" : "";
     const mobilePrimaryDisabled = blocked ? "aria-disabled='true'" : "";
@@ -909,7 +921,6 @@ function renderSlides() {
 
   updateTransform();
 
-  // ✅ luego de render, habilitamos reveal en lo nuevo
   try {
     requestAnimationFrame(() => initScrollReveal());
   } catch (_) {}
@@ -971,7 +982,6 @@ function renderMonths() {
 
   renderMonthGrid();
 
-  // ✅ reveal en anchors recién pintados
   try {
     requestAnimationFrame(() => initScrollReveal());
   } catch (_) {}
@@ -1000,7 +1010,6 @@ function renderMonthGrid() {
     const time = String(ev?.timeRange || "").trim() || "Horario por definir";
 
     const row = document.createElement("div");
-    // ✅ Align con CSS: isSoldOut (estilo de opacidad)
     row.className = "eventRow" + (blocked ? " isSoldOut" : "");
     row.setAttribute("role", "listitem");
 
@@ -1011,8 +1020,6 @@ function renderMonthGrid() {
       : "";
 
     const regText = finalized ? "Finalizado" : soldOut ? "Agotado" : "Inscribirme";
-
-    // ✅ Clase para que el botón tome el color de estado (aunque esté disabled)
     const regClass = finalized ? "btn--success" : soldOut ? "btn--danger" : "";
 
     row.innerHTML = `
@@ -1051,7 +1058,6 @@ function renderMonthGrid() {
     monthGrid.appendChild(row);
   });
 
-  // ✅ reveal en rows recién pintadas
   try {
     requestAnimationFrame(() => initScrollReveal());
   } catch (_) {}
@@ -1064,7 +1070,6 @@ document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-action]");
   if (!btn) return;
 
-  // ✅ si viene de aria-disabled (mobile CTA), bloqueamos click nativo
   if (btn.getAttribute("aria-disabled") === "true") {
     e.preventDefault();
     return;
@@ -1123,18 +1128,9 @@ window.addEventListener("ecn:events-updated", () => {
   initQuoteRotator();
   initNewsletterForm();
 
-  // ✅ (re)aplica reveal por si hay secciones no tocadas por renders
   try {
     setTimeout(() => initScrollReveal(), 60);
   } catch (_) {}
 
   setTimeout(() => toast("Bienvenido", "Revisá los próximos eventos."), 800);
 })();
-
-// Siempre iniciar arriba al cargar/recargar
-if ("scrollRestoration" in history) {
-  history.scrollRestoration = "manual";
-}
-window.addEventListener("load", () => {
-  window.scrollTo(0, 0);
-});
