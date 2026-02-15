@@ -6,8 +6,123 @@ type ReqBody = {
   outbox_id?: string;
 };
 
-function moneyCRC(n: number) {
-  return new Intl.NumberFormat("es-CR", { style: "currency", currency: "CRC" }).format(n);
+// ============================================================
+// Helpers
+// ============================================================
+function escapeHtml(str: any) {
+  return String(str ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function normCurrency(cur: any) {
+  const c = String(cur || "").trim().toUpperCase();
+  if (c === "CRC" || c === "USD") return c;
+  return "";
+}
+
+function formatMoney(amount: any, currency: any) {
+  const cur = normCurrency(currency);
+  const n = Number(amount);
+  if (!cur || !Number.isFinite(n)) return null;
+
+  const isCRC = cur === "CRC";
+  const decimals = isCRC ? 0 : 2;
+
+  try {
+    const formatted = n.toLocaleString("es-CR", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    return isCRC ? `₡${formatted}` : `$${formatted}`;
+  } catch {
+    const fixed = n.toFixed(decimals);
+    return isCRC ? `₡${fixed}` : `$${fixed}`;
+  }
+}
+
+function moneyTextFromEvent(ev: any) {
+  // ✅ FIX BD: price_amount + price_currency
+  const t = formatMoney(ev?.price_amount, ev?.price_currency);
+  return t;
+}
+
+function fmtDateEsCR(iso: string) {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return new Intl.DateTimeFormat("es-CR", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+    }).format(d);
+  } catch {
+    return "";
+  }
+}
+
+function fmtTimeEsCR(iso: string) {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return new Intl.DateTimeFormat("es-CR", {
+      hour: "numeric",
+      minute: "2-digit",
+    }).format(d);
+  } catch {
+    return "";
+  }
+}
+
+function parseDurationHours(v: any): number | null {
+  // duration_hours en tu schema es text, puede venir "2", "2.5", "2 horas"
+  const raw = String(v ?? "").trim();
+  if (!raw) return null;
+  const m = raw.match(/(\d+(\.\d+)?)/);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function buildTimeRange({
+  start_at,
+  ends_at,
+  fallback,
+  durationHoursText,
+}: {
+  start_at?: string | null;
+  ends_at?: string | null;
+  fallback?: string | null;
+  durationHoursText?: any;
+}) {
+  const sIso = start_at ? String(start_at) : "";
+  if (sIso) {
+    const s = new Date(sIso);
+    if (!Number.isNaN(s.getTime())) {
+      let e: Date | null = null;
+
+      if (ends_at) {
+        const eTry = new Date(String(ends_at));
+        if (!Number.isNaN(eTry.getTime())) e = eTry;
+      } else {
+        const dh = parseDurationHours(durationHoursText);
+        if (dh) e = new Date(s.getTime() + dh * 60 * 60 * 1000);
+      }
+
+      const sText = fmtTimeEsCR(s.toISOString());
+      if (e) {
+        const eText = fmtTimeEsCR(e.toISOString());
+        if (sText && eText) return `${sText} – ${eText}`;
+      }
+      if (sText) return sText;
+    }
+  }
+
+  const fb = String(fallback ?? "").trim();
+  return fb || "Por confirmar";
 }
 
 function waLink(phoneE164NoPlus: string, text: string) {
@@ -196,25 +311,39 @@ Deno.serve(async (req) => {
         const reservationNumber = (reg.reservation_number || reg.id || "").trim();
         if (!toEmail) throw new Error("El registro no tiene email (reg.email vacío)");
 
+        // ✅ FIX: tu BD no tiene events.price; tiene price_amount + price_currency
+        // ✅ También traemos duration_hours para calcular ends_at cuando falte
         const { data: ev } = await sb
           .from("events")
-          .select("title,location,time_range,price")
+          .select("title,location,time_range,duration_hours,price_amount,price_currency")
           .eq("id", reg.event_id)
           .maybeSingle();
 
+        // ✅ FIX: si tenés start_at/ends_at esto permite “Hora real”
         const { data: dt } = await sb
           .from("event_dates")
-          .select("label")
+          .select("label,start_at,ends_at")
           .eq("id", reg.event_date_id)
           .maybeSingle();
 
-        const eventTitle = (ev?.title ?? "Evento").trim();
-        const location = (ev?.location ?? "Por confirmar").trim();
-        const timeRange = (ev?.time_range ?? "Por confirmar").trim();
-        const dateLabel = (dt?.label ?? "Por confirmar").trim();
+        const eventTitle = String(ev?.title ?? "Evento").trim() || "Evento";
+        const location = String(ev?.location ?? "Por confirmar").trim() || "Por confirmar";
 
-        const price = Number(ev?.price ?? 0);
-        const totalText = price > 0 ? moneyCRC(price) : "Te confirmamos el monto por WhatsApp";
+        const dateLabelDb = String(dt?.label ?? "").trim();
+        const dateLabel =
+          dateLabelDb ||
+          (dt?.start_at ? fmtDateEsCR(String(dt.start_at)) : "") ||
+          "Por confirmar";
+
+        const timeRange = buildTimeRange({
+          start_at: dt?.start_at ? String(dt.start_at) : null,
+          ends_at: dt?.ends_at ? String(dt.ends_at) : null,
+          fallback: ev?.time_range ? String(ev.time_range) : null,
+          durationHoursText: ev?.duration_hours,
+        });
+
+        const money = moneyTextFromEvent(ev);
+        const totalText = money || "Te confirmamos el monto por WhatsApp";
 
         const waText = [
           `Hola, soy ${fullName}.`,
@@ -229,17 +358,18 @@ Deno.serve(async (req) => {
           ? `
             <tr>
               <td style="padding:0">
-                <img src="${EMAIL_HEADER_IMAGE_URL}" alt="${BRAND_NAME}" width="600"
+                <img src="${EMAIL_HEADER_IMAGE_URL}" alt="${escapeHtml(BRAND_NAME)}" width="600"
                   style="display:block;width:100%;max-width:600px;height:auto;border-radius:16px 16px 0 0;">
               </td>
             </tr>`
           : "";
 
         const logoBlock = BRAND_LOGO_URL
-          ? `<img src="${BRAND_LOGO_URL}" alt="${BRAND_NAME}" width="44" height="44"
+          ? `<img src="${BRAND_LOGO_URL}" alt="${escapeHtml(BRAND_NAME)}" width="44" height="44"
                style="display:block;border-radius:12px;object-fit:cover;">`
           : `<div style="width:44px;height:44px;border-radius:12px;background:#111827;"></div>`;
 
+        // ✅ Escape en TODO lo que viene de DB (evita HTML roto / contenido vacío por caracteres raros)
         const html = `<!doctype html>
 <html>
   <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>Confirmación de reserva</title></head>
@@ -254,7 +384,7 @@ Deno.serve(async (req) => {
                 <tr>
                   <td style="width:52px;vertical-align:middle;">${logoBlock}</td>
                   <td style="vertical-align:middle;padding-left:12px;">
-                    <div style="font-size:16px;font-weight:700;line-height:1.2">${BRAND_NAME}</div>
+                    <div style="font-size:16px;font-weight:700;line-height:1.2">${escapeHtml(BRAND_NAME)}</div>
                     <div style="font-size:12px;color:#6b7280;line-height:1.2">Confirmación de reserva</div>
                   </td>
                 </tr>
@@ -263,21 +393,21 @@ Deno.serve(async (req) => {
 
             <tr><td style="padding:0 22px 14px 22px;">
               <h2 style="margin:8px 0 10px 0;font-size:20px;">✅ Reserva registrada</h2>
-              <p style="margin:0 0 10px 0;color:#374151;">Hola <b>${fullName}</b>, ¡gracias por registrarte!</p>
+              <p style="margin:0 0 10px 0;color:#374151;">Hola <b>${escapeHtml(fullName)}</b>, ¡gracias por registrarte!</p>
 
               <div style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:14px;padding:14px;margin:12px 0;">
                 <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">Tu número de reserva</div>
-                <div style="font-size:18px;font-weight:800;letter-spacing:.3px;">${reservationNumber}</div>
+                <div style="font-size:18px;font-weight:800;letter-spacing:.3px;">${escapeHtml(reservationNumber)}</div>
               </div>
 
               <hr style="border:none;border-top:1px solid #eef0f4;margin:16px 0;" />
 
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-                <tr><td style="padding:6px 0;color:#111827;"><b>Evento:</b> ${eventTitle}</td></tr>
-                <tr><td style="padding:6px 0;color:#111827;"><b>Fecha:</b> ${dateLabel}</td></tr>
-                <tr><td style="padding:6px 0;color:#111827;"><b>Hora:</b> ${timeRange}</td></tr>
-                <tr><td style="padding:6px 0;color:#111827;"><b>Lugar:</b> ${location}</td></tr>
-                <tr><td style="padding:6px 0;color:#111827;"><b>Monto total:</b> ${totalText}</td></tr>
+                <tr><td style="padding:6px 0;color:#111827;"><b>Evento:</b> ${escapeHtml(eventTitle)}</td></tr>
+                <tr><td style="padding:6px 0;color:#111827;"><b>Fecha:</b> ${escapeHtml(dateLabel)}</td></tr>
+                <tr><td style="padding:6px 0;color:#111827;"><b>Hora:</b> ${escapeHtml(timeRange)}</td></tr>
+                <tr><td style="padding:6px 0;color:#111827;"><b>Lugar:</b> ${escapeHtml(location)}</td></tr>
+                <tr><td style="padding:6px 0;color:#111827;"><b>Monto total:</b> ${escapeHtml(totalText)}</td></tr>
               </table>
 
               <hr style="border:none;border-top:1px solid #eef0f4;margin:16px 0;" />
@@ -301,7 +431,7 @@ Deno.serve(async (req) => {
                 Si el botón no abre, copiá este enlace: <span style="word-break:break-all;">${whatsappUrl}</span>
               </p>
 
-              <div style="margin-top:18px;padding-top:14px;border-top:1px solid #eef0f4;color:#9ca3af;font-size:12px;">— ${BRAND_NAME}</div>
+              <div style="margin-top:18px;padding-top:14px;border-top:1px solid #eef0f4;color:#9ca3af;font-size:12px;">— ${escapeHtml(BRAND_NAME)}</div>
             </td></tr>
           </table>
 
@@ -351,12 +481,11 @@ Deno.serve(async (req) => {
       } catch (err: any) {
         const msg = err?.message ?? String(err);
 
-        // OJO: tries reales ya incrementados en DB; para backoff usamos el valor de row como aproximación,
-        // pero si querés 100% exacto, habría que re-leer tries desde DB.
+        // tries reales ya incrementados en DB; aproximamos para backoff
         const triesApprox = Number(row.tries ?? 0) + 1;
 
         const retryable = isRetryableError(msg);
-        if (retryable && triesApprox < MAX_TRIES) {
+        if (retryable && triesApprox < 8) {
           const backoffMin = calcBackoffMinutes(triesApprox);
           const nextRetry = addMinutesToISO(backoffMin);
 
