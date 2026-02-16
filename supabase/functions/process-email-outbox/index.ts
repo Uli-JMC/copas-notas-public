@@ -194,7 +194,9 @@ Deno.serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
     const SB_URL = Deno.env.get("SB_URL") || Deno.env.get("SUPABASE_URL") || "";
     const SB_SERVICE_ROLE_KEY =
-      Deno.env.get("SB_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+      Deno.env.get("SB_SERVICE_ROLE_KEY") ||
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ||
+      "";
 
     const BRAND_NAME = (Deno.env.get("BRAND_NAME") || "Entre Copas").trim();
     const BRAND_LOGO_URL = (Deno.env.get("BRAND_LOGO_URL") || "").trim();
@@ -225,6 +227,7 @@ Deno.serve(async (req) => {
       .from("email_outbox")
       .select("id,to_email,payload,status,kind,tries,created_at,last_error,next_retry_at")
       .eq("status", "PENDING")
+      // PostgREST OR sobre columnas: next_retry_at IS NULL o <= now
       .or(`next_retry_at.is.null,next_retry_at.lte.${nowIso}`)
       .order("created_at", { ascending: true })
       .limit(limit);
@@ -249,8 +252,6 @@ Deno.serve(async (req) => {
       "registration_email",
     ]);
 
-    const MAX_TRIES = 8;
-
     // ============================================================
     // Worker loop
     // ============================================================
@@ -265,7 +266,7 @@ Deno.serve(async (req) => {
         // ============================================================
         const { data: lockData, error: lockErr } = await sb
           .from("email_outbox")
-          .update({ status: "SENDING" })
+          .update({ status: "SENDING", updated_at: new Date().toISOString() } as any)
           .eq("id", outboxId)
           .eq("status", "PENDING")
           .select("id,tries")
@@ -279,7 +280,10 @@ Deno.serve(async (req) => {
 
         // tries++ basado en el valor real de DB (lockData.tries)
         const triesNow = Number(lockData.tries ?? row.tries ?? 0) + 1;
-        await sb.from("email_outbox").update({ tries: triesNow }).eq("id", outboxId);
+        await sb
+          .from("email_outbox")
+          .update({ tries: triesNow, updated_at: new Date().toISOString() } as any)
+          .eq("id", outboxId);
 
         // kind validation
         if (!SUPPORTED_KINDS.has(kind)) throw new Error(`kind no soportado: ${kind}`);
@@ -311,15 +315,14 @@ Deno.serve(async (req) => {
         const reservationNumber = (reg.reservation_number || reg.id || "").trim();
         if (!toEmail) throw new Error("El registro no tiene email (reg.email vacío)");
 
-        // ✅ FIX: tu BD no tiene events.price; tiene price_amount + price_currency
-        // ✅ También traemos duration_hours para calcular ends_at cuando falte
+        // ✅ BD: price_amount + price_currency, duration_hours text
         const { data: ev } = await sb
           .from("events")
           .select("title,location,time_range,duration_hours,price_amount,price_currency")
           .eq("id", reg.event_id)
           .maybeSingle();
 
-        // ✅ FIX: si tenés start_at/ends_at esto permite “Hora real”
+        // ✅ BD: start_at / ends_at existen en event_dates
         const { data: dt } = await sb
           .from("event_dates")
           .select("label,start_at,ends_at")
@@ -369,7 +372,6 @@ Deno.serve(async (req) => {
                style="display:block;border-radius:12px;object-fit:cover;">`
           : `<div style="width:44px;height:44px;border-radius:12px;background:#111827;"></div>`;
 
-        // ✅ Escape en TODO lo que viene de DB (evita HTML roto / contenido vacío por caracteres raros)
         const html = `<!doctype html>
 <html>
   <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>Confirmación de reserva</title></head>
@@ -444,9 +446,6 @@ Deno.serve(async (req) => {
   </body>
 </html>`;
 
-        // ============================================================
-        // Resend send
-        // ============================================================
         const resendResp = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
@@ -473,6 +472,7 @@ Deno.serve(async (req) => {
             status: "SENT",
             last_error: null,
             next_retry_at: null,
+            updated_at: new Date().toISOString(),
             payload: { ...(payload || {}), resend_id: resendId },
           } as any)
           .eq("id", outboxId);
@@ -481,7 +481,7 @@ Deno.serve(async (req) => {
       } catch (err: any) {
         const msg = err?.message ?? String(err);
 
-        // tries reales ya incrementados en DB; aproximamos para backoff
+        // tries aproximados (el valor real ya se incrementó arriba)
         const triesApprox = Number(row.tries ?? 0) + 1;
 
         const retryable = isRetryableError(msg);
@@ -495,6 +495,7 @@ Deno.serve(async (req) => {
               status: "PENDING",
               last_error: msg,
               next_retry_at: nextRetry,
+              updated_at: new Date().toISOString(),
             } as any)
             .eq("id", outboxId);
 
@@ -506,6 +507,7 @@ Deno.serve(async (req) => {
               status: "FAILED",
               last_error: msg,
               next_retry_at: null,
+              updated_at: new Date().toISOString(),
             } as any)
             .eq("id", outboxId);
 
