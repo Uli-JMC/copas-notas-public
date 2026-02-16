@@ -45,9 +45,8 @@ function formatMoney(amount: any, currency: any) {
 }
 
 function moneyTextFromEvent(ev: any) {
-  // ✅ FIX BD: price_amount + price_currency
-  const t = formatMoney(ev?.price_amount, ev?.price_currency);
-  return t;
+  // ✅ BD: price_amount + price_currency
+  return formatMoney(ev?.price_amount, ev?.price_currency);
 }
 
 function fmtDateEsCR(iso: string) {
@@ -172,6 +171,13 @@ function addMinutesToISO(minutes: number) {
   return d.toISOString();
 }
 
+function isRetryEligible(nextRetryAt: any, nowMs: number) {
+  if (!nextRetryAt) return true;
+  const t = new Date(String(nextRetryAt)).getTime();
+  if (Number.isNaN(t)) return true; // si viene basura, no bloqueamos
+  return t <= nowMs;
+}
+
 Deno.serve(async (req) => {
   try {
     // Solo POST (evita ejecuciones accidentales)
@@ -219,23 +225,23 @@ Deno.serve(async (req) => {
     const sb = createClient(SB_URL, SB_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
     // ============================================================
-    // 1) Query pendientes elegibles (next_retry_at null o <= ahora)
+    // 1) Query pendientes (sin OR con ISO, para evitar bugs de parsing)
+    //    - Traemos PENDING ordenados y filtramos por next_retry_at en código
     // ============================================================
-    const nowIso = new Date().toISOString();
-
     let q = sb
       .from("email_outbox")
       .select("id,to_email,payload,status,kind,tries,created_at,last_error,next_retry_at")
       .eq("status", "PENDING")
-      // PostgREST OR sobre columnas: next_retry_at IS NULL o <= now
-      .or(`next_retry_at.is.null,next_retry_at.lte.${nowIso}`)
       .order("created_at", { ascending: true })
-      .limit(limit);
+      .limit(Math.min(limit * 3, 150)); // buffer para filtrar por next_retry_at sin quedarnos sin filas
 
     if (body.outbox_id) q = q.eq("id", body.outbox_id);
 
-    const { data: rows, error: qErr } = await q;
+    const { data: fetched, error: qErr } = await q;
     if (qErr) return jsonResp(500, { error: "outbox query failed", details: qErr });
+
+    const nowMs = Date.now();
+    const rows = (fetched || []).filter((r: any) => isRetryEligible(r?.next_retry_at, nowMs)).slice(0, limit);
 
     if (!rows || rows.length === 0) {
       return jsonResp(200, { ok: true, processed: 0, sent: 0, failed: 0, skipped: 0 });
@@ -252,6 +258,8 @@ Deno.serve(async (req) => {
       "registration_email",
     ]);
 
+    const MAX_TRIES = 8;
+
     // ============================================================
     // Worker loop
     // ============================================================
@@ -259,6 +267,9 @@ Deno.serve(async (req) => {
       const outboxId = String(row.id);
       const kind = String(row.kind || "").trim();
       let payload: any = row.payload;
+
+      // Mantener el tries real para usarlo en catch
+      let triesNow = Number(row.tries ?? 0);
 
       try {
         // ============================================================
@@ -279,7 +290,25 @@ Deno.serve(async (req) => {
         }
 
         // tries++ basado en el valor real de DB (lockData.tries)
-        const triesNow = Number(lockData.tries ?? row.tries ?? 0) + 1;
+        triesNow = Number(lockData.tries ?? row.tries ?? 0) + 1;
+
+        // Si ya excedió max tries, marcamos FAILED y seguimos
+        if (triesNow >= MAX_TRIES) {
+          await sb
+            .from("email_outbox")
+            .update({
+              status: "FAILED",
+              last_error: `Max tries exceeded (${triesNow}/${MAX_TRIES})`,
+              next_retry_at: null,
+              tries: triesNow,
+              updated_at: new Date().toISOString(),
+            } as any)
+            .eq("id", outboxId);
+
+          failed++;
+          continue;
+        }
+
         await sb
           .from("email_outbox")
           .update({ tries: triesNow, updated_at: new Date().toISOString() } as any)
@@ -292,11 +321,14 @@ Deno.serve(async (req) => {
         if (typeof payload === "string") {
           try {
             payload = JSON.parse(payload);
-          } catch {}
+          } catch {
+            // si viene string no-json, dejamos payload como {}
+            payload = {};
+          }
         }
 
         const registrationId = String(payload?.registration_id || "").trim();
-        if (!registrationId) throw new Error("payload.registration_id faltante (Modo B requiere esto)");
+        if (!registrationId) throw new Error("payload.registration_id faltante (requerido)");
 
         // ============================================================
         // Data fetch
@@ -316,18 +348,22 @@ Deno.serve(async (req) => {
         if (!toEmail) throw new Error("El registro no tiene email (reg.email vacío)");
 
         // ✅ BD: price_amount + price_currency, duration_hours text
-        const { data: ev } = await sb
+        const { data: ev, error: evErr } = await sb
           .from("events")
           .select("title,location,time_range,duration_hours,price_amount,price_currency")
           .eq("id", reg.event_id)
           .maybeSingle();
 
+        if (evErr) throw new Error(`events query failed: ${evErr.message}`);
+
         // ✅ BD: start_at / ends_at existen en event_dates
-        const { data: dt } = await sb
+        const { data: dt, error: dtErr } = await sb
           .from("event_dates")
           .select("label,start_at,ends_at")
           .eq("id", reg.event_date_id)
           .maybeSingle();
+
+        if (dtErr) throw new Error(`event_dates query failed: ${dtErr.message}`);
 
         const eventTitle = String(ev?.title ?? "Evento").trim() || "Evento";
         const location = String(ev?.location ?? "Por confirmar").trim() || "Por confirmar";
@@ -399,7 +435,9 @@ Deno.serve(async (req) => {
 
               <div style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:14px;padding:14px;margin:12px 0;">
                 <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">Tu número de reserva</div>
-                <div style="font-size:18px;font-weight:800;letter-spacing:.3px;">${escapeHtml(reservationNumber)}</div>
+                <div style="font-size:18px;font-weight:800;letter-spacing:.3px;">${escapeHtml(
+                  reservationNumber,
+                )}</div>
               </div>
 
               <hr style="border:none;border-top:1px solid #eef0f4;margin:16px 0;" />
@@ -433,7 +471,9 @@ Deno.serve(async (req) => {
                 Si el botón no abre, copiá este enlace: <span style="word-break:break-all;">${whatsappUrl}</span>
               </p>
 
-              <div style="margin-top:18px;padding-top:14px;border-top:1px solid #eef0f4;color:#9ca3af;font-size:12px;">— ${escapeHtml(BRAND_NAME)}</div>
+              <div style="margin-top:18px;padding-top:14px;border-top:1px solid #eef0f4;color:#9ca3af;font-size:12px;">— ${escapeHtml(
+                BRAND_NAME,
+              )}</div>
             </td></tr>
           </table>
 
@@ -481,12 +521,9 @@ Deno.serve(async (req) => {
       } catch (err: any) {
         const msg = err?.message ?? String(err);
 
-        // tries aproximados (el valor real ya se incrementó arriba)
-        const triesApprox = Number(row.tries ?? 0) + 1;
-
         const retryable = isRetryableError(msg);
-        if (retryable && triesApprox < 8) {
-          const backoffMin = calcBackoffMinutes(triesApprox);
+        if (retryable && triesNow < MAX_TRIES) {
+          const backoffMin = calcBackoffMinutes(triesNow);
           const nextRetry = addMinutesToISO(backoffMin);
 
           await sb
