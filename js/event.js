@@ -1,14 +1,16 @@
 "use strict";
 
 /* ============================================================
-   event.js (Supabase-first) ✅ FIX + PRICE (Opción A)
-   - No marca "Agotado" si fechas aún no cargaron (evita falso sold-out)
-   - Loader suave para evitar “brinco” visual al refrescar
-   - ✅ Muestra Precio (events.price_amount + events.price_currency)
-     - Si no hay precio => "Por confirmar"
+   event.js (Supabase-first) ✅ UX SENSORIAL PATCH
+   - Mantiene lógica actual (fechas/cupos/registro)
+   - ✅ Foto principal: #evPhoto (usa events.img)
+   - ✅ Banner adicional (BD): #evBannerImg + #evBannerText (+ title opcional)
+   - ✅ No depende del heroBg (se setea solo por compatibilidad)
+   - Precio: events.price_amount + events.price_currency (si no => "Por confirmar")
 
-   ✅ PATCH 2026-02-14:
-   - events.desc -> events.description
+   ✅ PATCH 2026-02-17:
+   - Soporte UI sensorial
+   - Banner extra (sin romper si no hay columnas)
 ============================================================ */
 
 // ============================================================
@@ -163,7 +165,10 @@ async function fetchEventFromSupabase(eventId) {
   if (!eid) return null;
 
   // 1) Evento
-  const evRes = await APP.supabase
+  // ✅ Agregamos columnas opcionales para el banner sensorial.
+  // Si NO existen en tu tabla, Supabase puede devolver error.
+  // Para evitarlo, usamos select básico + luego hacemos "best effort" sin romper.
+  let evRes = await APP.supabase
     .from("events")
     .select(
       "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at"
@@ -171,12 +176,35 @@ async function fetchEventFromSupabase(eventId) {
     .eq("id", eid)
     .maybeSingle();
 
+  // Si tu tabla YA tiene campos de banner, luego hacemos un segundo select opcional.
+  // (Así no rompemos si no existen aún)
+  let bannerExtra = null;
+
   if (evRes.error) {
     console.error(evRes.error);
     toast("Error", "No se pudo cargar el evento.");
     return null;
   }
   if (!evRes.data) return null;
+
+  // 1B) Intento opcional de traer banner fields si existen
+  // Cambiá estos nombres cuando me confirmés los reales:
+  // - banner_img
+  // - banner_text
+  // - banner_title
+  try {
+    const extraRes = await APP.supabase
+      .from("events")
+      .select("banner_img,banner_text,banner_title")
+      .eq("id", eid)
+      .maybeSingle();
+
+    if (!extraRes?.error && extraRes?.data) {
+      bannerExtra = extraRes.data;
+    }
+  } catch (_) {
+    bannerExtra = null;
+  }
 
   // 2) Fechas
   let datesOk = true;
@@ -215,16 +243,22 @@ async function fetchEventFromSupabase(eventId) {
 
   const seatsTotalAvailable = dates.reduce((acc, x) => acc + (Number(x.seats) || 0), 0);
 
+  const heroImg = normalizeImgPath(evRes.data.img || getDefaultHero());
+
   return {
     id: String(evRes.data.id || ""),
     type: String(evRes.data.type || "Experiencia"),
     monthKey: String(evRes.data.month_key || "—").toUpperCase(),
     title: String(evRes.data.title || "Evento"),
 
-    // ✅ FIX: ahora viene de events.description (no events.desc)
     desc: String(evRes.data.description || ""),
 
-    img: normalizeImgPath(evRes.data.img || getDefaultHero()),
+    img: heroImg,
+
+    // ✅ Banner extra (si existe)
+    bannerImg: bannerExtra?.banner_img ? normalizeImgPath(bannerExtra.banner_img) : "",
+    bannerText: String(bannerExtra?.banner_text || ""),
+    bannerTitle: String(bannerExtra?.banner_title || ""),
 
     dates,
     seats: seatsTotalAvailable,
@@ -282,6 +316,62 @@ function ensurePickListener() {
 }
 
 // ============================================================
+// Render helpers (sensorial)
+// ============================================================
+function setHeroPhoto(ev) {
+  // ✅ Foto protagonista
+  const imgEl = $("#evPhoto");
+  if (imgEl && ev?.img) {
+    imgEl.src = ev.img;
+    imgEl.alt = ev.title ? `Foto del evento: ${ev.title}` : "Foto del evento";
+  }
+}
+
+function setBanner(ev) {
+  const wrap = $("#evBanner");          // contenedor del banner
+  const imgEl = $("#evBannerImg");      // <img>
+  const txtEl = $("#evBannerText");     // <p> o <div>
+  const ttlEl = $("#evBannerTitle");    // <h3> opcional
+
+  const hasImg = !!String(ev?.bannerImg || "").trim();
+  const hasTxt = !!String(ev?.bannerText || "").trim();
+  const hasTtl = !!String(ev?.bannerTitle || "").trim();
+
+  // Si no hay nada, ocultar si existe
+  if (!hasImg && !hasTxt && !hasTtl) {
+    if (wrap) wrap.setAttribute("hidden", "");
+    return;
+  }
+  if (wrap) wrap.removeAttribute("hidden");
+
+  if (imgEl) {
+    if (hasImg) {
+      imgEl.src = ev.bannerImg;
+      imgEl.alt = "Banner del evento";
+      imgEl.removeAttribute("hidden");
+    } else {
+      imgEl.setAttribute("hidden", "");
+    }
+  }
+  if (ttlEl) {
+    if (hasTtl) {
+      ttlEl.textContent = ev.bannerTitle;
+      ttlEl.removeAttribute("hidden");
+    } else {
+      ttlEl.setAttribute("hidden", "");
+    }
+  }
+  if (txtEl) {
+    if (hasTxt) {
+      txtEl.textContent = ev.bannerText;
+      txtEl.removeAttribute("hidden");
+    } else {
+      txtEl.setAttribute("hidden", "");
+    }
+  }
+}
+
+// ============================================================
 // Render
 // ============================================================
 function setNotices({ sold, available, pending }) {
@@ -310,12 +400,17 @@ function renderEvent(ev) {
 
   const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
 
+  // ✅ Compatibilidad: sigue seteando heroBg, aunque el CSS lo apaga
   const heroBg = $("#heroBg");
   if (heroBg) {
     const bg = normalizeImgPath(ev.img || getDefaultHero());
     heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(bg)}')`);
     heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
   }
+
+  // ✅ Nuevo: foto protagonista + banner
+  setHeroPhoto(ev);
+  setBanner(ev);
 
   const metaRow = $("#metaRow");
   const datesText = (ev.dates || []).map((d) => d.label).filter(Boolean).join(" • ");
@@ -325,7 +420,7 @@ function renderEvent(ev) {
       <span class="pill"><span class="dot"></span> ${escapeHtml(ev.type)}</span>
       <span class="pill">${escapeHtml(datesText || (ev.datesOk ? "Por definir" : "Cupos por confirmar"))}</span>
       <span class="pill">${escapeHtml(ev.monthKey || "—")}</span>
-      ${soldOutTotal ? `<span class="pill" style="border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.10);">AGOTADO</span>` : ``}
+      ${soldOutTotal ? `<span class="pill">AGOTADO</span>` : ``}
     `;
   }
 
