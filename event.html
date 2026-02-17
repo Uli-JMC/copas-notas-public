@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="es">
-
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -24,9 +23,7 @@
     </div>
   </div>
   <style>
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 
   <!-- Header -->
@@ -46,63 +43,93 @@
     </div>
   </header>
 
-  <!-- Hero -->
-  <section class="hero" aria-label="Detalle del evento">
-    <div class="heroBg" id="heroBg"></div>
+  <!-- ✅ EVENT HERO (sensorial, sin “fondo borroso” como protagonista) -->
+  <main class="eventPage" aria-label="Detalle del evento">
+    <section class="eventHero" aria-label="Introducción del evento">
+      <!-- Mantenemos heroBg por compatibilidad (si tu JS lo usa), pero ya no es “el fondo principal” -->
+      <div class="heroBg" id="heroBg" aria-hidden="true"></div>
 
-    <div class="container heroWrap">
-      <div class="heroCard" id="heroCard">
-        <div class="heroMeta" id="metaRow"></div>
+      <div class="container eventHeroWrap">
+        <!-- ✅ Media real del evento (NUEVO ID) -->
+        <figure class="eventHeroMedia" id="heroMedia" aria-label="Imagen del evento"></figure>
 
-        <h1 class="title" id="evTitle">Evento</h1>
-        <p class="desc" id="evDesc">Descripción del evento.</p>
+        <!-- ✅ Contenido editorial -->
+        <div class="eventHeroContent">
+          <div class="heroMeta" id="metaRow"></div>
 
-        <div class="grid">
-          <div class="panel">
-            <h2 class="h2">Fechas disponibles</h2>
-            <p class="sub">Seleccioná una fecha para tu inscripción (si hay más de una).</p>
+          <h1 class="title" id="evTitle">Evento</h1>
+          <p class="desc" id="evDesc">Descripción del evento.</p>
 
-            <div class="dates" id="dateList"></div>
+          <!-- ✅ Sección extra desde BD (NUEVO) -->
+          <section class="eventExtra" id="evExtra" hidden aria-label="Información adicional">
+            <h2 class="h2">Menú / Bebidas</h2>
+            <p class="sub">Lo que vas a probar y descubrir en esta experiencia.</p>
+            <div class="extraBox" id="evExtraText"></div>
+          </section>
+        </div>
+      </div>
+    </section>
 
-            <!-- ✅ Estado: disponible -->
-            <div class="notice" id="availNotice" hidden>
-              <span class="badge">Inscripciones disponibles</span>
-              <p class="noticeLegend">Inscribite y disfrutá de esta experiencia.</p>
+    <!-- ✅ PANEL ÚNICO: Fechas + Detalles + CTA -->
+    <section class="eventPanel" aria-label="Inscripción y detalles">
+      <div class="container">
+        <div class="panelOne">
+          <div class="panelHead">
+            <div>
+              <h2 class="h2">Inscripción</h2>
+              <p class="sub">Elegí una fecha y revisá los detalles del evento.</p>
             </div>
 
-            <!-- ✅ Estado: agotado -->
-            <div class="notice" id="soldNotice" hidden>
-              <span class="badge danger">Agotado</span>
-              <p class="noticeLegend">Este evento no tiene cupos disponibles.</p>
-            </div>
-
-            <!-- ✅ Estado: por confirmar -->
-            <div class="notice" id="pendingNotice" hidden>
-              <span class="badge">Cupos por confirmar</span>
-              <p class="noticeLegend">Estamos actualizando las fechas y cupos. Probá en unos segundos.</p>
-            </div>
-          </div>
-
-          <div class="panel">
-            <h2 class="h2">Detalles</h2>
-
-            <div class="kv" id="kv"></div>
-
-            <div class="actions">
+            <div class="actions actionsTop">
               <a class="btn" id="btnHome" href="./home.html#proximos">Ver otros eventos</a>
               <a class="btn primary" id="btnRegister" href="./register.html">Inscribirme</a>
             </div>
+          </div>
 
-            <p class="fine">
-              Al inscribirte, te llega confirmación al correo. Si seleccionás “recibir info”, también por WhatsApp.
-            </p>
+          <div class="panelGrid">
+            <!-- Fechas -->
+            <div class="panelCol">
+              <p class="kicker">Fechas disponibles</p>
+              <div class="dates" id="dateList"></div>
+
+              <!-- ✅ Estado: disponible -->
+              <div class="notice" id="availNotice" hidden>
+                <span class="badge">Inscripciones disponibles</span>
+                <p class="noticeLegend">Inscribite y disfrutá de esta experiencia.</p>
+              </div>
+
+              <!-- ✅ Estado: agotado -->
+              <div class="notice" id="soldNotice" hidden>
+                <span class="badge danger">Agotado</span>
+                <p class="noticeLegend">Este evento no tiene cupos disponibles.</p>
+              </div>
+
+              <!-- ✅ Estado: por confirmar -->
+              <div class="notice" id="pendingNotice" hidden>
+                <span class="badge">Cupos por confirmar</span>
+                <p class="noticeLegend">Estamos actualizando las fechas y cupos. Probá en unos segundos.</p>
+              </div>
+            </div>
+
+            <!-- Detalles -->
+            <div class="panelCol">
+              <p class="kicker">Detalles</p>
+              <div class="kv" id="kv"></div>
+
+              <p class="fine">
+                Al inscribirte, te llega confirmación al correo. Si seleccionás “recibir info”, también por WhatsApp.
+              </p>
+            </div>
           </div>
         </div>
+      </div>
+    </section>
 
-        <div class="divider"></div>
-
-        <div class="miniCards">
-          <div class="miniCard">
+    <!-- ✅ Cierre más ligero (menos “mini cards”) -->
+    <section class="eventAfter" aria-label="Información final">
+      <div class="container">
+        <div class="afterGrid">
+          <div class="afterBlock">
             <p class="miniTitle">¿Qué incluye?</p>
             <ul class="miniList">
               <li>Guía durante la experiencia</li>
@@ -111,7 +138,7 @@
             </ul>
           </div>
 
-          <div class="miniCard">
+          <div class="afterBlock">
             <p class="miniTitle">Recomendaciones</p>
             <ul class="miniList">
               <li>Llegá 10–15 min antes</li>
@@ -120,10 +147,9 @@
             </ul>
           </div>
         </div>
-
       </div>
-    </div>
-  </section>
+    </section>
+  </main>
 
   <!-- Footer -->
   <footer class="footer">
@@ -132,11 +158,10 @@
         <div>Entre Copas &amp; Notas · Experiencias</div>
         <div class="social">
           <a class="icon-btn"
-            href="https://wa.me/50688323801?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
-            target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
-
+             href="https://wa.me/50688323801?text=Hola%20quiero%20info%20de%20los%20eventos%20%F0%9F%8D%B7%F0%9F%8D%B8"
+             target="_blank" rel="noopener" aria-label="WhatsApp">WA</a>
           <a class="icon-btn" href="https://instagram.com/entrecopasynotas" target="_blank" rel="noopener"
-            aria-label="Instagram">IG</a>
+             aria-label="Instagram">IG</a>
         </div>
       </div>
     </div>
@@ -149,5 +174,4 @@
   <!-- Lógica -->
   <script src="./js/event.js"></script>
 </body>
-
 </html>

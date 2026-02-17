@@ -76,7 +76,7 @@
       },
       { once: true }
     );
-  } catch (_) { }
+  } catch (_) {}
 })();
 
 // ============================================================
@@ -145,7 +145,7 @@ function setLoading(on) {
     document.body.classList.toggle("is-loading", !!on);
     const loader = qs("#pageLoader");
     if (loader) loader.setAttribute("aria-hidden", on ? "false" : "true");
-  } catch (_) { }
+  } catch (_) {}
 }
 
 // ============================================================
@@ -229,7 +229,7 @@ function toast(title, msg, timeout = 3800) {
       el.style.opacity = "0";
       el.style.transform = "translateY(-6px)";
       setTimeout(() => el.remove(), 180);
-    } catch (_) { }
+    } catch (_) {}
   };
 
   el.querySelector(".close")?.addEventListener("click", kill, { once: true });
@@ -379,7 +379,7 @@ function initMobileDrawer() {
           const target = document.querySelector(href);
           if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
           history.replaceState(null, "", href);
-        } catch (_) { }
+        } catch (_) {}
       }, 280);
 
       return;
@@ -404,7 +404,7 @@ function initMobileDrawer() {
 function initScrollReveal() {
   try {
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  } catch (_) { }
+  } catch (_) {}
 
   const selectors = ["section", ".heroCard", ".eventRow", ".serviceCard", ".galleryGrid > *", ".footerWide", ".newsWrap"];
 
@@ -453,7 +453,7 @@ function initScrollReveal() {
 function hardFail(msg) {
   try {
     console.error(msg);
-  } catch (_) { }
+  } catch (_) {}
 }
 
 function hasSupabase() {
@@ -655,7 +655,7 @@ function toHashtags(tagsLike, fallbackName) {
         try {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) tags = parsed;
-        } catch (_) { }
+        } catch (_) {}
       }
       if (!tags.length) tags = raw.split(",").map((t) => t.trim()).filter(Boolean);
     }
@@ -718,7 +718,7 @@ async function renderHomeGalleryPreview() {
 
   try {
     requestAnimationFrame(() => initScrollReveal());
-  } catch (_) { }
+  } catch (_) {}
 }
 
 // ============================================================
@@ -772,7 +772,7 @@ function initQuoteRotator() {
     () => {
       try {
         clearInterval(t);
-      } catch (_) { }
+      } catch (_) {}
     },
     { once: true }
   );
@@ -829,7 +829,7 @@ function pauseAllHeroVideos() {
       v.pause();
       // ✅ NO resetear currentTime aquí (Safari/iOS puede romper autoplay)
       // v.currentTime = 0;
-    } catch (_) { }
+    } catch (_) {}
   });
 }
 
@@ -855,7 +855,7 @@ function playActiveHeroVideo() {
       v.preload = "metadata";
       try {
         v.load();
-      } catch (_) { }
+      } catch (_) {}
     }
 
     const p = v.play();
@@ -864,13 +864,13 @@ function playActiveHeroVideo() {
         const once = () => {
           v.removeEventListener("canplay", once);
           try {
-            v.play().catch(() => { });
-          } catch (_) { }
+            v.play().catch(() => {});
+          } catch (_) {}
         };
         v.addEventListener("canplay", once, { once: true });
       });
     }
-  } catch (_) { }
+  } catch (_) {}
 }
 
 function syncHeroVideos() {
@@ -883,7 +883,7 @@ document.addEventListener("visibilitychange", () => {
   try {
     if (document.hidden) pauseAllHeroVideos();
     else playActiveHeroVideo();
-  } catch (_) { }
+  } catch (_) {}
 });
 
 function getDefaultHero() {
@@ -919,7 +919,7 @@ function renderEmptyState() {
 
               <!-- ✅ Mobile CTAs -->
               <div class="heroMobileActions">
-                <a class="btn primary" href="./event.html">Ver más</a>
+                <a class="btn primary" href="#proximos">Ver más</a>
                 <a class="btn" href="./gallery.html">Galería</a>
               </div>
             </div>
@@ -971,8 +971,8 @@ function renderSlides() {
     const statusPill = finalized
       ? `<span class="pill pill--success">FINALIZADO</span>`
       : soldOut
-        ? `<span class="pill pill--danger">AGOTADO</span>`
-        : "";
+      ? `<span class="pill pill--danger">AGOTADO</span>`
+      : "";
 
     const ctaText = finalized ? "EVENTO FINALIZADO" : soldOut ? "AGOTADO" : "INSCRIBIRME";
 
@@ -1050,7 +1050,7 @@ function renderSlides() {
       syncHeroVideos();
       initScrollReveal();
     });
-  } catch (_) { }
+  } catch (_) {}
 }
 
 function updateTransform() {
@@ -1115,7 +1115,7 @@ function renderMonths() {
 
   try {
     requestAnimationFrame(() => initScrollReveal());
-  } catch (_) { }
+  } catch (_) {}
 }
 
 function renderMonthGrid() {
@@ -1147,8 +1147,8 @@ function renderMonthGrid() {
     const statusPill = finalized
       ? `<span class="eventPill eventPill--success">FINALIZADO</span>`
       : soldOut
-        ? `<span class="eventPill eventPill--danger">AGOTADO</span>`
-        : "";
+      ? `<span class="eventPill eventPill--danger">AGOTADO</span>`
+      : "";
 
     const regText = finalized ? "Finalizado" : soldOut ? "Agotado" : "Inscribirme";
     const regClass = finalized ? "btn--success" : soldOut ? "btn--danger" : "";
@@ -1191,7 +1191,7 @@ function renderMonthGrid() {
 
   try {
     requestAnimationFrame(() => initScrollReveal());
-  } catch (_) { }
+  } catch (_) {}
 }
 
 // ============================================================
@@ -1236,11 +1236,11 @@ async function refreshFromSupabase() {
   // ✅ por si cambió el idx / DOM
   try {
     requestAnimationFrame(() => syncHeroVideos());
-  } catch (_) { }
+  } catch (_) {}
 }
 
 window.addEventListener("ecn:events-updated", () => {
-  refreshFromSupabase().catch(() => { });
+  refreshFromSupabase().catch(() => {});
 });
 
 // ============================================================
@@ -1260,18 +1260,18 @@ window.addEventListener("ecn:events-updated", () => {
     setLoading(false);
   }
 
-  renderHomeGalleryPreview().catch(() => { });
+  renderHomeGalleryPreview().catch(() => {});
   initQuoteRotator();
   initNewsletterForm();
 
   try {
     setTimeout(() => initScrollReveal(), 60);
-  } catch (_) { }
+  } catch (_) {}
 
   // ✅ asegura que el primer slide intente play cuando ya está todo listo
   try {
     setTimeout(() => syncHeroVideos(), 120);
-  } catch (_) { }
+  } catch (_) {}
 
   setTimeout(() => toast("Bienvenido", "Revisá los próximos eventos."), 800);
 })();
