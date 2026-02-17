@@ -1,9 +1,8 @@
 /* ============================================================
-   event.css ✅ EVENT PAGE (2026) — UX SENSORIAL (v2)
-   - Diseñado para tu HTML NUEVO (heroNew + evPhoto + banner + secciones)
+   event.css ✅ EVENT PAGE (2026) — LAYOUT IGUAL A REFERENCIA
+   - Para HTML con: .eventShell .eventRow .eventLeft .eventRight
    - Mantiene IDs / JS intactos
-   - Header y Footer NO se tocan (solo estilos existentes)
-   - ✅ Apaga el heroBg borroso (compat JS)
+   - Apaga heroBg borroso (compat JS)
 ============================================================ */
 
 :root{
@@ -12,15 +11,16 @@
   --event-muted: var(--muted, rgba(18,18,18,.62));
   --event-line: var(--line, rgba(18,18,18,.12));
 
-  --event-radius: var(--radius-xl, 18px);
-  --event-radius-lg: 22px;
-  --event-shadow: var(--shadow-mid, 0 22px 60px rgba(0,0,0,.18));
-  --event-shadow-soft: var(--shadow-soft, 0 18px 50px rgba(0,0,0,.10));
+  --r: 22px;
+  --r2: 18px;
 
-  --event-pad: 20px;
-  --event-gap: 14px;
+  --shadow: 0 24px 70px rgba(0,0,0,.14);
+  --shadow-soft: 0 14px 40px rgba(0,0,0,.08);
 
-  --surface: rgba(255,255,255,.96);
+  --pad: 18px;
+  --gap: 16px;
+
+  --surface: #fff;
   --surface2: rgba(18,18,18,.02);
 }
 
@@ -33,7 +33,7 @@ body{
   color: var(--event-text);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue", Helvetica, sans-serif;
   letter-spacing:.2px;
-  overflow-x: hidden;
+  overflow-x:hidden;
 }
 
 p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
@@ -44,7 +44,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Header (topbar) — tu estilo actual
+   Header (igual a tu estilo actual)
 ============================================================ */
 .topbar{
   position: sticky;
@@ -57,11 +57,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 @media (max-width: 900px){
-  .topbar{
-    background: #fff;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
+  .topbar{ background:#fff; backdrop-filter:none; -webkit-backdrop-filter:none; }
 }
 
 .nav{
@@ -69,7 +65,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   align-items:center;
   justify-content:space-between;
   gap:14px;
-  padding: 14px 0;
+  padding:14px 0;
 }
 
 .brand{
@@ -78,18 +74,15 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   gap:10px;
   text-decoration:none;
   color: var(--event-text);
-  min-width: 0;
+  min-width:0;
 }
 
 .backIcon{
-  width: 42px;
-  height: 42px;
-  border-radius: 999px;
-  display:grid;
-  place-items:center;
-  border: 1px solid rgba(18,18,18,.14);
+  width:42px;height:42px;
+  border-radius:999px;
+  display:grid;place-items:center;
+  border:1px solid rgba(18,18,18,.14);
   background: rgba(18,18,18,.04);
-  flex: 0 0 auto;
   transition: transform .15s ease, background .15s ease, border-color .15s ease;
 }
 
@@ -110,13 +103,11 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 .brandRight{
   display:flex;
   align-items:center;
-  gap:10px;
   text-decoration:none;
-  min-width: 0;
+  min-width:0;
 }
 
 .brandRight span{
-  font-family: inherit;
   letter-spacing:.10em;
   font-weight: 900;
   font-size: 13px;
@@ -130,14 +121,14 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Botones (fallback si base.css no estuviera)
+   Botones (fallback)
 ============================================================ */
 .btn{
-  border: 1px solid rgba(18,18,18,.16);
+  border: 1px solid rgba(18,18,18,.14);
   background: rgba(18,18,18,.02);
   color: rgba(18,18,18,.88);
-  padding: 12px 18px;
-  border-radius: 999px;
+  padding: 12px 16px;
+  border-radius: 14px;
   font-size: 12px;
   letter-spacing:.18em;
   text-transform: uppercase;
@@ -146,37 +137,32 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   align-items:center;
   justify-content:center;
   gap:10px;
-
   transition: transform .15s ease, background .15s ease, border-color .15s ease, filter .15s ease;
-  outline:none;
   cursor:pointer;
   user-select:none;
   white-space:nowrap;
-  min-height: 46px;
-  line-height: 1;
+  min-height: 44px;
+  line-height:1;
   font-weight: 900;
 }
 
 .btn:hover{
   transform: translateY(-1px);
-  border-color: rgba(18,18,18,.24);
+  border-color: rgba(18,18,18,.22);
   background: rgba(18,18,18,.04);
 }
 .btn:active{ transform: translateY(0); }
-.btn:focus-visible{
-  box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28));
-}
+.btn:focus-visible{ box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28)); }
 
 .btn.primary{
-  background: #000 !important;
-  border-color: #000 !important;
-  color: #fff !important;
-  border-width: 2px;
+  background:#000 !important;
+  border-color:#000 !important;
+  color:#fff !important;
+  border-width:2px;
 }
 .btn.primary:hover{ filter: brightness(1.06); }
 
-.btn[aria-disabled="true"],
-.btn:disabled{
+.btn[aria-disabled="true"], .btn:disabled{
   opacity:.55;
   pointer-events:none;
 }
@@ -185,74 +171,89 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
    Footer icon buttons
 ============================================================ */
 .icon-btn{
-  width:44px; height:44px;
-  border-radius: 999px;
+  width:44px;height:44px;
+  border-radius:999px;
   border:1px solid rgba(18,18,18,.14);
-  display:grid;
-  place-items:center;
+  display:grid;place-items:center;
   background: rgba(18,18,18,.02);
   color: var(--event-text);
   text-decoration:none;
   transition: transform .15s ease, background .15s ease, border-color .15s ease;
-  outline:none;
-  flex: 0 0 auto;
 }
-
 .icon-btn:hover{
   background: rgba(18,18,18,.04);
   border-color: rgba(18,18,18,.20);
   transform: translateY(-1px);
 }
-
-.icon-btn:focus-visible{
-  box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28));
-}
+.icon-btn:focus-visible{ box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28)); }
 
 /* ============================================================
-   HERO NUEVO (sensorial)
+   HERO / WRAP
 ============================================================ */
 .hero{
-  position: relative;
+  position:relative;
   min-height: calc(100vh - 72px);
   min-height: calc(100dvh - 72px);
-  overflow:hidden;
-  background: #fff;
+  background:#fff;
 }
 
-/* ✅ Apagamos el fondo borroso (pero existe por compat JS) */
-.heroBg{
-  display:none !important;
-}
+.heroBg{ display:none !important; }
 
-.heroWrap{
-  position: relative;
-  z-index: 2;
-  padding: 26px 0 56px;
-}
+.heroWrap{ padding: 22px 0 52px; }
 
-/* card principal */
-.heroCard{
-  border-radius: calc(var(--event-radius-lg) + 6px);
-  border: 1px solid rgba(18,18,18,.08);
+/* ============================================================
+   SHELL PRINCIPAL (como referencia)
+============================================================ */
+.eventShell{
   background: var(--surface);
-  box-shadow: var(--event-shadow);
-  padding: var(--event-pad);
+  border: 1px solid rgba(18,18,18,.10);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  padding: var(--pad);
 }
 
-.heroCard.isSoldOut{ filter: saturate(.94); }
+.eventShell.isSoldOut{ filter: saturate(.95); }
 
-/* meta pills */
+/* Layout 2 columnas: foto izq + contenido der */
+.eventRow{
+  display:grid;
+  grid-template-columns: 1.05fr .95fr;
+  gap: var(--gap);
+  align-items:start;
+}
+
+/* LEFT */
+.eventLeft{ min-width:0; }
+
+.eventImgWrap{
+  border-radius: var(--r2);
+  overflow:hidden;
+  border: 1px solid rgba(18,18,18,.10);
+  background:#f4f4f4;
+  box-shadow: var(--shadow-soft);
+}
+
+.eventImg{
+  width:100%;
+  height: clamp(420px, 46vw, 560px);
+  object-fit: cover;
+  display:block;
+}
+
+/* RIGHT */
+.eventRight{ min-width:0; padding-top: 2px; }
+
+/* meta pills (tu JS ya genera .pill) */
 .heroMeta{
   display:flex;
   align-items:center;
   gap:10px;
   flex-wrap:wrap;
-  color: rgba(18,18,18,.70);
+  padding-bottom: 10px;
   text-transform: uppercase;
   letter-spacing:.18em;
   font-size: 11px;
-  min-width: 0;
-  padding-bottom: 10px;
+  color: rgba(18,18,18,.70);
 }
 
 .pill{
@@ -268,97 +269,95 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   font-size: 11px;
   text-transform: uppercase;
   white-space:nowrap;
-  max-width: 100%;
   font-weight: 900;
 }
-.dot{
-  width:6px; height:6px;
-  border-radius:999px;
-  background: rgba(18,18,18,.55);
-  display:inline-block;
+.dot{ width:6px;height:6px;border-radius:999px;background:rgba(18,18,18,.55); }
+
+/* Title row + status */
+.eventHeaderRow{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap: 12px;
 }
 
-/* ✅ HERO TOP: texto + foto */
-.heroTop{
-  display:grid;
-  grid-template-columns: 1.05fr .95fr;
-  gap: 18px;
-  align-items: start;
-}
-
-.heroText{ min-width: 0; }
-
-.title{
-  margin: 6px 0 10px;
+.eventTitle{
+  margin: 6px 0 6px;
   font-weight: 900;
-  letter-spacing: .02em;
+  letter-spacing:.02em;
   text-transform: uppercase;
-  font-size: clamp(26px, 4.0vw, 44px);
-  line-height: 1.02;
+  font-size: clamp(26px, 3.5vw, 44px);
+  line-height: 1.05;
   color: rgba(18,18,18,.92);
 }
 
-.desc{
+.eventDesc{
   margin: 0 0 12px;
   color: rgba(18,18,18,.68);
-  line-height: 1.7;
-  max-width: 78ch;
+  line-height: 1.75;
   font-size: 15px;
 }
 
-/* media */
-.heroMedia{
-  border-radius: 18px;
-  overflow:hidden;
-  border: 1px solid rgba(18,18,18,.10);
-  background: #f7f7f7;
-  box-shadow: var(--event-shadow-soft);
+/* Status badges (opcionales; si no los usás no pasa nada) */
+.eventStatus{ display:flex; align-items:center; gap:8px; padding-top: 10px; }
+.badge{
+  display:inline-flex;
+  align-items:center;
+  padding: 7px 10px;
+  border-radius: 999px;
+  border:1px solid rgba(18,18,18,.12);
+  background: rgba(18,18,18,.04);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing:.14em;
+  text-transform: uppercase;
+  color: rgba(18,18,18,.92);
+  white-space:nowrap;
 }
-
-.heroImg{
-  width: 100%;
-  height: clamp(240px, 34vw, 360px);
-  object-fit: cover;
-  display:block;
+.badge.danger{
+  border-color: rgba(215,44,44,.20);
+  background: rgba(215,44,44,.10);
+  color: rgba(215,44,44,.92);
 }
 
 /* ============================================================
-   BANNER / MENÚ (imagen adicional + texto)
+   BLOQUE EXTRA (banner + texto) como tu referencia
 ============================================================ */
-.experienceBanner{
-  margin-top: 18px;
-  border-radius: 20px;
-  border: 1px solid rgba(18,18,18,.10);
-  background: #fff;
-  overflow: hidden;
+.eventExtra{
+  margin-top: 12px;
+}
+
+.eventExtraInner{
   display:grid;
-  grid-template-columns: 1fr 1fr;
-  min-height: 260px;
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
-.expMedia{
-  background: #f3f3f3;
-  border-right: 1px solid rgba(18,18,18,.08);
+/* Banner tipo rectángulo */
+.eventExtraBanner{
+  border-radius: 16px;
+  overflow:hidden;
+  border: 1px solid rgba(18,18,18,.10);
+  background:#f3f3f3;
 }
 
-.expImg{
-  width: 100%;
-  height: 100%;
-  min-height: 260px;
+.eventBannerImg{
+  width:100%;
+  height: clamp(140px, 18vw, 200px);
   object-fit: cover;
   display:block;
 }
 
-.expText{
-  padding: 18px 18px;
-  display:flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 10px;
+/* Texto adicional (sensación “bloque”, no card pesado) */
+.eventExtraText{
+  border-radius: 16px;
+  border: 1px solid rgba(18,18,18,.10);
+  background: rgba(18,18,18,.03);
+  padding: 14px;
 }
 
-.expKicker{
-  margin:0;
+.eventExtraKicker{
+  margin:0 0 6px;
   font-size: 11px;
   font-weight: 900;
   letter-spacing:.18em;
@@ -366,60 +365,47 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   color: rgba(18,18,18,.62);
 }
 
-.expTitle{
-  margin:0;
-  font-size: 18px;
+.eventExtraTitle{
+  margin:0 0 8px;
+  font-size: 14px;
   font-weight: 900;
-  letter-spacing:.06em;
+  letter-spacing:.14em;
   text-transform: uppercase;
   color: rgba(18,18,18,.92);
-  line-height: 1.15;
 }
 
-.expDesc{
+.eventExtraDesc{
   margin:0;
   font-size: 14px;
   line-height: 1.75;
-  color: rgba(18,18,18,.70);
-  max-width: 66ch;
+  color: rgba(18,18,18,.72);
 }
 
 /* ============================================================
-   INFO SECTION (Fechas + Detalles) — una sola sección
+   FECHAS + DETALLES (apilado como referencia)
 ============================================================ */
-.infoSection{
-  margin-top: 18px;
-  border-radius: 20px;
+.eventInfo{
+  margin-top: 14px;
+  display:grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.eventBlock{
+  border-radius: 16px;
   border: 1px solid rgba(18,18,18,.10);
   background: #fff;
-  padding: 16px;
-}
-
-.infoGrid{
-  display:grid;
-  grid-template-columns: 1.05fr .95fr;
-  gap: 16px;
-  align-items: start;
-}
-
-.infoBlock{
-  border-radius: 18px;
-  border: 1px solid rgba(18,18,18,.08);
-  background: rgba(18,18,18,.01);
   padding: 14px;
 }
 
-/* Headings */
 .h2{
   margin:0;
   font-weight: 900;
-  letter-spacing: .16em;
+  letter-spacing:.16em;
   text-transform: uppercase;
   font-size: 18px;
-  line-height: 1.2;
   color: rgba(18,18,18,.92);
 }
-
 .sub{
   margin: 10px 0 14px;
   color: rgba(18,18,18,.62);
@@ -427,9 +413,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   font-size: 14px;
 }
 
-/* ============================================================
-   Dates
-============================================================ */
+/* Dates list */
 .dates{
   display:flex;
   flex-direction:column;
@@ -441,19 +425,13 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  padding: 12px 12px;
-  border-radius: 16px;
+  padding: 12px;
+  border-radius: 14px;
   border: 1px solid rgba(18,18,18,.10);
   background: rgba(18,18,18,.02);
-  min-width: 0;
 }
 
-.dateLeft{
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-  min-width: 0;
-}
+.dateLeft{ display:flex; flex-direction:column; gap:4px; min-width:0; }
 
 .dateMain{
   font-size: 12px;
@@ -484,80 +462,46 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   white-space: nowrap;
   min-height: 46px;
 }
+.datePick:hover{ background: rgba(18,18,18,.04); border-color: rgba(18,18,18,.22); }
+.datePick:focus-visible{ box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28)); outline:none; }
 
-.datePick:hover{
-  background: rgba(18,18,18,.04);
-  border-color: rgba(18,18,18,.22);
-}
-
-.datePick:focus-visible{
-  box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28));
-  outline: none;
-}
-
-/* Notices */
+/* notices (tu JS usa IDs) */
 .notice{
-  margin-top: 14px;
+  margin-top: 12px;
   display:flex;
   align-items:flex-start;
-  gap: 14px;
-  padding: 12px 12px;
-  border-radius: 16px;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
   border: 1px solid rgba(18,18,18,.10);
   background: rgba(18,18,18,.02);
   color: rgba(18,18,18,.72);
   font-size: 13px;
   line-height: 1.55;
 }
-
 .noticeLegend{
-  margin: 0;
+  margin:0;
   color: rgba(18,18,18,.68);
-  line-height: 1.55;
   font-size: 14px;
+  line-height: 1.55;
 }
 
-.badge{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  padding: 7px 10px;
-  border-radius: 999px;
-  border:1px solid rgba(18,18,18,.12);
-  background: rgba(18,18,18,.04);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing:.14em;
-  text-transform: uppercase;
-  color: rgba(18,18,18,.92);
-  white-space:nowrap;
-}
-
-.badge.danger{
-  border-color: rgba(215,44,44,.20);
-  background: rgba(215,44,44,.10);
-  color: rgba(215,44,44,.92);
-}
-
-/* KV */
+/* kv */
 .kv{
   display:flex;
   flex-direction:column;
   gap: 10px;
   margin-top: 6px;
 }
-
 .kvRow{
   display:flex;
-  gap: 10px;
   justify-content:space-between;
   align-items:center;
+  gap: 10px;
   border-bottom: 1px solid rgba(18,18,18,.08);
   padding-bottom: 10px;
 }
-
 .kvRow:last-child{ border-bottom:0; padding-bottom:0; }
-
 .kvLabel{
   color: rgba(18,18,18,.62);
   font-size: 12px;
@@ -565,7 +509,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   letter-spacing:.14em;
   text-transform: uppercase;
 }
-
 .kvValue{
   color: rgba(18,18,18,.92);
   font-size: 12px;
@@ -575,18 +518,11 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   text-align:right;
 }
 
-/* Actions */
 .actions{
   margin-top: 14px;
   display:flex;
   gap:12px;
   flex-wrap:wrap;
-}
-
-.actions .btn{
-  min-height: 44px;
-  padding: 11px 16px;
-  border-radius: 14px;
 }
 
 .fine{
@@ -597,26 +533,24 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Tips section (sin “cards” pesados)
+   BOTTOM FRANJA (incluye + recomendaciones)
 ============================================================ */
-.tipsSection{
-  margin-top: 18px;
-  border-radius: 20px;
-  border: 1px solid rgba(18,18,18,.10);
-  background: #fff;
-  padding: 16px;
+.eventBottom{
+  margin-top: 16px;
+  border-top: 1px solid rgba(18,18,18,.08);
+  padding-top: 14px;
 }
 
-.tipsGrid{
+.eventBottomGrid{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 14px;
 }
 
-.tip{
-  border-radius: 18px;
-  border: 1px solid rgba(18,18,18,.08);
-  background: rgba(18,18,18,.01);
+.eventBottomItem{
+  border-radius: 16px;
+  border: 1px solid rgba(18,18,18,.10);
+  background: rgba(18,18,18,.02);
   padding: 14px;
 }
 
@@ -628,7 +562,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   text-transform: uppercase;
   color: rgba(18,18,18,.92);
 }
-
 .miniList{
   margin:0;
   padding-left: 18px;
@@ -638,14 +571,13 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Footer (tu estilo)
+   Footer
 ============================================================ */
 .footer{
   border-top: 1px solid rgba(18,18,18,.10);
   background: #fff;
   padding: 18px 0;
 }
-
 .footerRow{
   display:flex;
   align-items:center;
@@ -656,22 +588,15 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   letter-spacing:.12em;
   text-transform: uppercase;
 }
-
-.footerRow .social{
-  gap:10px;
-  display:flex;
-  flex-wrap: wrap;
-}
+.footerRow .social{ display:flex; gap:10px; flex-wrap:wrap; }
 
 /* ============================================================
    Responsive
 ============================================================ */
 @media (max-width: 980px){
-  .heroTop{ grid-template-columns: 1fr; }
-  .experienceBanner{ grid-template-columns: 1fr; }
-  .expMedia{ border-right: 0; border-bottom: 1px solid rgba(18,18,18,.08); }
-  .infoGrid{ grid-template-columns: 1fr; }
-  .tipsGrid{ grid-template-columns: 1fr; }
+  .eventRow{ grid-template-columns: 1fr; }
+  .eventImg{ height: 360px; }
+  .eventBottomGrid{ grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px){
@@ -685,48 +610,33 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
 @media (max-width: 640px){
   .container{ width: calc(100% - 28px); }
-
   .nav{ padding: 12px 0; }
   .backIcon{ width: 40px; height: 40px; }
   .brandRight span{ max-width: 56vw; font-size: 12px; }
 
   .heroWrap{ padding: 18px 0 44px; }
-  .heroCard{ padding: 14px; }
+  .eventShell{ padding: 14px; }
 
-  .title{ font-size: clamp(24px, 8.6vw, 38px); }
-  .desc{ font-size: 14px; }
+  .eventTitle{ font-size: clamp(22px, 8.6vw, 34px); }
+  .eventDesc{ font-size: 14px; }
 
-  .heroImg{ height: 260px; }
+  .eventImg{ height: 320px; }
 
-  .dateItem{
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .datePick{
-    width: 100%;
-    padding: 12px 20px;
-    min-height: 48px;
-  }
+  .dateItem{ flex-direction: column; align-items: stretch; }
+  .datePick{ width:100%; min-height:48px; }
 
   .actions{ grid-template-columns: 1fr; }
 
-  .notice{
-    flex-direction: column;
-    gap: 10px;
-    align-items: stretch;
-  }
-  .notice .badge{ align-self: flex-start; }
+  .notice{ flex-direction: column; gap: 10px; }
+  .notice .badge{ align-self:flex-start; }
 
   .footerRow{
     flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 10px;
+    align-items:center;
+    text-align:center;
+    gap:10px;
   }
-  .footerRow .social{
-    width: 100%;
-    justify-content: center;
-  }
+  .footerRow .social{ width:100%; justify-content:center; }
 }
 
 @media (max-width: 420px){
@@ -734,5 +644,5 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   .brandRight span{ max-width: 62vw; }
 }
 
-/* ✅ Hard rule */
+/* hard rule */
 [hidden]{ display:none !important; }

@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="es">
-
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -9,15 +8,15 @@
   <meta name="description" content="Detalle del evento: fechas, cupos y descripción." />
 
   <link rel="stylesheet" href="./css/base.css" />
-  <!-- ✅ cache buster para que veás el cambio sí o sí -->
-  <link rel="stylesheet" href="./css/event.css?v=20260217-ux" />
+  <!-- cache buster -->
+  <link rel="stylesheet" href="./css/event.css?v=20260217-ux2" />
 </head>
 
 <body>
   <!-- Toasts -->
   <div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
 
-  <!-- ✅ Loader suave -->
+  <!-- Loader -->
   <div id="pageLoader" aria-hidden="true"
     style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);backdrop-filter: blur(6px);z-index:9999;opacity:0;pointer-events:none;transition:opacity .2s ease;">
     <div
@@ -44,118 +43,120 @@
     </div>
   </header>
 
-  <!-- ============================================================
-       HERO NUEVO (sensorial)
-       - Mantiene IDs para tu JS
-       - Ya NO dependemos visualmente del fondo borroso
-  ============================================================ -->
+  <!-- EVENT -->
   <section class="hero" aria-label="Detalle del evento">
-    <!-- ✅ Lo dejo por compatibilidad con tu JS, pero lo vamos a apagar por CSS -->
+    <!-- Mantener por compatibilidad con tu JS (lo apagamos por CSS) -->
     <div class="heroBg" id="heroBg" aria-hidden="true"></div>
 
     <div class="container heroWrap">
-      <div class="heroCard heroNew" id="heroCard">
-        <div class="heroTop">
-          <div class="heroText">
-            <div class="heroMeta" id="metaRow"></div>
+      <div class="eventShell" id="heroCard">
+        <!-- ROW PRINCIPAL: foto izquierda + contenido derecha -->
+        <div class="eventRow">
+          <!-- LEFT: foto grande -->
+          <aside class="eventLeft" aria-label="Foto del evento">
+            <div class="eventImgWrap">
+              <img
+                id="evPhoto"
+                class="eventImg"
+                src="./assets/img/hero-1.jpg"
+                alt="Foto del evento"
+                loading="eager"
+                decoding="async"
+              />
+            </div>
+          </aside>
 
-            <h1 class="title titleNew" id="evTitle">Evento</h1>
-            <p class="desc descNew" id="evDesc">Descripción del evento.</p>
-          </div>
+          <!-- RIGHT: contenido -->
+          <div class="eventRight">
+            <!-- meta pills (tu JS pinta aquí) -->
+            <div class="heroMeta eventMeta" id="metaRow"></div>
 
-          <!-- ✅ FOTO PROTAGONISTA (misma del slider / events.img) -->
-          <div class="heroMedia" aria-label="Foto del evento">
-            <img
-              id="evPhoto"
-              class="heroImg"
-              src="./assets/img/hero-1.jpg"
-              alt="Foto del evento"
-              loading="eager"
-              decoding="async"
-            />
+            <!-- header row: título + estado (badge arriba derecha) -->
+            <div class="eventHeaderRow">
+              <h1 class="title eventTitle" id="evTitle">Evento</h1>
+
+              <!-- Estado (se controla con hidden desde JS) -->
+              <div class="eventStatus">
+                <span class="badge" id="statusAvailable" hidden>INSCRIPCIONES DISPONIBLES</span>
+                <span class="badge danger" id="statusSold" hidden>AGOTADO</span>
+                <span class="badge" id="statusPending" hidden>CUPOS POR CONFIRMAR</span>
+              </div>
+            </div>
+
+            <p class="desc eventDesc" id="evDesc">Descripción del evento.</p>
+
+            <!-- ✅ BLOQUE “TEXTO ADICIONAL” + BANNER (sin cards pesadas) -->
+            <section class="eventExtra" aria-label="Información adicional">
+              <div class="eventExtraInner">
+                <div class="eventExtraBanner" aria-label="Banner del evento">
+                  <img
+                    id="evBannerImg"
+                    class="eventBannerImg"
+                    src="./assets/img/hero-1.jpg"
+                    alt="Banner del menú / maridaje / bebidas"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+
+                <div class="eventExtraText">
+                  <p class="eventExtraKicker">Experiencia</p>
+                  <p class="eventExtraTitle">Menú / vinos y maridajes</p>
+                  <p class="eventExtraDesc" id="evBannerText">
+                    Texto adicional solo para event (amplía la descripción). Aquí luego lo conectamos a BD.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <!-- Fechas + Detalles en una misma columna derecha (como tu referencia) -->
+            <section class="eventInfo" aria-label="Fechas y detalles">
+              <!-- FECHAS -->
+              <div class="eventBlock">
+                <h2 class="h2">Fechas disponibles</h2>
+                <p class="sub">Seleccioná una fecha para tu inscripción (si hay más de una).</p>
+
+                <div class="dates" id="dateList"></div>
+
+                <!-- notices reales (tu JS usa estos IDs, NO los cambio) -->
+                <div class="notice" id="availNotice" hidden>
+                  <span class="badge">Inscripciones disponibles</span>
+                  <p class="noticeLegend">Inscribite y disfrutá de esta experiencia.</p>
+                </div>
+
+                <div class="notice" id="soldNotice" hidden>
+                  <span class="badge danger">Agotado</span>
+                  <p class="noticeLegend">Este evento no tiene cupos disponibles.</p>
+                </div>
+
+                <div class="notice" id="pendingNotice" hidden>
+                  <span class="badge">Cupos por confirmar</span>
+                  <p class="noticeLegend">Estamos actualizando las fechas y cupos. Probá en unos segundos.</p>
+                </div>
+              </div>
+
+              <!-- DETALLES -->
+              <div class="eventBlock">
+                <h2 class="h2">Detalles</h2>
+                <div class="kv" id="kv"></div>
+
+                <div class="actions">
+                  <a class="btn" id="btnHome" href="./home.html#proximos">Ver otros eventos</a>
+                  <a class="btn primary" id="btnRegister" href="./register.html">Inscribirme</a>
+                </div>
+
+                <p class="fine">
+                  Al inscribirte, te llega confirmación al correo. Si seleccionás “recibir info”, también por WhatsApp.
+                </p>
+              </div>
+            </section>
           </div>
         </div>
 
-        <!-- ============================================================
-             NUEVA SECCIÓN: Banner / Menú / Bebidas / Maridajes
-             - Imagen adicional (desde BD)
-             - Texto adicional (desde BD)
-        ============================================================ -->
-        <section class="experienceBanner" aria-label="Experiencia y menú">
-          <div class="expMedia">
-            <img
-              id="evBannerImg"
-              class="expImg"
-              src="./assets/img/hero-1.jpg"
-              alt="Menú / Maridaje / Bebidas"
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
-
-          <div class="expText">
-            <p class="expKicker">Experiencia</p>
-            <h2 class="expTitle">Menú &amp; detalles de la cata</h2>
-            <p class="expDesc" id="evBannerText">
-              (Aquí va el texto desde BD: vinos y maridajes / bebidas del taller, etc.)
-            </p>
-          </div>
-        </section>
-
-        <!-- ============================================================
-             SECCIÓN ÚNICA (menos “cards”)
-             - Fechas + Detalles dentro de un mismo bloque
-        ============================================================ -->
-        <section class="infoSection" aria-label="Fechas y detalles">
-          <div class="infoGrid">
-            <div class="infoBlock">
-              <h2 class="h2">Fechas disponibles</h2>
-              <p class="sub">Seleccioná una fecha para tu inscripción (si hay más de una).</p>
-
-              <div class="dates" id="dateList"></div>
-
-              <!-- ✅ Estados -->
-              <div class="notice" id="availNotice" hidden>
-                <span class="badge">Inscripciones disponibles</span>
-                <p class="noticeLegend">Inscribite y disfrutá de esta experiencia.</p>
-              </div>
-
-              <div class="notice" id="soldNotice" hidden>
-                <span class="badge danger">Agotado</span>
-                <p class="noticeLegend">Este evento no tiene cupos disponibles.</p>
-              </div>
-
-              <div class="notice" id="pendingNotice" hidden>
-                <span class="badge">Cupos por confirmar</span>
-                <p class="noticeLegend">Estamos actualizando las fechas y cupos. Probá en unos segundos.</p>
-              </div>
-            </div>
-
-            <div class="infoBlock">
-              <h2 class="h2">Detalles</h2>
-
-              <!-- Tu JS pinta esto -->
-              <div class="kv" id="kv"></div>
-
-              <div class="actions">
-                <a class="btn" id="btnHome" href="./home.html#proximos">Ver otros eventos</a>
-                <a class="btn primary" id="btnRegister" href="./register.html">Inscribirme</a>
-              </div>
-
-              <p class="fine">
-                Al inscribirte, te llega confirmación al correo. Si seleccionás “recibir info”, también por WhatsApp.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <!-- ============================================================
-             “Qué incluye” + “Recomendaciones”
-             - Menos tarjetas, más limpio
-        ============================================================ -->
-        <section class="tipsSection" aria-label="Qué incluye y recomendaciones">
-          <div class="tipsGrid">
-            <div class="tip">
+        <!-- BOTTOM: incluye + recomendaciones (en una fila, ligero) -->
+        <section class="eventBottom" aria-label="Incluye y recomendaciones">
+          <div class="eventBottomGrid">
+            <div class="eventBottomItem">
               <p class="miniTitle">¿Qué incluye?</p>
               <ul class="miniList">
                 <li>Guía durante la experiencia</li>
@@ -164,7 +165,7 @@
               </ul>
             </div>
 
-            <div class="tip">
+            <div class="eventBottomItem">
               <p class="miniTitle">Recomendaciones</p>
               <ul class="miniList">
                 <li>Llegá 10–15 min antes</li>
@@ -174,7 +175,6 @@
             </div>
           </div>
         </section>
-
       </div>
     </div>
   </section>
@@ -203,5 +203,4 @@
   <!-- Lógica -->
   <script src="./js/event.js"></script>
 </body>
-
 </html>
