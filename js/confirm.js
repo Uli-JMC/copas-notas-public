@@ -9,6 +9,8 @@
    - ✅ NO redirige nunca
    - ✅ Reserva # debajo de Hora (registrations.reservation_number)
    - ✅ WhatsApp dinámico
+   - ✅ FIX BD: events.description (no "desc")
+   - ✅ FIX money: CRC/USD bonito
 ============================================================ */
 
 const $ = (sel) => document.querySelector(sel);
@@ -60,16 +62,30 @@ function getSb() {
   return window.APP && APP.supabase ? APP.supabase : null;
 }
 
-function normalizeCurrency(cur) {
+function normCurrency(cur) {
   const c = safeTrim(cur).toUpperCase();
-  return c || "USD";
+  if (c === "CRC" || c === "USD") return c;
+  return "";
 }
 
 function formatPrice(amount, currency) {
+  const cur = normCurrency(currency);
   const n = Number(amount);
-  if (!Number.isFinite(n)) return null;
-  const cur = normalizeCurrency(currency);
-  return `${cur} ${n.toFixed(2)}`;
+  if (!cur || !Number.isFinite(n)) return null;
+
+  const isCRC = cur === "CRC";
+  const decimals = isCRC ? 0 : 2;
+
+  try {
+    const formatted = n.toLocaleString("es-CR", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    return isCRC ? `₡${formatted}` : `$${formatted}`;
+  } catch {
+    const fixed = n.toFixed(decimals);
+    return isCRC ? `₡${fixed}` : `$${fixed}`;
+  }
 }
 
 function setUiInfoState(title, desc) {
@@ -194,15 +210,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-  if (!regOk) {
-    const badge = $("#statusBadge");
-    if (badge) badge.textContent = "OK";
-  }
+  // Badge
+  const badge = $("#statusBadge");
+  if (badge) badge.textContent = regOk ? "REGISTRO OK" : "OK";
 
   try {
     const { data: ev, error: evErr } = await sb
       .from("events")
-      .select('id, title, "desc", type, location, time_range, duration_hours, price_amount, price_currency')
+      .select('id, title, description, type, location, time_range, duration_hours, price_amount, price_currency')
       .eq("id", eventId)
       .maybeSingle();
 
@@ -223,8 +238,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const titleEl = $("#eventTitle");
     const descEl = $("#eventDesc");
+
     if (titleEl) titleEl.textContent = regOk ? "¡Inscripción confirmada!" : (ev.title || "Evento");
-    if (descEl) descEl.textContent = ev.title ? `Evento: ${ev.title}` : "Te esperamos.";
+
+    const niceDesc = safeTrim(ev.description);
+    if (descEl) {
+      descEl.textContent = niceDesc ? niceDesc : "Te esperamos. Guardá estos detalles.";
+    }
 
     // ✅ Reserva #
     let reservationNumber = "";
