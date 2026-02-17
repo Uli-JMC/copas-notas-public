@@ -1,14 +1,13 @@
 "use strict";
 
 /* ============================================================
-   event.js (Supabase-first) ✅ FIX + PRICE (Opción A)
-   - No marca "Agotado" si fechas aún no cargaron (evita falso sold-out)
-   - Loader suave para evitar “brinco” visual al refrescar
-   - ✅ Muestra Precio (events.price_amount + events.price_currency)
-     - Si no hay precio => "Por confirmar"
-
-   ✅ PATCH 2026-02-14:
-   - events.desc -> events.description
+   event.js (Supabase-first) ✅ SENSORIAL PATCH (Opción A)
+   - Mantiene tu lógica + BD intactas
+   - ✅ Foto principal: #heroMedia (usa events.img)
+   - ✅ Fondo hero: #heroBg queda opcional y suave (compat)
+   - ✅ Sección nueva desde BD: #evExtra / #evExtraText
+     - Lee (si existe): events.extra / menu / itinerary / details
+   - ✅ Soporta IDs nuevos (panel único) y viejos (compat)
 ============================================================ */
 
 // ============================================================
@@ -124,7 +123,6 @@ function formatMoney(amount, currency) {
     return isCRC ? `₡${fixed}` : `$${fixed}`;
   }
 }
-
 function safePriceText(priceAmount, priceCurrency) {
   const cur = normCurrency(priceCurrency);
   const n = Number(priceAmount);
@@ -132,20 +130,55 @@ function safePriceText(priceAmount, priceCurrency) {
   return formatMoney(n, cur);
 }
 
+// ✅ pick first existing element from a list
+function pickEl(selectors) {
+  for (const sel of selectors) {
+    const el = $(sel);
+    if (el) return el;
+  }
+  return null;
+}
+
+// ✅ normalize multiline text from BD (preserves line breaks)
+function normalizeMultilineText(raw) {
+  const s = String(raw ?? "").trim();
+  if (!s) return "";
+  return s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
+function setTextOrHide(wrapperEl, textEl, rawText) {
+  const t = normalizeMultilineText(rawText);
+  if (!wrapperEl || !textEl) return;
+  if (!t) {
+    wrapperEl.setAttribute("hidden", "");
+    return;
+  }
+  wrapperEl.removeAttribute("hidden");
+
+  // Render line breaks as paragraphs (simple + safe)
+  const parts = t.split("\n").map((x) => x.trim()).filter(Boolean);
+  textEl.innerHTML = parts.map((p) => `<p>${escapeHtml(p)}</p>`).join("");
+}
+
 // ============================================================
 // Loader
 // ============================================================
 function setLoading(on) {
   const loader = $("#pageLoader");
-  const card = $("#heroCard");
+
+  // compat: viejo heroCard / nuevo eventHeroContent
+  const oldCard = $("#heroCard");
+  const newCard = $("#eventHeroContent") || pickEl([".eventHeroContent"]);
 
   if (loader) {
     loader.style.opacity = on ? "1" : "0";
     loader.style.pointerEvents = on ? "auto" : "none";
   }
-  if (card) {
-    card.style.opacity = on ? "0" : "1";
-    card.style.transition = "opacity .2s ease";
+
+  const target = newCard || oldCard;
+  if (target) {
+    target.style.opacity = on ? "0" : "1";
+    target.style.transition = "opacity .2s ease";
   }
 }
 
@@ -163,10 +196,11 @@ async function fetchEventFromSupabase(eventId) {
   if (!eid) return null;
 
   // 1) Evento
+  // ✅ Incluimos campos opcionales para “extra” sin romper si no existen
   const evRes = await APP.supabase
     .from("events")
     .select(
-      "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at"
+      "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,extra,menu,itinerary,details,created_at,updated_at"
     )
     .eq("id", eid)
     .maybeSingle();
@@ -215,16 +249,26 @@ async function fetchEventFromSupabase(eventId) {
 
   const seatsTotalAvailable = dates.reduce((acc, x) => acc + (Number(x.seats) || 0), 0);
 
+  // ✅ extra content pick order (no obliga nada)
+  const extraText =
+    evRes.data.extra ??
+    evRes.data.menu ??
+    evRes.data.itinerary ??
+    evRes.data.details ??
+    "";
+
   return {
     id: String(evRes.data.id || ""),
     type: String(evRes.data.type || "Experiencia"),
     monthKey: String(evRes.data.month_key || "—").toUpperCase(),
     title: String(evRes.data.title || "Evento"),
 
-    // ✅ FIX: ahora viene de events.description (no events.desc)
+    // ✅ FIX: events.description
     desc: String(evRes.data.description || ""),
 
     img: normalizeImgPath(evRes.data.img || getDefaultHero()),
+
+    extraText: String(extraText || ""),
 
     dates,
     seats: seatsTotalAvailable,
@@ -282,12 +326,12 @@ function ensurePickListener() {
 }
 
 // ============================================================
-// Render
+// Render helpers (compat selectors)
 // ============================================================
 function setNotices({ sold, available, pending }) {
-  const soldNotice = $("#soldNotice");
-  const availNotice = $("#availNotice");
-  const pendingNotice = $("#pendingNotice");
+  const soldNotice = pickEl(["#soldNotice2", "#soldNotice"]);
+  const availNotice = pickEl(["#availNotice2", "#availNotice"]);
+  const pendingNotice = pickEl(["#pendingNotice2", "#pendingNotice"]);
 
   [soldNotice, availNotice, pendingNotice].forEach((el) => {
     if (!el) return;
@@ -297,6 +341,178 @@ function setNotices({ sold, available, pending }) {
   if (sold && soldNotice) soldNotice.removeAttribute("hidden");
   else if (available && availNotice) availNotice.removeAttribute("hidden");
   else if (pending && pendingNotice) pendingNotice.removeAttribute("hidden");
+}
+
+function renderHeroImage(ev) {
+  const bg = normalizeImgPath(ev.img || getDefaultHero());
+
+  // 1) heroBg (opcional)
+  const heroBg = $("#heroBg");
+  if (heroBg) {
+    heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(bg)}')`);
+    heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
+  }
+
+  // 2) heroMedia (principal)
+  const heroMedia = $("#heroMedia");
+  if (heroMedia) {
+    heroMedia.style.backgroundImage = `url("${safeCssUrl(bg)}")`;
+    heroMedia.setAttribute("role", "img");
+    heroMedia.setAttribute("aria-label", ev.title || "Imagen del evento");
+  }
+}
+
+function renderMeta(ev, soldOutTotal) {
+  const metaRow = pickEl(["#metaRow2", "#metaRow"]);
+  const datesText = (ev.dates || []).map((d) => d.label).filter(Boolean).join(" • ");
+
+  if (!metaRow) return;
+
+  metaRow.innerHTML = `
+    <span class="pill"><span class="dot"></span> ${escapeHtml(ev.type)}</span>
+    <span class="pill">${escapeHtml(datesText || (ev.datesOk ? "Por definir" : "Cupos por confirmar"))}</span>
+    <span class="pill">${escapeHtml(ev.monthKey || "—")}</span>
+    ${soldOutTotal ? `<span class="pill">AGOTADO</span>` : ``}
+  `;
+}
+
+function renderHeaderText(ev) {
+  const t = pickEl(["#evTitle2", "#evTitle"]);
+  const d = pickEl(["#evDesc2", "#evDesc"]);
+  if (t) t.textContent = ev.title;
+  if (d) d.textContent = ev.desc || "";
+}
+
+function renderExtra(ev) {
+  const wrap = $("#evExtra");
+  const text = $("#evExtraText");
+  if (!wrap || !text) return;
+
+  setTextOrHide(wrap, text, ev.extraText || "");
+}
+
+function renderDates(ev, soldOutTotal) {
+  const dateList = pickEl(["#dateList2", "#dateList"]);
+  if (!dateList) return;
+
+  dateList.innerHTML = "";
+
+  const dates = Array.isArray(ev.dates) ? ev.dates : [];
+
+  if (!ev.datesOk) {
+    dateList.innerHTML = `<div class="emptyMonth">Fechas y cupos por confirmar.</div>`;
+    return;
+  }
+  if (!dates.length) {
+    dateList.innerHTML = `<div class="emptyMonth">Fechas por confirmar.</div>`;
+    return;
+  }
+
+  dates.forEach((x) => {
+    const dateId = String(x?.id || "");
+    const label = String(x?.label || "").trim();
+    const seats = Math.max(0, Number(x?.seats) || 0);
+    const dateSoldOut = seats <= 0;
+
+    const row = document.createElement("div");
+    row.className = "dateItem";
+
+    const left = document.createElement("div");
+    left.className = "dateLeft";
+
+    const main = document.createElement("div");
+    main.className = "dateMain";
+    main.textContent = label || "Por definir";
+
+    const hint = document.createElement("div");
+    hint.className = "dateHint";
+    hint.innerHTML = dateSoldOut
+      ? `<span style="opacity:.8;">Sin cupos para esta fecha.</span>`
+      : `Cupos disponibles: <b>${escapeHtml(seats)}</b>`;
+
+    left.appendChild(main);
+    left.appendChild(hint);
+
+    const btn = document.createElement("button");
+    btn.className = "datePick";
+    btn.type = "button";
+    btn.textContent = "Elegir";
+    btn.setAttribute("data-pick", dateId);
+
+    if (soldOutTotal || dateSoldOut) {
+      btn.disabled = true;
+      btn.style.opacity = ".55";
+      btn.style.cursor = "not-allowed";
+    }
+
+    row.appendChild(left);
+    row.appendChild(btn);
+    dateList.appendChild(row);
+  });
+}
+
+function renderKV(ev, soldOutTotal) {
+  const kv = pickEl(["#kv2", "#kv"]);
+  if (!kv) return;
+
+  kv.innerHTML = `
+    <div class="kvRow">
+      <div class="kvLabel">Cupos disponibles</div>
+      <div class="kvValue">${
+        !ev.datesOk ? "Por confirmar" : (soldOutTotal ? "0 (Agotado)" : escapeHtml(ev.seats))
+      }</div>
+    </div>
+
+    <div class="kvRow">
+      <div class="kvLabel">Duración</div>
+      <div class="kvValue">${escapeHtml(safeText(ev.durationHours))}</div>
+    </div>
+
+    <div class="kvRow">
+      <div class="kvLabel">Hora</div>
+      <div class="kvValue">${escapeHtml(safeText(ev.timeRange))}</div>
+    </div>
+
+    <div class="kvRow">
+      <div class="kvLabel">Ubicación</div>
+      <div class="kvValue">${escapeHtml(safeText(ev.location))}</div>
+    </div>
+
+    <div class="kvRow">
+      <div class="kvLabel">Costo</div>
+      <div class="kvValue">${escapeHtml(ev.priceText || "Por confirmar")}</div>
+    </div>
+  `;
+}
+
+function renderCTA(ev, soldOutTotal) {
+  const btnRegister = pickEl(["#btnRegister2", "#btnRegister"]);
+  const btnHome = pickEl(["#btnHome2", "#btnHome"]);
+
+  if (btnHome) btnHome.href = "./home.html#proximos";
+
+  if (!btnRegister) return;
+
+  const firstAvailable = (ev.dates || []).find((x) => (Number(x?.seats) || 0) > 0);
+
+  if (firstAvailable && String(firstAvailable.id || "")) {
+    btnRegister.href =
+      `./register.html?event=${encodeURIComponent(ev.id)}&date_id=${encodeURIComponent(firstAvailable.id)}&date_label=${encodeURIComponent(firstAvailable.label || "")}`;
+  } else {
+    btnRegister.href = `./register.html?event=${encodeURIComponent(ev.id)}`;
+  }
+
+  if (soldOutTotal) {
+    btnRegister.setAttribute("aria-disabled", "true");
+    btnRegister.classList.remove("primary");
+    btnRegister.style.opacity = ".55";
+    btnRegister.style.pointerEvents = "none";
+  } else {
+    btnRegister.removeAttribute("aria-disabled");
+    btnRegister.classList.add("primary");
+    btnRegister.style.opacity = "1";
+    btnRegister.style.pointerEvents = "auto";
+  }
 }
 
 function renderEvent(ev) {
@@ -310,117 +526,22 @@ function renderEvent(ev) {
 
   const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
 
-  const heroBg = $("#heroBg");
-  if (heroBg) {
-    const bg = normalizeImgPath(ev.img || getDefaultHero());
-    heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(bg)}')`);
-    heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
-  }
+  // ✅ hero: foto principal en #heroMedia + #heroBg opcional
+  renderHeroImage(ev);
 
-  const metaRow = $("#metaRow");
-  const datesText = (ev.dates || []).map((d) => d.label).filter(Boolean).join(" • ");
+  // meta + textos
+  renderMeta(ev, soldOutTotal);
+  renderHeaderText(ev);
 
-  if (metaRow) {
-    metaRow.innerHTML = `
-      <span class="pill"><span class="dot"></span> ${escapeHtml(ev.type)}</span>
-      <span class="pill">${escapeHtml(datesText || (ev.datesOk ? "Por definir" : "Cupos por confirmar"))}</span>
-      <span class="pill">${escapeHtml(ev.monthKey || "—")}</span>
-      ${soldOutTotal ? `<span class="pill" style="border-color: rgba(255,255,255,.22); background: rgba(255,255,255,.10);">AGOTADO</span>` : ``}
-    `;
-  }
+  // ✅ extra BD
+  renderExtra(ev);
 
-  const t = $("#evTitle");
-  const d = $("#evDesc");
-  if (t) t.textContent = ev.title;
-  if (d) d.textContent = ev.desc || "";
+  // panel
+  renderDates(ev, soldOutTotal);
+  renderKV(ev, soldOutTotal);
+  renderCTA(ev, soldOutTotal);
 
-  const dateList = $("#dateList");
-  if (dateList) {
-    dateList.innerHTML = "";
-
-    const dates = Array.isArray(ev.dates) ? ev.dates : [];
-
-    if (!ev.datesOk) {
-      dateList.innerHTML = `<div class="emptyMonth">Fechas y cupos por confirmar.</div>`;
-    } else if (!dates.length) {
-      dateList.innerHTML = `<div class="emptyMonth">Fechas por confirmar.</div>`;
-    } else {
-      dates.forEach((x) => {
-        const dateId = String(x?.id || "");
-        const label = String(x?.label || "").trim();
-        const seats = Math.max(0, Number(x?.seats) || 0);
-        const dateSoldOut = seats <= 0;
-
-        const row = document.createElement("div");
-        row.className = "dateItem";
-
-        const left = document.createElement("div");
-        left.className = "dateLeft";
-
-        const main = document.createElement("div");
-        main.className = "dateMain";
-        main.textContent = label || "Por definir";
-
-        const hint = document.createElement("div");
-        hint.className = "dateHint";
-        hint.innerHTML = dateSoldOut
-          ? `<span style="opacity:.8;">Sin cupos para esta fecha.</span>`
-          : `Cupos disponibles: <b>${escapeHtml(seats)}</b>`;
-
-        left.appendChild(main);
-        left.appendChild(hint);
-
-        const btn = document.createElement("button");
-        btn.className = "datePick";
-        btn.type = "button";
-        btn.textContent = "Elegir";
-        btn.setAttribute("data-pick", dateId);
-
-        if (soldOutTotal || dateSoldOut) {
-          btn.disabled = true;
-          btn.style.opacity = ".55";
-          btn.style.cursor = "not-allowed";
-        }
-
-        row.appendChild(left);
-        row.appendChild(btn);
-        dateList.appendChild(row);
-      });
-    }
-  }
-
-  const kv = $("#kv");
-  if (kv) {
-    kv.innerHTML = `
-      <div class="kvRow">
-        <div class="kvLabel">Cupos disponibles</div>
-        <div class="kvValue">${
-          !ev.datesOk ? "Por confirmar" : (soldOutTotal ? "0 (Agotado)" : escapeHtml(ev.seats))
-        }</div>
-      </div>
-
-      <div class="kvRow">
-        <div class="kvLabel">Duración</div>
-        <div class="kvValue">${escapeHtml(safeText(ev.durationHours))}</div>
-      </div>
-
-      <div class="kvRow">
-        <div class="kvLabel">Hora</div>
-        <div class="kvValue">${escapeHtml(safeText(ev.timeRange))}</div>
-      </div>
-
-      <div class="kvRow">
-        <div class="kvLabel">Ubicación</div>
-        <div class="kvValue">${escapeHtml(safeText(ev.location))}</div>
-      </div>
-
-      <div class="kvRow">
-        <div class="kvLabel">Costo</div>
-        <div class="kvValue">${escapeHtml(ev.priceText || "Por confirmar")}</div>
-      </div>
-    `;
-  }
-
+  // notices
   if (!ev.datesOk) {
     setNotices({ sold: false, available: false, pending: true });
   } else if (soldOutTotal) {
@@ -429,33 +550,11 @@ function renderEvent(ev) {
     setNotices({ sold: false, available: true, pending: false });
   }
 
-  const btnRegister = $("#btnRegister");
-  if (btnRegister) {
-    const firstAvailable = (ev.dates || []).find((x) => (Number(x?.seats) || 0) > 0);
-
-    if (firstAvailable && String(firstAvailable.id || "")) {
-      btnRegister.href =
-        `./register.html?event=${encodeURIComponent(ev.id)}&date_id=${encodeURIComponent(firstAvailable.id)}&date_label=${encodeURIComponent(firstAvailable.label || "")}`;
-    } else {
-      btnRegister.href = `./register.html?event=${encodeURIComponent(ev.id)}`;
-    }
-
-    if (soldOutTotal) {
-      btnRegister.setAttribute("aria-disabled", "true");
-      btnRegister.classList.remove("primary");
-      btnRegister.classList.add("btn");
-      btnRegister.style.opacity = ".55";
-      btnRegister.style.pointerEvents = "none";
-    } else {
-      btnRegister.removeAttribute("aria-disabled");
-      btnRegister.classList.add("primary");
-      btnRegister.style.opacity = "1";
-      btnRegister.style.pointerEvents = "auto";
-    }
-  }
-
-  const heroCard = $("#heroCard");
-  if (heroCard) heroCard.classList.toggle("isSoldOut", soldOutTotal);
+  // compat: clase soldout en contenedor viejo/nuevo
+  const oldCard = $("#heroCard");
+  const newContent = $("#eventHeroContent") || pickEl([".eventHeroContent"]);
+  if (oldCard) oldCard.classList.toggle("isSoldOut", soldOutTotal);
+  if (newContent) newContent.classList.toggle("isSoldOut", soldOutTotal);
 
   if (soldOutTotal) {
     toast("Evento agotado", "Este evento no tiene cupos disponibles.");
