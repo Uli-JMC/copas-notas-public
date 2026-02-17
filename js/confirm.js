@@ -9,8 +9,8 @@
    - ✅ NO redirige nunca
    - ✅ Reserva # debajo de Hora (registrations.reservation_number)
    - ✅ WhatsApp dinámico
-   - ✅ FIX BD: events.description (no "desc")
-   - ✅ FIX money: CRC/USD bonito
+   - ✅ Precio formateado es-CR (₡ / $)
+   - ✅ Hora: usa start_at/ends_at si existen; sino events.time_range
 ============================================================ */
 
 const $ = (sel) => document.querySelector(sel);
@@ -62,13 +62,16 @@ function getSb() {
   return window.APP && APP.supabase ? APP.supabase : null;
 }
 
+// -------------------------------
+// Money formatting (es-CR)
+// -------------------------------
 function normCurrency(cur) {
   const c = safeTrim(cur).toUpperCase();
   if (c === "CRC" || c === "USD") return c;
   return "";
 }
 
-function formatPrice(amount, currency) {
+function formatMoney(amount, currency) {
   const cur = normCurrency(currency);
   const n = Number(amount);
   if (!cur || !Number.isFinite(n)) return null;
@@ -86,6 +89,34 @@ function formatPrice(amount, currency) {
     const fixed = n.toFixed(decimals);
     return isCRC ? `₡${fixed}` : `$${fixed}`;
   }
+}
+
+// -------------------------------
+// Time range helper (optional)
+// -------------------------------
+function fmtTimeEsCR(iso) {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return new Intl.DateTimeFormat("es-CR", { hour: "numeric", minute: "2-digit" }).format(d);
+  } catch {
+    return "";
+  }
+}
+
+function buildTimeRangeFromDates(start_at, ends_at, fallback) {
+  const s = safeTrim(start_at);
+  const e = safeTrim(ends_at);
+  if (s) {
+    const sText = fmtTimeEsCR(s);
+    if (e) {
+      const eText = fmtTimeEsCR(e);
+      if (sText && eText) return `${sText} a ${eText}`;
+    }
+    if (sText) return sText;
+  }
+  const fb = safeTrim(fallback);
+  return fb || "Por confirmar";
 }
 
 function setUiInfoState(title, desc) {
@@ -123,15 +154,16 @@ async function getReservationNumber(sb, eventId, dateId) {
   return rn || safeTrim(data.id) || "";
 }
 
-function renderMetaBox(event, dateLabel, reservationNumber) {
+function renderMetaBox(event, dateLabel, reservationNumber, timeRangeText) {
   const metaBox = $("#metaBox");
   if (!metaBox) return;
 
   const type = safeTrim(event?.type) || "—";
   const location = safeTrim(event?.location) || "Por confirmar";
   const duration = safeTrim(event?.duration_hours) || "Por confirmar";
-  const timeRange = safeTrim(event?.time_range) || "Por confirmar";
-  const priceText = formatPrice(event?.price_amount, event?.price_currency);
+  const timeRange = safeTrim(timeRangeText || event?.time_range) || "Por confirmar";
+
+  const priceText = formatMoney(event?.price_amount, event?.price_currency);
 
   const reserveRow = reservationNumber
     ? `<div class="mRow">
@@ -217,7 +249,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     const { data: ev, error: evErr } = await sb
       .from("events")
-      .select('id, title, description, type, location, time_range, duration_hours, price_amount, price_currency')
+      .select('id, title, "desc", type, location, time_range, duration_hours, price_amount, price_currency')
       .eq("id", eventId)
       .maybeSingle();
 
@@ -226,7 +258,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const { data: d, error: dErr } = await sb
       .from("event_dates")
-      .select("id, event_id, label")
+      .select("id, event_id, label, start_at, ends_at")
       .eq("id", dateId)
       .eq("event_id", eventId)
       .maybeSingle();
@@ -239,12 +271,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const titleEl = $("#eventTitle");
     const descEl = $("#eventDesc");
 
-    if (titleEl) titleEl.textContent = regOk ? "¡Inscripción confirmada!" : (ev.title || "Evento");
+    // ✅ Title
+    if (titleEl) titleEl.textContent = regOk ? "¡Inscripción confirmada!" : (ev.title || "Confirmación");
 
-    const niceDesc = safeTrim(ev.description);
-    if (descEl) {
-      descEl.textContent = niceDesc ? niceDesc : "Te esperamos. Guardá estos detalles.";
-    }
+    // ✅ Description: usa ev.desc si existe (como tu página de evento)
+    const descText = safeTrim(ev["desc"]);
+    if (descEl) descEl.textContent = descText || "Te esperamos. Guardá estos detalles.";
 
     // ✅ Reserva #
     let reservationNumber = "";
@@ -257,9 +289,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.warn("[confirm] no reservation_number:", e);
     }
 
-    renderMetaBox(ev, d?.label || "Fecha confirmada", reservationNumber);
+    // ✅ Hora: usa start/end si existen, sino time_range de event
+    const timeRangeText = buildTimeRangeFromDates(d?.start_at, d?.ends_at, ev?.time_range);
 
-    // ✅ WhatsApp dinámico (usa el botón del HTML id="btnWA")
+    renderMetaBox(ev, d?.label || "Fecha confirmada", reservationNumber, timeRangeText);
+
+    // ✅ WhatsApp dinámico
     const btnWA = $("#btnWA");
     if (btnWA) {
       const txt =
