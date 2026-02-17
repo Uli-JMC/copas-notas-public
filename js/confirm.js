@@ -9,7 +9,7 @@
    - ✅ NO redirige nunca
    - ✅ Reserva # debajo de Hora (registrations.reservation_number)
    - ✅ WhatsApp dinámico
-   - ✅ Precio formateado es-CR (₡ / $)
+   - ✅ Precio es-CR (₡ / $)
    - ✅ Hora: usa start_at/ends_at si existen; sino events.time_range
 ============================================================ */
 
@@ -162,7 +162,6 @@ function renderMetaBox(event, dateLabel, reservationNumber, timeRangeText) {
   const location = safeTrim(event?.location) || "Por confirmar";
   const duration = safeTrim(event?.duration_hours) || "Por confirmar";
   const timeRange = safeTrim(timeRangeText || event?.time_range) || "Por confirmar";
-
   const priceText = formatMoney(event?.price_amount, event?.price_currency);
 
   const reserveRow = reservationNumber
@@ -244,7 +243,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Badge
   const badge = $("#statusBadge");
-  if (badge) badge.textContent = regOk ? "REGISTRO OK" : "OK";
+  if (badge) {
+    badge.textContent = regOk ? "REGISTRO OK" : "OK";
+    badge.classList.toggle("ok", true);
+  }
 
   try {
     const { data: ev, error: evErr } = await sb
@@ -271,30 +273,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     const titleEl = $("#eventTitle");
     const descEl = $("#eventDesc");
 
-    // ✅ Title
     if (titleEl) titleEl.textContent = regOk ? "¡Inscripción confirmada!" : (ev.title || "Confirmación");
 
-    // ✅ Description: usa ev.desc si existe (como tu página de evento)
     const descText = safeTrim(ev["desc"]);
     if (descEl) descEl.textContent = descText || "Te esperamos. Guardá estos detalles.";
 
-    // ✅ Reserva #
+    // Reserva #
     let reservationNumber = "";
     try {
       reservationNumber = await getReservationNumber(sb, String(eventId), String(dateId));
-      if (reservationNumber) {
-        sessionStorage.setItem("ecn_last_reservation_number", reservationNumber);
-      }
+      if (reservationNumber) sessionStorage.setItem("ecn_last_reservation_number", reservationNumber);
     } catch (e) {
       console.warn("[confirm] no reservation_number:", e);
     }
 
-    // ✅ Hora: usa start/end si existen, sino time_range de event
     const timeRangeText = buildTimeRangeFromDates(d?.start_at, d?.ends_at, ev?.time_range);
 
     renderMetaBox(ev, d?.label || "Fecha confirmada", reservationNumber, timeRangeText);
 
-    // ✅ WhatsApp dinámico
+    // WhatsApp dinámico
     const btnWA = $("#btnWA");
     if (btnWA) {
       const txt =

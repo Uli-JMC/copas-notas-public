@@ -4,276 +4,216 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#f3f4f6" />
+  <meta name="theme-color" content="#ffffff" />
   <title>Confirmación | Entre Copas &amp; Notas</title>
   <meta name="description" content="Confirmación de inscripción al evento." />
 
-  <!-- ✅ Base solo para toasts / tipografía si la usás ahí -->
+  <!-- ✅ TU BASE GLOBAL -->
   <link rel="stylesheet" href="./css/base.css" />
 
-  <!-- ✅ Estilos aislados SOLO para confirm (versión clara) -->
+  <!-- ✅ Estilos aislados SOLO para confirm (usa tokens del base.css) -->
   <style>
-    :root{
-      --bg:#f3f4f6;
-      --bg2:#ffffff;
-
-      --card:#ffffff;
-      --stroke: rgba(17,24,39,.10);
-      --stroke2: rgba(17,24,39,.08);
-
-      --text: rgba(17,24,39,.92);
-      --muted: rgba(17,24,39,.66);
-      --muted2: rgba(17,24,39,.56);
-
-      --pill: rgba(17,24,39,.06);
-      --shadow: 0 22px 70px rgba(17,24,39,.12);
-
-      --brand: #111827;
-      --ok: #16a34a;
-      --okBg: rgba(22,163,74,.12);
-      --okBd: rgba(22,163,74,.22);
-    }
-
     html, body { height: 100%; }
 
     body{
-      margin:0;
+      margin: 0;
       background:
-        radial-gradient(1100px 700px at 20% 10%, rgba(17,24,39,.06), transparent 60%),
-        radial-gradient(900px 600px at 80% 25%, rgba(17,24,39,.05), transparent 55%),
-        linear-gradient(180deg, var(--bg), var(--bg2));
+        radial-gradient(1100px 700px at 20% 10%, rgba(18,18,18,.06), transparent 60%),
+        radial-gradient(900px 600px at 80% 25%, rgba(18,18,18,.05), transparent 55%),
+        linear-gradient(180deg, #f3f4f6, #ffffff);
       color: var(--text);
-      overflow-x:hidden;
     }
 
     .confirmWrap{
-      min-height:100vh;
+      min-height: 100vh;
       display:flex;
       align-items:center;
       justify-content:center;
-      padding:28px 16px;
+      padding: 28px 16px;
     }
 
     .card{
-      width:min(920px, 100%);
-      border-radius:22px;
+      width: min(920px, 100%);
+      border-radius: calc(var(--radius-xl) + 6px);
       overflow:hidden;
-      border:1px solid var(--stroke);
-      background:var(--card);
-      box-shadow:var(--shadow);
+      border: 1px solid rgba(18,18,18,.10);
+      background: rgba(255,255,255,.98);
+      box-shadow: var(--shadow-mid);
     }
 
     .cardTop{
-      padding:22px 22px 16px;
-      border-bottom:1px solid var(--stroke2);
-      position:relative;
-      background: linear-gradient(180deg, rgba(17,24,39,.02), transparent);
+      padding: 22px 22px 16px;
+      border-bottom: 1px solid rgba(18,18,18,.10);
+      background: linear-gradient(180deg, rgba(18,18,18,.02), transparent);
+      position: relative;
     }
 
     .cardTopRow{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:12px;
-      margin-bottom:10px;
+      gap: 12px;
+      margin-bottom: 10px;
     }
 
     .kicker{
       margin:0;
       letter-spacing:.10em;
-      text-transform:uppercase;
-      font-weight:900;
-      font-size:12px;
-      color:var(--muted);
+      text-transform: uppercase;
+      font-weight: 900;
+      font-size: 12px;
+      color: var(--muted);
     }
 
-    .cuposBadge{
+    .statusBadge{
       display:inline-flex;
       align-items:center;
-      gap:8px;
-      padding:7px 10px;
-      border-radius:999px;
-      font-weight:900;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      font-size:11px;
-      border:1px solid var(--stroke);
-      background: var(--pill);
-      color: var(--text);
-      white-space:nowrap;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 900;
+      letter-spacing:.10em;
+      text-transform: uppercase;
+      font-size: 11px;
+      border: 1px solid rgba(18,18,18,.12);
+      background: rgba(18,18,18,.04);
+      color: rgba(18,18,18,.88);
+      white-space: nowrap;
     }
 
-    .cuposBadge.ok{
-      background: var(--okBg);
-      border-color: var(--okBd);
-      color: rgba(22,163,74,.95);
+    .statusBadge.ok{
+      border-color: rgba(22,163,74,.22);
+      background: rgba(22,163,74,.10);
+      color: rgba(22,163,74,.92);
     }
 
     .title{
       margin:0;
-      font-weight:950;
-      letter-spacing:-.01em;
-      line-height:1.06;
+      font-weight: 900;
+      letter-spacing: -.01em;
+      line-height: 1.06;
       font-size: clamp(28px, 3.4vw, 44px);
-      color: rgba(17,24,39,.96);
+      color: rgba(18,18,18,.94);
     }
 
     .sub{
-      margin:10px 0 0;
+      margin: 10px 0 0;
       color: var(--muted);
-      line-height:1.65;
-      font-size:14px;
-      max-width: 78ch;
+      line-height: 1.7;
+      font-size: var(--fs-14);
+      max-width: 80ch;
     }
 
     .metaBox{
-      margin-top:14px;
-      border-radius:18px;
-      border:1px solid var(--stroke);
-      background: rgba(17,24,39,.02);
-      padding:12px;
+      margin-top: 14px;
+      border-radius: var(--radius-xl);
+      border: 1px solid rgba(18,18,18,.10);
+      background: rgba(18,18,18,.02);
+      padding: 12px;
     }
 
     .metaBox .mHead{
       display:flex;
       align-items:flex-start;
       justify-content:space-between;
-      gap:12px;
-      padding:6px 8px 10px;
-      border-bottom:1px solid var(--stroke2);
-      margin-bottom:10px;
+      gap: 12px;
+      padding: 6px 8px 10px;
+      border-bottom: 1px solid rgba(18,18,18,.10);
+      margin-bottom: 10px;
     }
 
     .metaBox .mBody{
       display:grid;
       grid-template-columns: 1fr 1fr;
-      gap:10px 14px;
-      padding:0 8px 6px;
+      gap: 10px 14px;
+      padding: 0 8px 6px;
     }
 
     .metaBox .mRow{
       display:flex;
       align-items:flex-start;
       justify-content:space-between;
-      gap:12px;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid var(--stroke2);
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(18,18,18,.10);
       background: #fff;
     }
 
     .metaBox .mLabel{
-      color: rgba(17,24,39,.60);
-      font-weight:900;
-      font-size:11px;
-      letter-spacing:.10em;
-      text-transform:uppercase;
-      white-space:nowrap;
+      color: rgba(18,18,18,.58);
+      font-weight: 900;
+      font-size: 11px;
+      letter-spacing: .10em;
+      text-transform: uppercase;
+      white-space: nowrap;
     }
 
     .metaBox .mValue{
-      color: rgba(17,24,39,.92);
-      font-weight:900;
-      font-size:13px;
+      color: rgba(18,18,18,.92);
+      font-weight: 900;
+      font-size: 13px;
       text-align:right;
     }
 
     .cardBody{
-      padding:16px 22px 22px;
+      padding: 16px 22px 22px;
     }
 
     .hint{
-      margin-top:6px;
+      margin-top: 6px;
       color: var(--muted);
-      line-height:1.75;
-      font-size:14px;
+      line-height: 1.75;
+      font-size: var(--fs-14);
     }
 
     .actions{
-      margin-top:14px;
+      margin-top: 14px;
       display:flex;
-      gap:10px;
-      flex-wrap:wrap;
+      gap: 10px;
+      flex-wrap: wrap;
       align-items:center;
       justify-content:center;
     }
 
-    /* ✅ botones más pequeños + estilo claro */
-    .btn{
-      appearance:none;
-      border:1px solid var(--stroke);
-      background:#fff;
-      color: rgba(17,24,39,.92);
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      padding:10px 14px;           /* ⬅️ más pequeño */
-      border-radius:12px;          /* ⬅️ menos grande */
-      min-height:40px;             /* ⬅️ más pequeño */
-      font-weight:900;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      font-size:11px;              /* ⬅️ más pequeño */
-      flex: 1 1 200px;
-      transition: transform .10s ease, background .15s ease, border-color .15s ease, color .15s ease;
+    /* ✅ Botones más pequeños SOLO en confirm (no toca base.css global) */
+    .confirmWrap .btn{
+      padding: 9px 12px;
+      min-height: 36px;
+      font-size: 11px;
+      letter-spacing: .12em;
     }
 
-    .btn:hover{
-      background: rgba(17,24,39,.02);
-      border-color: rgba(17,24,39,.16);
-    }
-
-    .btn:active{ transform: translateY(1px); }
-
-    .btn.primary{
-      background: #111827;
-      color:#fff;
-      border-color:#111827;
-    }
-
-    .btn.primary:hover,
-    .btn.primary:focus{
-      background:#111827 !important;
-      color:#fff !important;
-      border-color:#111827 !important;
-      opacity:1 !important;
-      filter:none !important;
-      -webkit-text-fill-color:#fff !important;
-    }
-
-    /* WhatsApp */
+    /* WhatsApp (mantiene estilo claro) */
     .btn.wa{
-      background: rgba(22,163,74,.10);
-      border-color: rgba(22,163,74,.20);
-      color: rgba(17,24,39,.92);
+      border-color: rgba(22,163,74,.22);
+      background: rgba(22,163,74,.08);
     }
-
     .btn.wa:hover{
-      background: rgba(22,163,74,.14);
-      border-color: rgba(22,163,74,.28);
+      border-color: rgba(22,163,74,.34);
+      background: rgba(22,163,74,.12);
     }
 
-    .waIcon path{ fill: rgba(17,24,39,.92); }
     .waIcon{
-      width:18px;height:18px;display:inline-block;flex:0 0 18px;
+      width: 18px;
+      height: 18px;
+      display:inline-block;
+      flex: 0 0 18px;
     }
 
     .fine{
-      margin-top:10px;
+      margin-top: 10px;
       text-align:center;
-      color: var(--muted2);
-      font-size:13px;
-      line-height:1.6;
+      color: rgba(18,18,18,.56);
+      font-size: var(--fs-13);
+      line-height: 1.6;
     }
 
     @media (max-width: 720px){
-      .cardTop{ padding:18px 16px 14px; }
-      .cardBody{ padding:14px 16px 18px; }
+      .cardTop{ padding: 18px 16px 14px; }
+      .cardBody{ padding: 14px 16px 18px; }
       .metaBox .mBody{ grid-template-columns: 1fr; }
       .metaBox .mValue{ text-align:left; }
-      .btn{ flex: 1 1 160px; }
     }
   </style>
 </head>
@@ -286,7 +226,7 @@
       <div class="cardTop">
         <div class="cardTopRow">
           <p class="kicker">Confirmación</p>
-          <span class="cuposBadge ok" id="statusBadge">REGISTRO OK</span>
+          <span class="statusBadge ok" id="statusBadge">REGISTRO OK</span>
         </div>
 
         <h1 class="title" id="eventTitle">¡Inscripción confirmada!</h1>
@@ -307,14 +247,12 @@
           <a class="btn primary" href="./home.html#proximos">Ver más eventos</a>
 
           <a class="btn wa" id="btnWA"
-            href="https://wa.me/50688323801?text=Hola%20%F0%9F%91%8B%20quiero%20confirmar%20detalles."
-            target="_blank" rel="noopener">
+             href="https://wa.me/50688323801?text=Hola%20%F0%9F%91%8B%20quiero%20confirmar%20detalles."
+             target="_blank" rel="noopener">
 
-            <svg class="waIcon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"
-              focusable="false">
+            <svg class="waIcon" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
               <g>
-                <path
-                  d="m317.12 285.93c-9.69 3.96-15.88 19.13-22.16 26.88-3.22 3.97-7.06 4.59-12.01 2.6-36.37-14.49-64.25-38.76-84.32-72.23-3.4-5.19-2.79-9.29 1.31-14.11 6.06-7.14 13.68-15.25 15.32-24.87 3.64-21.28-24.18-87.29-60.92-57.38-105.72 86.15 176.36 314.64 227.27 191.06 14.4-35.03-48.43-58.53-64.49-51.95zm-61.12 181.35c-37.39 0-74.18-9.94-106.39-28.76-5.17-3.03-11.42-3.83-17.2-2.26l-69.99 19.21 24.38-53.71c3.32-7.31 2.47-15.82-2.22-22.32-26.08-36.15-39.87-78.83-39.87-123.44 0-116.51 94.78-211.29 211.29-211.29s211.28 94.78 211.28 211.29c0 116.5-94.78 211.28-211.28 211.28zm0-467.28c-141.16 0-256 114.84-256 256 0 49.66 14.1 97.35 40.89 138.74l-38.89 85.65c-3.59 7.91-2.28 17.17 3.34 23.76 4.32 5.05 10.57 7.85 17.02 7.85 14.42 0 93.05-24.71 113.06-30.2 36.99 19.79 78.48 30.2 120.58 30.2 141.15 0 256-114.85 256-256 0-141.16-114.85-256-256-256z" />
+                <path d="m317.12 285.93c-9.69 3.96-15.88 19.13-22.16 26.88-3.22 3.97-7.06 4.59-12.01 2.6-36.37-14.49-64.25-38.76-84.32-72.23-3.4-5.19-2.79-9.29 1.31-14.11 6.06-7.14 13.68-15.25 15.32-24.87 3.64-21.28-24.18-87.29-60.92-57.38-105.72 86.15 176.36 314.64 227.27 191.06 14.4-35.03-48.43-58.53-64.49-51.95zm-61.12 181.35c-37.39 0-74.18-9.94-106.39-28.76-5.17-3.03-11.42-3.83-17.2-2.26l-69.99 19.21 24.38-53.71c3.32-7.31 2.47-15.82-2.22-22.32-26.08-36.15-39.87-78.83-39.87-123.44 0-116.51 94.78-211.29 211.29-211.29s211.28 94.78 211.28 211.29c0 116.5-94.78 211.28-211.28 211.28zm0-467.28c-141.16 0-256 114.84-256 256 0 49.66 14.1 97.35 40.89 138.74l-38.89 85.65c-3.59 7.91-2.28 17.17 3.34 23.76 4.32 5.05 10.57 7.85 17.02 7.85 14.42 0 93.05-24.71 113.06-30.2 36.99 19.79 78.48 30.2 120.58 30.2 141.15 0 256-114.85 256-256 0-141.16-114.85-256-256-256z"/>
               </g>
             </svg>
 
@@ -322,9 +260,7 @@
           </a>
         </div>
 
-        <p class="fine">
-          Si ocupás ayuda con tu reserva, escribinos por WhatsApp.
-        </p>
+        <p class="fine">Si ocupás ayuda con tu reserva, escribinos por WhatsApp.</p>
       </div>
     </section>
   </main>
