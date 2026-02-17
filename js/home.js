@@ -919,7 +919,7 @@ function renderEmptyState() {
 
               <!-- ✅ Mobile CTAs -->
               <div class="heroMobileActions">
-                <a class="btn primary" href="#proximos">Ver más</a>
+                <a class="btn primary" href="./event.html">Ver más</a>
                 <a class="btn" href="./gallery.html">Galería</a>
               </div>
             </div>
