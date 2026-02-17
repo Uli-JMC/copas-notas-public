@@ -876,7 +876,7 @@
   }
 
   .serviceTitle{
-    font-size: clamp(20px, 7vw, 30px);
+    font-size: clamp(20px, 5vw, 30px);
     text-align: center;
     margin-left: auto;
     margin-right: auto;
