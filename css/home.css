@@ -855,7 +855,7 @@
 
 @media (max-width: 640px) {
   #servicios.section {
-    padding: 72px 0;
+    padding: 72px 30px;
     background-attachment: scroll;
   }
 }
