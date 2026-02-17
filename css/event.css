@@ -1,35 +1,29 @@
 /* ============================================================
-   event.css ✅ EVENT PAGE (2026) — UX/UI SENSORIAL (NEW LAYOUT)
-   - Mantiene header/footer y los IDs que usa event.js
-   - Hero con FOTO protagonista (no fondo borroso)
-   - Sección banner/menú (imagen + texto) lista para conectar a BD
-   - Fechas + Detalles en una sola sección (menos “cards”)
-   - Responsive sólido
+   event.css ✅ EVENT PAGE (2026) — UX SENSORIAL (v2)
+   - Diseñado para tu HTML NUEVO (heroNew + evPhoto + banner + secciones)
+   - Mantiene IDs / JS intactos
+   - Header y Footer NO se tocan (solo estilos existentes)
+   - ✅ Apaga el heroBg borroso (compat JS)
 ============================================================ */
 
 :root{
-  /* Hereda tokens de base.css, fallback si falta */
   --event-bg: var(--bg, #ffffff);
   --event-text: var(--text, rgba(18,18,18,.92));
   --event-muted: var(--muted, rgba(18,18,18,.62));
   --event-line: var(--line, rgba(18,18,18,.12));
 
   --event-radius: var(--radius-xl, 18px);
-  --event-shadow: var(--shadow-mid, 0 22px 60px rgba(0,0,0,.20));
-  --event-shadow-soft: var(--shadow-soft, 0 18px 50px rgba(0,0,0,.12));
+  --event-radius-lg: 22px;
+  --event-shadow: var(--shadow-mid, 0 22px 60px rgba(0,0,0,.18));
+  --event-shadow-soft: var(--shadow-soft, 0 18px 50px rgba(0,0,0,.10));
 
   --event-pad: 20px;
   --event-gap: 14px;
 
-  /* nuevos */
-  --event-soft: rgba(18,18,18,.03);
-  --event-soft2: rgba(18,18,18,.02);
-  --event-border: rgba(18,18,18,.10);
+  --surface: rgba(255,255,255,.96);
+  --surface2: rgba(18,18,18,.02);
 }
 
-/* ============================================================
-   Base / Layout
-============================================================ */
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
 
@@ -42,7 +36,6 @@ body{
   overflow-x: hidden;
 }
 
-/* Mejor wrap para textos largos */
 p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
 .container{
@@ -51,7 +44,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Header (topbar) — igual que tenías
+   Header (topbar) — tu estilo actual
 ============================================================ */
 .topbar{
   position: sticky;
@@ -122,14 +115,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   min-width: 0;
 }
 
-.brandRight img{
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-  flex: 0 0 auto;
-  filter: drop-shadow(0 8px 20px rgba(0,0,0,.08));
-}
-
 .brandRight span{
   font-family: inherit;
   letter-spacing:.10em;
@@ -145,7 +130,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Botones (fallback)
+   Botones (fallback si base.css no estuviera)
 ============================================================ */
 .btn{
   border: 1px solid rgba(18,18,18,.16);
@@ -177,24 +162,18 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   border-color: rgba(18,18,18,.24);
   background: rgba(18,18,18,.04);
 }
-
 .btn:active{ transform: translateY(0); }
-
 .btn:focus-visible{
   box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28));
 }
 
 .btn.primary{
-  background: rgba(18,18,18,.08);
-  border-color: rgba(18,18,18,.22);
-  color: rgba(18,18,18,.92);
+  background: #000 !important;
+  border-color: #000 !important;
+  color: #fff !important;
+  border-width: 2px;
 }
-
-.btn.primary:hover{
-  background: rgba(18,18,18,.10);
-  border-color: rgba(18,18,18,.28);
-  filter: brightness(1.02);
-}
+.btn.primary:hover{ filter: brightness(1.06); }
 
 .btn[aria-disabled="true"],
 .btn:disabled{
@@ -203,7 +182,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Icon buttons (footer)
+   Footer icon buttons
 ============================================================ */
 .icon-btn{
   width:44px; height:44px;
@@ -230,74 +209,37 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   HERO (nuevo sensorial)
+   HERO NUEVO (sensorial)
 ============================================================ */
 .hero{
   position: relative;
   min-height: calc(100vh - 72px);
   min-height: calc(100dvh - 72px);
   overflow:hidden;
-  border-bottom: 1px solid rgba(18,18,18,.08);
   background: #fff;
 }
 
-/* ✅ Apagar el “fondo” para que no se vea sistemático */
+/* ✅ Apagamos el fondo borroso (pero existe por compat JS) */
 .heroBg{
-  position:absolute;
-  inset:0;
-  background: none !important;
-  filter: none !important;
-  transform: none !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
+  display:none !important;
 }
 
 .heroWrap{
   position: relative;
   z-index: 2;
-  padding: 28px 0 56px;
+  padding: 26px 0 56px;
 }
 
 /* card principal */
 .heroCard{
-  border-radius: calc(var(--event-radius) + 6px);
+  border-radius: calc(var(--event-radius-lg) + 6px);
   border: 1px solid rgba(18,18,18,.08);
-  background: #fff;
-  box-shadow: var(--event-shadow-soft);
+  background: var(--surface);
+  box-shadow: var(--event-shadow);
   padding: var(--event-pad);
 }
 
-/* estado */
-.heroCard.isSoldOut{ filter: saturate(.92); }
-
-/* =========================
-   Top hero grid (texto + foto)
-========================= */
-.heroTop{
-  display:grid;
-  grid-template-columns: 1.15fr .85fr;
-  gap: 18px;
-  align-items: start;
-}
-
-.heroText{ min-width:0; }
-
-.heroMedia{
-  border-radius: var(--event-radius);
-  overflow:hidden;
-  border: 1px solid rgba(18,18,18,.10);
-  background: rgba(18,18,18,.02);
-  box-shadow: 0 12px 40px rgba(0,0,0,.08);
-}
-
-.heroImg{
-  width:100%;
-  height:100%;
-  display:block;
-  object-fit: cover;
-  aspect-ratio: 4 / 3;
-  transform: scale(1.01);
-}
+.heroCard.isSoldOut{ filter: saturate(.94); }
 
 /* meta pills */
 .heroMeta{
@@ -310,7 +252,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   letter-spacing:.18em;
   font-size: 11px;
   min-width: 0;
-  padding-bottom: 8px;
+  padding-bottom: 10px;
 }
 
 .pill{
@@ -329,7 +271,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   max-width: 100%;
   font-weight: 900;
 }
-
 .dot{
   width:6px; height:6px;
   border-radius:999px;
@@ -337,114 +278,144 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   display:inline-block;
 }
 
-/* ✅ título más pequeño (lo pediste) */
+/* ✅ HERO TOP: texto + foto */
+.heroTop{
+  display:grid;
+  grid-template-columns: 1.05fr .95fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.heroText{ min-width: 0; }
+
 .title{
-  margin: 10px 0 8px;
-  font-family: inherit;
+  margin: 6px 0 10px;
   font-weight: 900;
   letter-spacing: .02em;
   text-transform: uppercase;
-  font-size: clamp(26px, 3.2vw, 42px);
-  line-height: 1.05;
+  font-size: clamp(26px, 4.0vw, 44px);
+  line-height: 1.02;
   color: rgba(18,18,18,.92);
 }
 
 .desc{
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   color: rgba(18,18,18,.68);
-  line-height: 1.75;
-  max-width: 72ch;
+  line-height: 1.7;
+  max-width: 78ch;
   font-size: 15px;
 }
 
+/* media */
+.heroMedia{
+  border-radius: 18px;
+  overflow:hidden;
+  border: 1px solid rgba(18,18,18,.10);
+  background: #f7f7f7;
+  box-shadow: var(--event-shadow-soft);
+}
+
+.heroImg{
+  width: 100%;
+  height: clamp(240px, 34vw, 360px);
+  object-fit: cover;
+  display:block;
+}
+
 /* ============================================================
-   Banner / Menú (imagen + texto)
+   BANNER / MENÚ (imagen adicional + texto)
 ============================================================ */
 .experienceBanner{
   margin-top: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(18,18,18,.10);
+  background: #fff;
+  overflow: hidden;
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  padding: 16px;
-  border-radius: var(--event-radius);
-  border: 1px solid rgba(18,18,18,.10);
-  background: linear-gradient(180deg, rgba(18,18,18,.02), rgba(18,18,18,.01));
+  min-height: 260px;
 }
 
 .expMedia{
-  border-radius: calc(var(--event-radius) - 4px);
-  overflow:hidden;
-  border: 1px solid rgba(18,18,18,.10);
-  background: rgba(18,18,18,.02);
+  background: #f3f3f3;
+  border-right: 1px solid rgba(18,18,18,.08);
 }
 
 .expImg{
-  width:100%;
-  height:100%;
-  display:block;
+  width: 100%;
+  height: 100%;
+  min-height: 260px;
   object-fit: cover;
-  aspect-ratio: 16 / 10;
+  display:block;
 }
 
-.expText{ min-width:0; }
+.expText{
+  padding: 18px 18px;
+  display:flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
 
 .expKicker{
-  margin: 0 0 6px;
+  margin:0;
   font-size: 11px;
   font-weight: 900;
   letter-spacing:.18em;
   text-transform: uppercase;
-  color: rgba(18,18,18,.70);
+  color: rgba(18,18,18,.62);
 }
 
 .expTitle{
-  margin: 0 0 8px;
-  font-size: clamp(16px, 1.6vw, 20px);
+  margin:0;
+  font-size: 18px;
   font-weight: 900;
-  letter-spacing:.02em;
+  letter-spacing:.06em;
   text-transform: uppercase;
   color: rgba(18,18,18,.92);
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .expDesc{
-  margin: 0;
-  color: rgba(18,18,18,.68);
-  line-height: 1.75;
+  margin:0;
   font-size: 14px;
+  line-height: 1.75;
+  color: rgba(18,18,18,.70);
+  max-width: 66ch;
 }
 
 /* ============================================================
-   Sección única: Fechas + Detalles (menos cards)
+   INFO SECTION (Fechas + Detalles) — una sola sección
 ============================================================ */
 .infoSection{
   margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(18,18,18,.08);
-}
-
-.infoGrid{
-  display:grid;
-  grid-template-columns: 1.05fr .95fr;
-  gap: var(--event-gap);
-  align-items: start;
-}
-
-.infoBlock{
-  border-radius: var(--event-radius);
+  border-radius: 20px;
   border: 1px solid rgba(18,18,18,.10);
   background: #fff;
   padding: 16px;
 }
 
-/* ✅ H2 alineado a home */
+.infoGrid{
+  display:grid;
+  grid-template-columns: 1.05fr .95fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.infoBlock{
+  border-radius: 18px;
+  border: 1px solid rgba(18,18,18,.08);
+  background: rgba(18,18,18,.01);
+  padding: 14px;
+}
+
+/* Headings */
 .h2{
   margin:0;
-  font-family: inherit;
-  font-weight: 800;
+  font-weight: 900;
   letter-spacing: .16em;
   text-transform: uppercase;
-  font-size: clamp(16px, 1.4vw, 20px);
+  font-size: 18px;
   line-height: 1.2;
   color: rgba(18,18,18,.92);
 }
@@ -453,7 +424,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   margin: 10px 0 14px;
   color: rgba(18,18,18,.62);
   line-height: 1.7;
-  font-size: var(--fs-14, 14px);
+  font-size: 14px;
 }
 
 /* ============================================================
@@ -471,7 +442,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   justify-content:space-between;
   gap:12px;
   padding: 12px 12px;
-  border-radius: 14px;
+  border-radius: 16px;
   border: 1px solid rgba(18,18,18,.10);
   background: rgba(18,18,18,.02);
   min-width: 0;
@@ -524,16 +495,14 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   outline: none;
 }
 
-/* ============================================================
-   Notices
-============================================================ */
+/* Notices */
 .notice{
   margin-top: 14px;
   display:flex;
   align-items:flex-start;
-  gap: 12px;
+  gap: 14px;
   padding: 12px 12px;
-  border-radius: 14px;
+  border-radius: 16px;
   border: 1px solid rgba(18,18,18,.10);
   background: rgba(18,18,18,.02);
   color: rgba(18,18,18,.72);
@@ -570,9 +539,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   color: rgba(215,44,44,.92);
 }
 
-/* ============================================================
-   KV
-============================================================ */
+/* KV */
 .kv{
   display:flex;
   flex-direction:column;
@@ -622,23 +589,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   border-radius: 14px;
 }
 
-.actions .btn:not(.primary){
-  background: rgba(18, 18, 18, .03);
-  border-color: rgba(18, 18, 18, .10);
-  color: rgba(18,18,18,.88);
-}
-
-.actions .btn.primary{
-  background: #000 !important;
-  border-color: #000 !important;
-  color: #fff !important;
-  border-width: 2px;
-}
-
-.actions .btn.primary:hover{
-  filter: brightness(1.06);
-}
-
 .fine{
   margin: 12px 0 0;
   color: rgba(18,18,18,.58);
@@ -647,26 +597,27 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Tips section (menos “cards”)
+   Tips section (sin “cards” pesados)
 ============================================================ */
 .tipsSection{
   margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(18,18,18,.08);
+  border-radius: 20px;
+  border: 1px solid rgba(18,18,18,.10);
+  background: #fff;
+  padding: 16px;
 }
 
 .tipsGrid{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--event-gap);
+  gap: 16px;
 }
 
 .tip{
-  border-radius: var(--event-radius);
-  border: 1px solid rgba(18,18,18,.10);
-  background: rgba(18,18,18,.02);
-  box-shadow: 0 10px 30px rgba(0,0,0,.06);
-  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(18,18,18,.08);
+  background: rgba(18,18,18,.01);
+  padding: 14px;
 }
 
 .miniTitle{
@@ -687,7 +638,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Footer
+   Footer (tu estilo)
 ============================================================ */
 .footer{
   border-top: 1px solid rgba(18,18,18,.10);
@@ -717,16 +668,12 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 ============================================================ */
 @media (max-width: 980px){
   .heroTop{ grid-template-columns: 1fr; }
-  .heroImg{ aspect-ratio: 16 / 9; }
-
   .experienceBanner{ grid-template-columns: 1fr; }
-  .expImg{ aspect-ratio: 16 / 9; }
-
+  .expMedia{ border-right: 0; border-bottom: 1px solid rgba(18,18,18,.08); }
   .infoGrid{ grid-template-columns: 1fr; }
   .tipsGrid{ grid-template-columns: 1fr; }
 }
 
-/* tablets: acciones en 2 columnas */
 @media (max-width: 760px){
   .actions{
     display:grid;
@@ -734,9 +681,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
     gap:12px;
   }
   .actions .btn{ width:100%; }
-
-  .kvRow{ align-items:flex-start; }
-  .kvValue{ text-align:right; }
 }
 
 @media (max-width: 640px){
@@ -744,27 +688,20 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
   .nav{ padding: 12px 0; }
   .backIcon{ width: 40px; height: 40px; }
-
-  .heroWrap{ padding: 18px 0 42px; }
-  .heroCard{ padding: 14px; }
-
   .brandRight span{ max-width: 56vw; font-size: 12px; }
 
-  .title{
-    font-size: clamp(22px, 7.6vw, 34px);
-    line-height: 1.06;
-  }
+  .heroWrap{ padding: 18px 0 44px; }
+  .heroCard{ padding: 14px; }
 
+  .title{ font-size: clamp(24px, 8.6vw, 38px); }
   .desc{ font-size: 14px; }
 
-  .infoBlock{ padding: 14px; }
+  .heroImg{ height: 260px; }
 
-  /* Dates stack */
   .dateItem{
     flex-direction: column;
     align-items: stretch;
   }
-
   .datePick{
     width: 100%;
     padding: 12px 20px;
@@ -773,7 +710,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
   .actions{ grid-template-columns: 1fr; }
 
-  /* notice en móvil */
   .notice{
     flex-direction: column;
     gap: 10px;
@@ -787,7 +723,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
     text-align: center;
     gap: 10px;
   }
-
   .footerRow .social{
     width: 100%;
     justify-content: center;
@@ -799,5 +734,5 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   .brandRight span{ max-width: 62vw; }
 }
 
-/* ✅ Hard rule: hidden siempre oculta */
+/* ✅ Hard rule */
 [hidden]{ display:none !important; }
