@@ -1,13 +1,17 @@
 "use strict";
 
 /* ============================================================
-   event.js (Supabase-first) ✅ DROPDOWN FECHAS + FIX + PRICE (Opción A)
-   - ✅ Si hay 1 fecha: se muestra card normal con botón Elegir (igual que antes)
+   event.js (Supabase-first) ✅ DROPDOWN FECHAS + FIX + PRICE + MEDIA
+   - ✅ Si hay 1 fecha: se muestra card normal con botón Elegir
    - ✅ Si hay 2+ fechas: se muestra dropdown + botón Elegir
    - No marca "Agotado" si fechas aún no cargaron (evita falso sold-out)
    - Loader suave para evitar “brinco” visual al refrescar
    - ✅ Muestra Precio (events.price_amount + events.price_currency)
      - Si no hay precio => "Por confirmar"
+   - ✅ Imagen principal SIEMPRE viene de events.img (no del hero home)
+   - ✅ Mobile: botón "Ver más info" que despliega panel con imagen desde BD
+     - Usa fields opcionales: events.more_img y events.more_img_alt
+     - Si no existen o vienen vacíos, el bloque queda oculto
 ============================================================ */
 
 // ============================================================
@@ -89,15 +93,6 @@ function hasSupabase() {
   return !!(window.APP && APP.supabase);
 }
 
-function getDefaultHero() {
-  try {
-    const media = window.ECN && typeof ECN.getMedia === "function" ? ECN.getMedia() : null;
-    return normalizeImgPath(media?.defaultHero || "./assets/img/hero-1.jpg");
-  } catch (_) {
-    return "./assets/img/hero-1.jpg";
-  }
-}
-
 // ✅ Precio helpers (Opción A)
 function normCurrency(cur) {
   const c = String(cur || "").trim().toUpperCase();
@@ -162,13 +157,27 @@ async function fetchEventFromSupabase(eventId) {
   if (!eid) return null;
 
   // 1) Evento
-  const evRes = await APP.supabase
+  // ✅ Nota: more_img / more_img_alt son opcionales (si no existen en tabla, Supabase devuelve error).
+  // Por eso: primero intentamos con esos campos; si falla, reintentamos sin ellos.
+  const selectWithMore =
+    "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,more_img,more_img_alt,created_at,updated_at";
+  const selectBase =
+    "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at";
+
+  let evRes = await APP.supabase
     .from("events")
-    .select(
-      "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at"
-    )
+    .select(selectWithMore)
     .eq("id", eid)
     .maybeSingle();
+
+  if (evRes?.error) {
+    // fallback si la columna no existe todavía
+    evRes = await APP.supabase
+      .from("events")
+      .select(selectBase)
+      .eq("id", eid)
+      .maybeSingle();
+  }
 
   if (evRes.error) {
     console.error(evRes.error);
@@ -220,7 +229,13 @@ async function fetchEventFromSupabase(eventId) {
     monthKey: String(evRes.data.month_key || "—").toUpperCase(),
     title: String(evRes.data.title || "Evento"),
     desc: String(evRes.data.description || ""),
-    img: normalizeImgPath(evRes.data.img || getDefaultHero()),
+
+    // ✅ La imagen SIEMPRE sale del evento. Si no hay, fallback local.
+    img: normalizeImgPath(evRes.data.img || "./assets/img/hero-1.jpg"),
+
+    // ✅ Opcional: imagen "ver más" desde BD
+    moreImg: normalizeImgPath(evRes.data.more_img || ""),
+    moreImgAlt: String(evRes.data.more_img_alt || "").trim(),
 
     dates,
     seats: seatsTotalAvailable,
@@ -289,6 +304,79 @@ function ensurePickListener() {
 }
 
 // ============================================================
+// "Ver más info" (mobile)
+// - Lo creamos aquí (sin tocar tu HTML), y se oculta si no hay imagen en BD
+// ============================================================
+function ensureMoreInfoBlock() {
+  if (ensureMoreInfoBlock._done) return;
+  ensureMoreInfoBlock._done = true;
+
+  const desc = $("#evDesc");
+  if (!desc) return;
+
+  // Insertamos el bloque justo después del párrafo de descripción.
+  const wrap = document.createElement("div");
+  wrap.className = "moreInfo";
+  wrap.id = "moreInfo";
+  wrap.setAttribute("hidden", "");
+
+  wrap.innerHTML = `
+    <button class="btn moreBtn" type="button" id="moreBtn" aria-expanded="false" aria-controls="morePanel">
+      Ver más info
+    </button>
+
+    <div class="morePanel" id="morePanel" hidden>
+      <div class="moreMedia">
+        <img id="moreImg" class="moreImg" alt="Más información del evento" loading="lazy" decoding="async" />
+      </div>
+    </div>
+  `;
+
+  desc.insertAdjacentElement("afterend", wrap);
+
+  const btn = $("#moreBtn");
+  const panel = $("#morePanel");
+
+  btn?.addEventListener("click", () => {
+    const isOpen = btn.getAttribute("aria-expanded") === "true";
+    const next = !isOpen;
+
+    btn.setAttribute("aria-expanded", next ? "true" : "false");
+    if (panel) {
+      if (next) panel.removeAttribute("hidden");
+      else panel.setAttribute("hidden", "");
+    }
+  });
+}
+
+function setMoreInfoMedia(ev) {
+  const wrap = $("#moreInfo");
+  const img = $("#moreImg");
+  const btn = $("#moreBtn");
+  const panel = $("#morePanel");
+  if (!wrap || !img || !btn || !panel) return;
+
+  // Si no hay imagen (o quedó en fallback vacío), ocultamos
+  const raw = String(ev?.moreImg || "").trim();
+  const has = !!raw && raw !== "./assets/img/hero-1.jpg"; // evita que se vea un fallback genérico si no querés
+
+  if (!has) {
+    wrap.setAttribute("hidden", "");
+    return;
+  }
+
+  img.src = raw;
+  img.alt = ev?.moreImgAlt ? ev.moreImgAlt : (ev?.title ? `Más info: ${ev.title}` : "Más información del evento");
+
+  // visible en mobile (CSS lo apaga en desktop)
+  wrap.removeAttribute("hidden");
+
+  // por defecto cerrado
+  btn.setAttribute("aria-expanded", "false");
+  panel.setAttribute("hidden", "");
+}
+
+// ============================================================
 // Render helpers: fechas (1 vs dropdown)
 // ============================================================
 function renderDatesUI(dateListEl, ev, soldOutTotal) {
@@ -349,7 +437,6 @@ function renderDatesUI(dateListEl, ev, soldOutTotal) {
   }
 
   // ✅ 2+ fechas => DROPDOWN + botón
-  // UX: opciones deshabilitadas si 0 cupos
   const wrap = document.createElement("div");
   wrap.className = "dateItem";
   wrap.style.alignItems = "stretch";
@@ -378,7 +465,6 @@ function renderDatesUI(dateListEl, ev, soldOutTotal) {
   const sel = document.createElement("select");
   sel.id = "dateSelect";
   sel.setAttribute("aria-label", "Seleccionar fecha");
-  // estilo inline para no tocar tu CSS ahora; luego lo refinamos en CSS si querés
   sel.style.minHeight = "46px";
   sel.style.borderRadius = "999px";
   sel.style.border = "1px solid rgba(18,18,18,.14)";
@@ -414,14 +500,12 @@ function renderDatesUI(dateListEl, ev, soldOutTotal) {
   btn.textContent = "Elegir";
   btn.setAttribute("data-pick", "__dropdown__");
 
-  // si todo sold out => deshabilitar
   if (soldOutTotal) {
     btn.disabled = true;
     btn.style.opacity = ".55";
     btn.style.cursor = "not-allowed";
   }
 
-  // habilitar/deshabilitar según selección válida
   sel.addEventListener("change", () => {
     if (btn.disabled && soldOutTotal) return;
     const v = String(sel.value || "");
@@ -430,7 +514,6 @@ function renderDatesUI(dateListEl, ev, soldOutTotal) {
     btn.style.cursor = btn.disabled ? "not-allowed" : "pointer";
   });
 
-  // estado inicial
   btn.disabled = true;
   btn.style.opacity = ".55";
   btn.style.cursor = "not-allowed";
@@ -473,19 +556,24 @@ function renderEvent(ev) {
 
   const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
 
+  // ✅ Compat: heroBg existe pero CSS lo oculta. Igual seteamos por si luego lo usás.
   const heroBg = $("#heroBg");
   if (heroBg) {
-    const bg = normalizeImgPath(ev.img || getDefaultHero());
+    const bg = normalizeImgPath(ev.img || "./assets/img/hero-1.jpg");
     heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(bg)}')`);
     heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
   }
 
-  // ✅ FOTO REAL (izquierda) — tu CSS ya la hace grande
+  // ✅ FOTO REAL (izquierda) — siempre del evento
   const heroImgEl = $("#evPhoto");
   if (heroImgEl) {
-    heroImgEl.src = ev.img || getDefaultHero();
+    heroImgEl.src = ev.img || "./assets/img/hero-1.jpg";
     heroImgEl.alt = ev.title ? `Foto del evento: ${ev.title}` : "Foto del evento";
   }
+
+  // ✅ Mobile: bloque "Ver más info"
+  ensureMoreInfoBlock();
+  setMoreInfoMedia(ev);
 
   const metaRow = $("#metaRow");
   const datesText = (ev.dates || []).map((d) => d.label).filter(Boolean).join(" • ");

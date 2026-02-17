@@ -6,6 +6,7 @@
    ✅ “Fechas / Detalles” se apilan (no 2 columnas)
    ✅ MiniCards abajo a lo ancho
    ✅ heroBg se apaga visualmente (solo compat JS)
+   ✅ NUEVO: "Ver más info" (mobile-first) + panel con imagen desde BD
 ============================================================ */
 
 :root{
@@ -248,11 +249,10 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
 /* ============================================================
    FOTO GRANDE (izquierda)
-   (tu HTML: .heroMedia > #evPhoto.heroImg)
 ============================================================ */
 .heroMedia{
   grid-column: 1;
-  grid-row: 1 / span 6;
+  grid-row: 1 / span 7;
   border-radius: 18px;
   overflow:hidden;
   border: 1px solid rgba(18,18,18,.10);
@@ -331,13 +331,50 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
+   "Ver más info" (mobile-first, por defecto oculto en desktop)
+   - El JS controla hidden y el toggle
+============================================================ */
+.moreInfo{
+  grid-column: 2;
+  margin: 6px 0 4px;
+}
+
+.moreBtn{
+  width: fit-content;
+}
+
+.morePanel{
+  margin-top: 10px;
+  border-radius: 18px;
+  overflow:hidden;
+  border: 1px solid rgba(18,18,18,.10);
+  background: rgba(18,18,18,.02);
+  box-shadow: var(--event-shadow-soft);
+}
+
+.moreMedia{
+  width: 100%;
+}
+
+.moreImg{
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  display:block;
+}
+
+/* Desktop: escondemos el bloque (lo pediste para móvil) */
+@media (min-width: 981px){
+  .moreInfo{ display:none !important; }
+}
+
+/* ============================================================
    Fechas + Detalles (columna derecha, APILADO)
-   ✅ Tu HTML tiene .grid con 2 panels; aquí lo forzamos a 1 columna.
 ============================================================ */
 .grid{
   grid-column: 2;
   display:grid;
-  grid-template-columns: 1fr;  /* ✅ apilado como referencia */
+  grid-template-columns: 1fr;
   gap: var(--event-gap);
   align-items:start;
 }
@@ -434,7 +471,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   margin-top: 14px;
   display:flex;
   align-items:flex-start;
-  gap: 14px; /* ✅ antes 40, en referencia es más pegado */
+  gap: 14px;
   padding: 12px 12px;
   border-radius: 14px;
   border: 1px solid rgba(18,18,18,.10);
@@ -547,7 +584,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Divider + MiniCards ABAJO a lo ancho (como referencia)
+   Divider + MiniCards ABAJO a lo ancho
 ============================================================ */
 .divider{
   grid-column: 1 / -1;
@@ -558,7 +595,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 .miniCards{
-  grid-column: 1 / -1; /* ✅ ocupa todo el ancho */
+  grid-column: 1 / -1;
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--event-gap);
@@ -633,9 +670,12 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
     min-height: 320px;
   }
 
-  .heroMeta, .title, .desc, .grid{
+  .heroMeta, .title, .desc, .moreInfo, .grid{
     grid-column: 1;
   }
+
+  /* En mobile sí se muestra */
+  .moreInfo{ display:block !important; }
 
   .miniCards{
     grid-template-columns: 1fr;
@@ -669,6 +709,8 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
   .desc{ font-size: 14px; }
   .panel{ padding: 14px; }
+
+  .moreImg{ height: 210px; }
 
   .dateItem{
     flex-direction: column;

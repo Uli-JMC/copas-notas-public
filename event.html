@@ -53,8 +53,7 @@
     <div class="container heroWrap">
       <div class="heroCard" id="heroCard">
 
-        <!-- ✅ NUEVO: Imagen del evento (viene de Supabase events.img) -->
-        <!-- Nota: el CSS lo va a acomodar lateral (foto grande) -->
+        <!-- ✅ Imagen del evento (viene de Supabase events.img) -->
         <div class="heroMedia" aria-label="Imagen del evento">
           <img
             id="evPhoto"
@@ -70,6 +69,37 @@
 
         <h1 class="title" id="evTitle">Evento</h1>
         <p class="desc" id="evDesc">Descripción del evento.</p>
+
+        <!-- ✅ NUEVO (MÓVIL): botón "Ver más info" + despliegue de imagen (desde BD)
+             - En desktop puede quedar oculto por CSS
+             - El JS va a:
+               1) ocultar todo si no existe imagen en BD
+               2) togglear aria-expanded y [hidden] del bloque
+        -->
+        <div class="moreInfo" id="moreInfo" hidden>
+          <button
+            class="btn moreBtn"
+            id="btnMoreInfo"
+            type="button"
+            aria-expanded="false"
+            aria-controls="morePanel"
+          >
+            Ver más info
+          </button>
+
+          <div class="morePanel" id="morePanel" hidden>
+            <div class="moreMedia" aria-label="Imagen adicional del evento">
+              <img
+                id="evMoreImg"
+                class="moreImg"
+                src="./assets/img/hero-1.jpg"
+                alt="Información adicional del evento"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+          </div>
+        </div>
 
         <div class="grid">
           <div class="panel">
