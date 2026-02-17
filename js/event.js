@@ -1,21 +1,13 @@
 "use strict";
 
 /* ============================================================
-   event.js (Supabase-first) ✅ UX SENSORIAL PATCH
-   - Mantiene lógica actual (fechas/cupos/registro)
-   - ✅ Foto principal: #evPhoto (usa events.img)
-   - ✅ Banner adicional (BD): #evBannerImg + #evBannerText (+ title opcional)
-   - ✅ No depende del heroBg (se setea solo por compatibilidad)
-   - Precio: events.price_amount + events.price_currency (si no => "Por confirmar")
-
-   ✅ PATCH 2026-02-17:
-   - Soporte UI sensorial
-   - Banner extra (sin romper si no hay columnas)
+   event.js (Supabase-first) ✅ LIKE REFERENCE PATCH
+   - Foto principal: #evPhoto (events.img)
+   - Bloque gris: #evBannerText (placeholder, luego BD)
+   - Fechas: si hay más de 1 => dropdown
+   - Status pill arriba: #statusPill
 ============================================================ */
 
-// ============================================================
-// Helpers
-// ============================================================
 const $ = (sel) => document.querySelector(sel);
 
 function escapeHtml(str) {
@@ -101,7 +93,7 @@ function getDefaultHero() {
   }
 }
 
-// ✅ Precio helpers (Opción A)
+/* Precio */
 function normCurrency(cur) {
   const c = String(cur || "").trim().toUpperCase();
   if (c === "USD" || c === "CRC") return c;
@@ -126,7 +118,6 @@ function formatMoney(amount, currency) {
     return isCRC ? `₡${fixed}` : `$${fixed}`;
   }
 }
-
 function safePriceText(priceAmount, priceCurrency) {
   const cur = normCurrency(priceCurrency);
   const n = Number(priceAmount);
@@ -134,13 +125,10 @@ function safePriceText(priceAmount, priceCurrency) {
   return formatMoney(n, cur);
 }
 
-// ============================================================
-// Loader
-// ============================================================
+/* Loader */
 function setLoading(on) {
   const loader = $("#pageLoader");
   const card = $("#heroCard");
-
   if (loader) {
     loader.style.opacity = on ? "1" : "0";
     loader.style.pointerEvents = on ? "auto" : "none";
@@ -151,12 +139,10 @@ function setLoading(on) {
   }
 }
 
-// ============================================================
-// Supabase fetch
-// ============================================================
+/* Fetch */
 async function fetchEventFromSupabase(eventId) {
   if (!hasSupabase()) {
-    console.error("APP.supabase no está listo. Orden: Supabase CDN -> supabaseClient.js -> event.js");
+    console.error("APP.supabase no está listo.");
     toast("Error", "Supabase no está listo.");
     return null;
   }
@@ -164,21 +150,13 @@ async function fetchEventFromSupabase(eventId) {
   const eid = String(eventId ?? "").trim();
   if (!eid) return null;
 
-  // 1) Evento
-  // ✅ Agregamos columnas opcionales para el banner sensorial.
-  // Si NO existen en tu tabla, Supabase puede devolver error.
-  // Para evitarlo, usamos select básico + luego hacemos "best effort" sin romper.
-  let evRes = await APP.supabase
+  const evRes = await APP.supabase
     .from("events")
     .select(
       "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at"
     )
     .eq("id", eid)
     .maybeSingle();
-
-  // Si tu tabla YA tiene campos de banner, luego hacemos un segundo select opcional.
-  // (Así no rompemos si no existen aún)
-  let bannerExtra = null;
 
   if (evRes.error) {
     console.error(evRes.error);
@@ -187,26 +165,6 @@ async function fetchEventFromSupabase(eventId) {
   }
   if (!evRes.data) return null;
 
-  // 1B) Intento opcional de traer banner fields si existen
-  // Cambiá estos nombres cuando me confirmés los reales:
-  // - banner_img
-  // - banner_text
-  // - banner_title
-  try {
-    const extraRes = await APP.supabase
-      .from("events")
-      .select("banner_img,banner_text,banner_title")
-      .eq("id", eid)
-      .maybeSingle();
-
-    if (!extraRes?.error && extraRes?.data) {
-      bannerExtra = extraRes.data;
-    }
-  } catch (_) {
-    bannerExtra = null;
-  }
-
-  // 2) Fechas
   let datesOk = true;
 
   const datesRes = await APP.supabase
@@ -221,7 +179,6 @@ async function fetchEventFromSupabase(eventId) {
   }
 
   const datesRaw = Array.isArray(datesRes.data) ? datesRes.data : [];
-
   const dates = datesRaw
     .map((d) => ({
       id: String(d?.id || ""),
@@ -243,40 +200,24 @@ async function fetchEventFromSupabase(eventId) {
 
   const seatsTotalAvailable = dates.reduce((acc, x) => acc + (Number(x.seats) || 0), 0);
 
-  const heroImg = normalizeImgPath(evRes.data.img || getDefaultHero());
-
   return {
     id: String(evRes.data.id || ""),
     type: String(evRes.data.type || "Experiencia"),
     monthKey: String(evRes.data.month_key || "—").toUpperCase(),
     title: String(evRes.data.title || "Evento"),
-
     desc: String(evRes.data.description || ""),
-
-    img: heroImg,
-
-    // ✅ Banner extra (si existe)
-    bannerImg: bannerExtra?.banner_img ? normalizeImgPath(bannerExtra.banner_img) : "",
-    bannerText: String(bannerExtra?.banner_text || ""),
-    bannerTitle: String(bannerExtra?.banner_title || ""),
-
+    img: normalizeImgPath(evRes.data.img || getDefaultHero()),
     dates,
     seats: seatsTotalAvailable,
     datesOk,
-
     location: safeText(evRes.data.location, "Por confirmar"),
     timeRange: safeText(evRes.data.time_range, "Por confirmar"),
     durationHours: safeText(evRes.data.duration_hours, "Por confirmar"),
-
-    priceAmount: evRes.data.price_amount,
-    priceCurrency: evRes.data.price_currency,
     priceText: safePriceText(evRes.data.price_amount, evRes.data.price_currency),
   };
 }
 
-// ============================================================
-// State + single listener
-// ============================================================
+/* State */
 let CURRENT = null;
 
 function goRegisterWithDate(eventId, dateId, dateLabel) {
@@ -315,65 +256,7 @@ function ensurePickListener() {
   });
 }
 
-// ============================================================
-// Render helpers (sensorial)
-// ============================================================
-function setHeroPhoto(ev) {
-  // ✅ Foto protagonista
-  const imgEl = $("#evPhoto");
-  if (imgEl && ev?.img) {
-    imgEl.src = ev.img;
-    imgEl.alt = ev.title ? `Foto del evento: ${ev.title}` : "Foto del evento";
-  }
-}
-
-function setBanner(ev) {
-  const wrap = $("#evBanner");          // contenedor del banner
-  const imgEl = $("#evBannerImg");      // <img>
-  const txtEl = $("#evBannerText");     // <p> o <div>
-  const ttlEl = $("#evBannerTitle");    // <h3> opcional
-
-  const hasImg = !!String(ev?.bannerImg || "").trim();
-  const hasTxt = !!String(ev?.bannerText || "").trim();
-  const hasTtl = !!String(ev?.bannerTitle || "").trim();
-
-  // Si no hay nada, ocultar si existe
-  if (!hasImg && !hasTxt && !hasTtl) {
-    if (wrap) wrap.setAttribute("hidden", "");
-    return;
-  }
-  if (wrap) wrap.removeAttribute("hidden");
-
-  if (imgEl) {
-    if (hasImg) {
-      imgEl.src = ev.bannerImg;
-      imgEl.alt = "Banner del evento";
-      imgEl.removeAttribute("hidden");
-    } else {
-      imgEl.setAttribute("hidden", "");
-    }
-  }
-  if (ttlEl) {
-    if (hasTtl) {
-      ttlEl.textContent = ev.bannerTitle;
-      ttlEl.removeAttribute("hidden");
-    } else {
-      ttlEl.setAttribute("hidden", "");
-    }
-  }
-  if (txtEl) {
-    if (hasTxt) {
-      txtEl.textContent = ev.bannerText;
-      txtEl.removeAttribute("hidden");
-    } else {
-      txtEl.setAttribute("hidden", "");
-    }
-  }
-}
-
-// ============================================================
-// Render
-// ============================================================
+/* Notices + status pill arriba */
 function setNotices({ sold, available, pending }) {
   const soldNotice = $("#soldNotice");
   const availNotice = $("#availNotice");
@@ -387,6 +270,151 @@ function setNotices({ sold, available, pending }) {
   if (sold && soldNotice) soldNotice.removeAttribute("hidden");
   else if (available && availNotice) availNotice.removeAttribute("hidden");
   else if (pending && pendingNotice) pendingNotice.removeAttribute("hidden");
+
+  const statusPill = $("#statusPill");
+  if (!statusPill) return;
+
+  if (sold) {
+    statusPill.textContent = "Agotado";
+    statusPill.classList.add("danger");
+    statusPill.removeAttribute("hidden");
+  } else if (available) {
+    statusPill.textContent = "Inscripciones disponibles";
+    statusPill.classList.remove("danger");
+    statusPill.removeAttribute("hidden");
+  } else if (pending) {
+    statusPill.textContent = "Cupos por confirmar";
+    statusPill.classList.remove("danger");
+    statusPill.removeAttribute("hidden");
+  } else {
+    statusPill.setAttribute("hidden", "");
+  }
+}
+
+/* Render helpers */
+function setHeroPhoto(ev) {
+  const imgEl = $("#evPhoto");
+  if (imgEl && ev?.img) {
+    imgEl.src = ev.img;
+    imgEl.alt = ev.title ? `Foto del evento: ${ev.title}` : "Foto del evento";
+  }
+}
+
+/* Dates renderer: dropdown si >1 */
+function renderDates(ev) {
+  const host = $("#dateList");
+  if (!host) return;
+  host.innerHTML = "";
+
+  const dates = Array.isArray(ev.dates) ? ev.dates : [];
+  const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
+
+  if (!ev.datesOk) {
+    host.innerHTML = `<div class="emptyMonth">Fechas y cupos por confirmar.</div>`;
+    return;
+  }
+  if (!dates.length) {
+    host.innerHTML = `<div class="emptyMonth">Fechas por confirmar.</div>`;
+    return;
+  }
+
+  // 1 fecha => fila normal
+  if (dates.length === 1) {
+    const x = dates[0];
+    const seats = Math.max(0, Number(x?.seats) || 0);
+    const dateSoldOut = seats <= 0;
+
+    const row = document.createElement("div");
+    row.className = "dateItem";
+
+    const left = document.createElement("div");
+    left.className = "dateLeft";
+
+    const main = document.createElement("div");
+    main.className = "dateMain";
+    main.textContent = x.label || "Por definir";
+
+    const hint = document.createElement("div");
+    hint.className = "dateHint";
+    hint.innerHTML = dateSoldOut
+      ? `<span style="opacity:.8;">Sin cupos para esta fecha.</span>`
+      : `Cupos disponibles: <b>${escapeHtml(seats)}</b>`;
+
+    left.appendChild(main);
+    left.appendChild(hint);
+
+    const btn = document.createElement("button");
+    btn.className = "datePick";
+    btn.type = "button";
+    btn.textContent = "Elegir";
+    btn.setAttribute("data-pick", String(x.id || ""));
+
+    if (soldOutTotal || dateSoldOut) {
+      btn.disabled = true;
+      btn.style.opacity = ".55";
+      btn.style.cursor = "not-allowed";
+    }
+
+    row.appendChild(left);
+    row.appendChild(btn);
+    host.appendChild(row);
+    return;
+  }
+
+  // >1 fechas => dropdown (como pediste)
+  const first = dates.find((d) => (Number(d?.seats) || 0) > 0) || dates[0];
+
+  const row = document.createElement("div");
+  row.className = "dateSelectRow";
+
+  const select = document.createElement("select");
+  select.className = "dateSelect";
+  select.id = "dateSelect";
+
+  dates.forEach((d) => {
+    const opt = document.createElement("option");
+    opt.value = String(d.id || "");
+    const seats = Math.max(0, Number(d?.seats) || 0);
+    opt.textContent = `${d.label || "Por definir"} — ${seats > 0 ? `${seats} cupos` : "Sin cupos"}`;
+    if (String(d.id) === String(first.id)) opt.selected = true;
+    select.appendChild(opt);
+  });
+
+  const btn = document.createElement("button");
+  btn.className = "datePick";
+  btn.type = "button";
+  btn.textContent = "Elegir";
+  btn.setAttribute("data-pick", String(first.id || ""));
+
+  // update data-pick al cambiar
+  select.addEventListener("change", () => {
+    btn.setAttribute("data-pick", String(select.value || ""));
+    const d = dates.find((x) => String(x.id) === String(select.value));
+    const seats = d ? (Number(d.seats) || 0) : 0;
+
+    const dateSoldOut = seats <= 0;
+    if (soldOutTotal || dateSoldOut) {
+      btn.disabled = true;
+      btn.style.opacity = ".55";
+      btn.style.cursor = "not-allowed";
+    } else {
+      btn.disabled = false;
+      btn.style.opacity = "1";
+      btn.style.cursor = "pointer";
+    }
+  });
+
+  // estado inicial
+  const initSeats = Number(first?.seats) || 0;
+  if (soldOutTotal || initSeats <= 0) {
+    btn.disabled = true;
+    btn.style.opacity = ".55";
+    btn.style.cursor = "not-allowed";
+  }
+
+  row.appendChild(select);
+  row.appendChild(btn);
+  host.appendChild(row);
 }
 
 function renderEvent(ev) {
@@ -400,7 +428,7 @@ function renderEvent(ev) {
 
   const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
 
-  // ✅ Compatibilidad: sigue seteando heroBg, aunque el CSS lo apaga
+  // compat heroBg
   const heroBg = $("#heroBg");
   if (heroBg) {
     const bg = normalizeImgPath(ev.img || getDefaultHero());
@@ -408,13 +436,11 @@ function renderEvent(ev) {
     heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
   }
 
-  // ✅ Nuevo: foto protagonista + banner
   setHeroPhoto(ev);
-  setBanner(ev);
 
+  // meta pills
   const metaRow = $("#metaRow");
   const datesText = (ev.dates || []).map((d) => d.label).filter(Boolean).join(" • ");
-
   if (metaRow) {
     metaRow.innerHTML = `
       <span class="pill"><span class="dot"></span> ${escapeHtml(ev.type)}</span>
@@ -424,66 +450,16 @@ function renderEvent(ev) {
     `;
   }
 
+  // title/desc
   const t = $("#evTitle");
   const d = $("#evDesc");
   if (t) t.textContent = ev.title;
   if (d) d.textContent = ev.desc || "";
 
-  const dateList = $("#dateList");
-  if (dateList) {
-    dateList.innerHTML = "";
+  // dates
+  renderDates(ev);
 
-    const dates = Array.isArray(ev.dates) ? ev.dates : [];
-
-    if (!ev.datesOk) {
-      dateList.innerHTML = `<div class="emptyMonth">Fechas y cupos por confirmar.</div>`;
-    } else if (!dates.length) {
-      dateList.innerHTML = `<div class="emptyMonth">Fechas por confirmar.</div>`;
-    } else {
-      dates.forEach((x) => {
-        const dateId = String(x?.id || "");
-        const label = String(x?.label || "").trim();
-        const seats = Math.max(0, Number(x?.seats) || 0);
-        const dateSoldOut = seats <= 0;
-
-        const row = document.createElement("div");
-        row.className = "dateItem";
-
-        const left = document.createElement("div");
-        left.className = "dateLeft";
-
-        const main = document.createElement("div");
-        main.className = "dateMain";
-        main.textContent = label || "Por definir";
-
-        const hint = document.createElement("div");
-        hint.className = "dateHint";
-        hint.innerHTML = dateSoldOut
-          ? `<span style="opacity:.8;">Sin cupos para esta fecha.</span>`
-          : `Cupos disponibles: <b>${escapeHtml(seats)}</b>`;
-
-        left.appendChild(main);
-        left.appendChild(hint);
-
-        const btn = document.createElement("button");
-        btn.className = "datePick";
-        btn.type = "button";
-        btn.textContent = "Elegir";
-        btn.setAttribute("data-pick", dateId);
-
-        if (soldOutTotal || dateSoldOut) {
-          btn.disabled = true;
-          btn.style.opacity = ".55";
-          btn.style.cursor = "not-allowed";
-        }
-
-        row.appendChild(left);
-        row.appendChild(btn);
-        dateList.appendChild(row);
-      });
-    }
-  }
-
+  // kv
   const kv = $("#kv");
   if (kv) {
     kv.innerHTML = `
@@ -516,6 +492,7 @@ function renderEvent(ev) {
     `;
   }
 
+  // notices + status pill
   if (!ev.datesOk) {
     setNotices({ sold: false, available: false, pending: true });
   } else if (soldOutTotal) {
@@ -524,6 +501,7 @@ function renderEvent(ev) {
     setNotices({ sold: false, available: true, pending: false });
   }
 
+  // register button
   const btnRegister = $("#btnRegister");
   if (btnRegister) {
     const firstAvailable = (ev.dates || []).find((x) => (Number(x?.seats) || 0) > 0);
@@ -557,9 +535,7 @@ function renderEvent(ev) {
   }
 }
 
-// ============================================================
-// Init
-// ============================================================
+/* Init */
 (async function init() {
   ensurePickListener();
 

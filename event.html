@@ -9,7 +9,7 @@
 
   <link rel="stylesheet" href="./css/base.css" />
   <!-- cache buster -->
-  <link rel="stylesheet" href="./css/event.css?v=20260217-ux2" />
+  <link rel="stylesheet" href="./css/event.css?v=20260217-likeRef" />
 </head>
 
 <body>
@@ -35,7 +35,6 @@
           <span class="backIcon" aria-hidden="true">←</span>
           <span class="backText">Volver</span>
         </a>
-
         <a class="brandRight" href="./home.html" aria-label="Ir a home">
           <span>Entre Copas &amp; Notas</span>
         </a>
@@ -43,120 +42,95 @@
     </div>
   </header>
 
-  <!-- EVENT -->
+  <!-- Página -->
   <section class="hero" aria-label="Detalle del evento">
-    <!-- Mantener por compatibilidad con tu JS (lo apagamos por CSS) -->
+    <!-- compat JS (apagado por CSS) -->
     <div class="heroBg" id="heroBg" aria-hidden="true"></div>
 
     <div class="container heroWrap">
-      <div class="eventShell" id="heroCard">
-        <!-- ROW PRINCIPAL: foto izquierda + contenido derecha -->
-        <div class="eventRow">
-          <!-- LEFT: foto grande -->
-          <aside class="eventLeft" aria-label="Foto del evento">
-            <div class="eventImgWrap">
-              <img
-                id="evPhoto"
-                class="eventImg"
-                src="./assets/img/hero-1.jpg"
-                alt="Foto del evento"
-                loading="eager"
-                decoding="async"
-              />
-            </div>
-          </aside>
+      <div class="heroCard" id="heroCard">
 
-          <!-- RIGHT: contenido -->
-          <div class="eventRight">
-            <!-- meta pills (tu JS pinta aquí) -->
-            <div class="heroMeta eventMeta" id="metaRow"></div>
+        <!-- ====== LAYOUT 1:1 (foto izquierda + contenido derecha) ====== -->
+        <div class="heroMain">
+          <!-- Left: Foto grande -->
+          <div class="heroLeft" aria-label="Imagen del evento">
+            <img
+              id="evPhoto"
+              class="heroImgTall"
+              src="./assets/img/hero-1.jpg"
+              alt="Foto del evento"
+              loading="eager"
+              decoding="async"
+            />
+          </div>
 
-            <!-- header row: título + estado (badge arriba derecha) -->
-            <div class="eventHeaderRow">
-              <h1 class="title eventTitle" id="evTitle">Evento</h1>
+          <!-- Right: Contenido -->
+          <div class="heroRight">
+            <div class="heroMetaRow">
+              <div class="heroMeta" id="metaRow"></div>
 
-              <!-- Estado (se controla con hidden desde JS) -->
-              <div class="eventStatus">
-                <span class="badge" id="statusAvailable" hidden>INSCRIPCIONES DISPONIBLES</span>
-                <span class="badge danger" id="statusSold" hidden>AGOTADO</span>
-                <span class="badge" id="statusPending" hidden>CUPOS POR CONFIRMAR</span>
+              <!-- “Inscripciones disponibles / Agotado / Cupos por confirmar” arriba a la derecha -->
+              <div class="statusPillWrap">
+                <div class="statusPill" id="statusPill" hidden></div>
               </div>
             </div>
 
-            <p class="desc eventDesc" id="evDesc">Descripción del evento.</p>
+            <h1 class="title" id="evTitle">Evento</h1>
+            <p class="desc" id="evDesc">Descripción del evento.</p>
 
-            <!-- ✅ BLOQUE “TEXTO ADICIONAL” + BANNER (sin cards pesadas) -->
-            <section class="eventExtra" aria-label="Información adicional">
-              <div class="eventExtraInner">
-                <div class="eventExtraBanner" aria-label="Banner del evento">
-                  <img
-                    id="evBannerImg"
-                    class="eventBannerImg"
-                    src="./assets/img/hero-1.jpg"
-                    alt="Banner del menú / maridaje / bebidas"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
+            <!-- Bloque gris (texto adicional / supabase luego) -->
+            <div class="bannerText" id="evBannerWrap">
+              <p class="bannerTextInner" id="evBannerText">
+                Texto adicional solo para event (amplía la descripción). Aquí luego lo conectamos a BD.
+              </p>
+            </div>
 
-                <div class="eventExtraText">
-                  <p class="eventExtraKicker">Experiencia</p>
-                  <p class="eventExtraTitle">Menú / vinos y maridajes</p>
-                  <p class="eventExtraDesc" id="evBannerText">
-                    Texto adicional solo para event (amplía la descripción). Aquí luego lo conectamos a BD.
-                  </p>
-                </div>
-              </div>
-            </section>
+            <!-- Fechas -->
+            <div class="section">
+              <h2 class="h2">Fechas disponibles</h2>
+              <p class="sub">Seleccioná una fecha para tu inscripción (si hay más de una).</p>
 
-            <!-- Fechas + Detalles en una misma columna derecha (como tu referencia) -->
-            <section class="eventInfo" aria-label="Fechas y detalles">
-              <!-- FECHAS -->
-              <div class="eventBlock">
-                <h2 class="h2">Fechas disponibles</h2>
-                <p class="sub">Seleccioná una fecha para tu inscripción (si hay más de una).</p>
+              <!-- JS renderiza: dropdown si hay >1, si no lista normal -->
+              <div id="dateList"></div>
 
-                <div class="dates" id="dateList"></div>
-
-                <!-- notices reales (tu JS usa estos IDs, NO los cambio) -->
-                <div class="notice" id="availNotice" hidden>
-                  <span class="badge">Inscripciones disponibles</span>
-                  <p class="noticeLegend">Inscribite y disfrutá de esta experiencia.</p>
-                </div>
-
-                <div class="notice" id="soldNotice" hidden>
-                  <span class="badge danger">Agotado</span>
-                  <p class="noticeLegend">Este evento no tiene cupos disponibles.</p>
-                </div>
-
-                <div class="notice" id="pendingNotice" hidden>
-                  <span class="badge">Cupos por confirmar</span>
-                  <p class="noticeLegend">Estamos actualizando las fechas y cupos. Probá en unos segundos.</p>
-                </div>
+              <!-- Notices (se mantienen por compatibilidad, pero ya no “rompen” el layout) -->
+              <div class="notice" id="availNotice" hidden>
+                <span class="badge">Inscripciones disponibles</span>
+                <p class="noticeLegend">Inscribite y disfrutá de esta experiencia.</p>
               </div>
 
-              <!-- DETALLES -->
-              <div class="eventBlock">
-                <h2 class="h2">Detalles</h2>
-                <div class="kv" id="kv"></div>
-
-                <div class="actions">
-                  <a class="btn" id="btnHome" href="./home.html#proximos">Ver otros eventos</a>
-                  <a class="btn primary" id="btnRegister" href="./register.html">Inscribirme</a>
-                </div>
-
-                <p class="fine">
-                  Al inscribirte, te llega confirmación al correo. Si seleccionás “recibir info”, también por WhatsApp.
-                </p>
+              <div class="notice" id="soldNotice" hidden>
+                <span class="badge danger">Agotado</span>
+                <p class="noticeLegend">Este evento no tiene cupos disponibles.</p>
               </div>
-            </section>
+
+              <div class="notice" id="pendingNotice" hidden>
+                <span class="badge">Cupos por confirmar</span>
+                <p class="noticeLegend">Estamos actualizando las fechas y cupos. Probá en unos segundos.</p>
+              </div>
+            </div>
+
+            <!-- Detalles -->
+            <div class="section">
+              <h2 class="h2">Detalles</h2>
+              <div class="kv" id="kv"></div>
+
+              <div class="actions">
+                <a class="btn" id="btnHome" href="./home.html#proximos">Ver otros eventos</a>
+                <a class="btn primary" id="btnRegister" href="./register.html">Inscribirme</a>
+              </div>
+
+              <p class="fine">
+                Al inscribirte, te llega confirmación al correo. Si seleccionás “recibir info”, también por WhatsApp.
+              </p>
+            </div>
           </div>
         </div>
 
-        <!-- BOTTOM: incluye + recomendaciones (en una fila, ligero) -->
-        <section class="eventBottom" aria-label="Incluye y recomendaciones">
-          <div class="eventBottomGrid">
-            <div class="eventBottomItem">
+        <!-- Bottom tips (como tu base) -->
+        <div class="tipsSection" aria-label="Qué incluye y recomendaciones">
+          <div class="tipsGrid">
+            <div class="tip">
               <p class="miniTitle">¿Qué incluye?</p>
               <ul class="miniList">
                 <li>Guía durante la experiencia</li>
@@ -165,7 +139,7 @@
               </ul>
             </div>
 
-            <div class="eventBottomItem">
+            <div class="tip">
               <p class="miniTitle">Recomendaciones</p>
               <ul class="miniList">
                 <li>Llegá 10–15 min antes</li>
@@ -174,7 +148,8 @@
               </ul>
             </div>
           </div>
-        </section>
+        </div>
+
       </div>
     </div>
   </section>
@@ -201,6 +176,6 @@
   <script src="./js/supabaseClient.js"></script>
 
   <!-- Lógica -->
-  <script src="./js/event.js"></script>
+  <script src="./js/event.js?v=20260217-likeRef"></script>
 </body>
 </html>

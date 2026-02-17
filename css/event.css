@@ -1,8 +1,9 @@
 /* ============================================================
-   event.css ✅ EVENT PAGE (2026) — LAYOUT IGUAL A REFERENCIA
-   - Para HTML con: .eventShell .eventRow .eventLeft .eventRight
-   - Mantiene IDs / JS intactos
-   - Apaga heroBg borroso (compat JS)
+   event.css ✅ LIKE REFERENCE (LO QUE QUIERO) — 2026-02-17
+   - Foto grande a la izquierda
+   - Columna derecha limpia (pills, título, desc, bloque gris, fechas, detalles)
+   - Dropdown si hay múltiples fechas (JS)
+   - heroBg apagado (compat)
 ============================================================ */
 
 :root{
@@ -11,17 +12,13 @@
   --event-muted: var(--muted, rgba(18,18,18,.62));
   --event-line: var(--line, rgba(18,18,18,.12));
 
-  --r: 22px;
-  --r2: 18px;
-
-  --shadow: 0 24px 70px rgba(0,0,0,.14);
-  --shadow-soft: 0 14px 40px rgba(0,0,0,.08);
+  --radius: 18px;
+  --radius-lg: 22px;
+  --shadow: 0 22px 60px rgba(0,0,0,.12);
+  --shadow-soft: 0 12px 28px rgba(0,0,0,.08);
 
   --pad: 18px;
   --gap: 16px;
-
-  --surface: #fff;
-  --surface2: rgba(18,18,18,.02);
 }
 
 *{ box-sizing:border-box; }
@@ -43,9 +40,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   margin: 0 auto;
 }
 
-/* ============================================================
-   Header (igual a tu estilo actual)
-============================================================ */
+/* ===== Header (igual a tu base) ===== */
 .topbar{
   position: sticky;
   top:0;
@@ -55,7 +50,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
-
 @media (max-width: 900px){
   .topbar{ background:#fff; backdrop-filter:none; -webkit-backdrop-filter:none; }
 }
@@ -65,7 +59,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   align-items:center;
   justify-content:space-between;
   gap:14px;
-  padding:14px 0;
+  padding: 14px 0;
 }
 
 .brand{
@@ -78,20 +72,21 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 .backIcon{
-  width:42px;height:42px;
-  border-radius:999px;
-  display:grid;place-items:center;
-  border:1px solid rgba(18,18,18,.14);
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  display:grid;
+  place-items:center;
+  border: 1px solid rgba(18,18,18,.14);
   background: rgba(18,18,18,.04);
+  flex: 0 0 auto;
   transition: transform .15s ease, background .15s ease, border-color .15s ease;
 }
-
 .brand:hover .backIcon{
   background: rgba(18,18,18,.06);
   border-color: rgba(18,18,18,.20);
   transform: translateY(-1px);
 }
-
 .backText{
   color: var(--event-muted);
   font-size: 12px;
@@ -100,19 +95,12 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   white-space: nowrap;
 }
 
-.brandRight{
-  display:flex;
-  align-items:center;
-  text-decoration:none;
-  min-width:0;
-}
-
+.brandRight{ text-decoration:none; min-width:0; }
 .brandRight span{
   letter-spacing:.10em;
   font-weight: 900;
   font-size: 13px;
   text-transform: uppercase;
-  line-height:1;
   white-space:nowrap;
   overflow:hidden;
   text-overflow: ellipsis;
@@ -120,15 +108,13 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   color: rgba(18,18,18,.86);
 }
 
-/* ============================================================
-   Botones (fallback)
-============================================================ */
+/* ===== Buttons (fallback) ===== */
 .btn{
-  border: 1px solid rgba(18,18,18,.14);
+  border: 1px solid rgba(18,18,18,.16);
   background: rgba(18,18,18,.02);
   color: rgba(18,18,18,.88);
-  padding: 12px 16px;
-  border-radius: 14px;
+  padding: 12px 18px;
+  border-radius: 999px;
   font-size: 12px;
   letter-spacing:.18em;
   text-transform: uppercase;
@@ -138,22 +124,19 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   justify-content:center;
   gap:10px;
   transition: transform .15s ease, background .15s ease, border-color .15s ease, filter .15s ease;
+  outline:none;
   cursor:pointer;
   user-select:none;
   white-space:nowrap;
-  min-height: 44px;
-  line-height:1;
+  min-height: 46px;
+  line-height: 1;
   font-weight: 900;
 }
-
 .btn:hover{
   transform: translateY(-1px);
-  border-color: rgba(18,18,18,.22);
+  border-color: rgba(18,18,18,.24);
   background: rgba(18,18,18,.04);
 }
-.btn:active{ transform: translateY(0); }
-.btn:focus-visible{ box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28)); }
-
 .btn.primary{
   background:#000 !important;
   border-color:#000 !important;
@@ -161,20 +144,14 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   border-width:2px;
 }
 .btn.primary:hover{ filter: brightness(1.06); }
+.btn[aria-disabled="true"], .btn:disabled{ opacity:.55; pointer-events:none; }
 
-.btn[aria-disabled="true"], .btn:disabled{
-  opacity:.55;
-  pointer-events:none;
-}
-
-/* ============================================================
-   Footer icon buttons
-============================================================ */
 .icon-btn{
   width:44px;height:44px;
   border-radius:999px;
   border:1px solid rgba(18,18,18,.14);
-  display:grid;place-items:center;
+  display:grid;
+  place-items:center;
   background: rgba(18,18,18,.02);
   color: var(--event-text);
   text-decoration:none;
@@ -185,75 +162,70 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   border-color: rgba(18,18,18,.20);
   transform: translateY(-1px);
 }
-.icon-btn:focus-visible{ box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28)); }
 
-/* ============================================================
-   HERO / WRAP
-============================================================ */
+/* ===== Hero ===== */
 .hero{
-  position:relative;
+  position: relative;
   min-height: calc(100vh - 72px);
   min-height: calc(100dvh - 72px);
   background:#fff;
 }
+.heroBg{ display:none !important; } /* apagado */
 
-.heroBg{ display:none !important; }
+.heroWrap{ padding: 22px 0 56px; }
 
-.heroWrap{ padding: 22px 0 52px; }
-
-/* ============================================================
-   SHELL PRINCIPAL (como referencia)
-============================================================ */
-.eventShell{
-  background: var(--surface);
-  border: 1px solid rgba(18,18,18,.10);
-  border-radius: var(--r);
+.heroCard{
+  border-radius: calc(var(--radius-lg) + 6px);
+  border: 1px solid rgba(18,18,18,.08);
+  background: rgba(255,255,255,.96);
   box-shadow: var(--shadow);
   padding: var(--pad);
 }
+.heroCard.isSoldOut{ filter:saturate(.95); }
 
-.eventShell.isSoldOut{ filter: saturate(.95); }
-
-/* Layout 2 columnas: foto izq + contenido der */
-.eventRow{
+.heroMain{
   display:grid;
-  grid-template-columns: 1.05fr .95fr;
+  grid-template-columns: 1.1fr .9fr; /* foto grande + columna derecha */
   gap: var(--gap);
   align-items:start;
 }
 
-/* LEFT */
-.eventLeft{ min-width:0; }
-
-.eventImgWrap{
-  border-radius: var(--r2);
+/* Left image big */
+.heroLeft{
+  border-radius: var(--radius-lg);
   overflow:hidden;
   border: 1px solid rgba(18,18,18,.10);
-  background:#f4f4f4;
+  background:#f6f6f6;
   box-shadow: var(--shadow-soft);
 }
-
-.eventImg{
+.heroImgTall{
   width:100%;
-  height: clamp(420px, 46vw, 560px);
+  height: min(560px, 62vh);
   object-fit: cover;
   display:block;
 }
 
-/* RIGHT */
-.eventRight{ min-width:0; padding-top: 2px; }
+/* Right column */
+.heroRight{ min-width:0; padding-top: 4px; }
 
-/* meta pills (tu JS ya genera .pill) */
+.heroMetaRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  flex-wrap:wrap;
+}
+
 .heroMeta{
   display:flex;
   align-items:center;
   gap:10px;
   flex-wrap:wrap;
-  padding-bottom: 10px;
+  color: rgba(18,18,18,.70);
   text-transform: uppercase;
   letter-spacing:.18em;
   font-size: 11px;
-  color: rgba(18,18,18,.70);
+  min-width: 0;
 }
 
 .pill{
@@ -271,38 +243,159 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   white-space:nowrap;
   font-weight: 900;
 }
-.dot{ width:6px;height:6px;border-radius:999px;background:rgba(18,18,18,.55); }
+.dot{ width:6px;height:6px;border-radius:999px;background: rgba(18,18,18,.55); display:inline-block; }
 
-/* Title row + status */
-.eventHeaderRow{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap: 12px;
+.statusPillWrap{ display:flex; justify-content:flex-end; }
+.statusPill{
+  border: 1px solid rgba(18,18,18,.12);
+  background: rgba(18,18,18,.04);
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing:.14em;
+  text-transform: uppercase;
+  color: rgba(18,18,18,.92);
+  white-space:nowrap;
+}
+.statusPill.danger{
+  border-color: rgba(215,44,44,.20);
+  background: rgba(215,44,44,.10);
+  color: rgba(215,44,44,.92);
 }
 
-.eventTitle{
-  margin: 6px 0 6px;
+.title{
+  margin: 10px 0 10px;
   font-weight: 900;
-  letter-spacing:.02em;
+  letter-spacing: .02em;
   text-transform: uppercase;
-  font-size: clamp(26px, 3.5vw, 44px);
-  line-height: 1.05;
+  font-size: clamp(28px, 3.6vw, 44px);
+  line-height: 1.02;
+}
+.desc{
+  margin: 0 0 14px;
+  color: rgba(18,18,18,.68);
+  line-height: 1.7;
+  font-size: 14.5px;
+  max-width: 74ch;
+}
+
+/* Grey block text */
+.bannerText{
+  border-radius: 14px;
+  border: 1px solid rgba(18,18,18,.10);
+  background: #d7d7d7;
+  padding: 18px 16px;
+  margin: 12px 0 18px;
+}
+.bannerTextInner{
+  margin:0;
+  color:#fff;
+  font-weight: 800;
+  letter-spacing:.02em;
+  text-align:center;
+  font-size: clamp(16px, 1.8vw, 20px);
+  line-height: 1.35;
+}
+
+/* Sections on right */
+.section{ margin-top: 14px; }
+
+.h2{
+  margin:0;
+  font-weight: 900;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  font-size: 16px;
+  line-height: 1.2;
   color: rgba(18,18,18,.92);
 }
-
-.eventDesc{
-  margin: 0 0 12px;
-  color: rgba(18,18,18,.68);
-  line-height: 1.75;
-  font-size: 15px;
+.sub{
+  margin: 8px 0 12px;
+  color: rgba(18,18,18,.62);
+  line-height: 1.7;
+  font-size: 13px;
 }
 
-/* Status badges (opcionales; si no los usás no pasa nada) */
-.eventStatus{ display:flex; align-items:center; gap:8px; padding-top: 10px; }
+/* Dates UI (single row or dropdown) */
+.dateItem{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(18,18,18,.10);
+  background: rgba(18,18,18,.02);
+}
+.dateLeft{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+.dateMain{
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing:.14em;
+  text-transform: uppercase;
+  color: rgba(18,18,18,.90);
+}
+.dateHint{ font-size: 13px; color: rgba(18,18,18,.62); line-height:1.4; }
+
+.datePick{
+  border-radius: 999px;
+  border:1px solid rgba(18,18,18,.14);
+  background: rgba(18,18,18,.02);
+  color: rgba(18,18,18,.88);
+  padding: 12px 18px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing:.18em;
+  text-transform: uppercase;
+  cursor:pointer;
+  white-space: nowrap;
+  min-height: 46px;
+}
+.datePick:hover{ background: rgba(18,18,18,.04); border-color: rgba(18,18,18,.22); }
+
+/* Dropdown */
+.dateSelectRow{
+  display:flex;
+  gap: 10px;
+  align-items:center;
+}
+.dateSelect{
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(18,18,18,.12);
+  background: rgba(255,255,255,.92);
+  padding: 0 12px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  outline: none;
+}
+.dateSelect:focus{
+  box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.22));
+}
+
+/* Notices (se quedan, pero compactos) */
+.notice{
+  margin-top: 12px;
+  display:flex;
+  align-items:flex-start;
+  gap: 12px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(18,18,18,.10);
+  background: rgba(18,18,18,.02);
+  color: rgba(18,18,18,.72);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.noticeLegend{ margin: 0; color: rgba(18,18,18,.68); font-size: 13px; }
+
 .badge{
   display:inline-flex;
   align-items:center;
+  gap:8px;
   padding: 7px 10px;
   border-radius: 999px;
   border:1px solid rgba(18,18,18,.12);
@@ -320,188 +413,18 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   color: rgba(215,44,44,.92);
 }
 
-/* ============================================================
-   BLOQUE EXTRA (banner + texto) como tu referencia
-============================================================ */
-.eventExtra{
-  margin-top: 12px;
-}
-
-.eventExtraInner{
-  display:grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
-
-/* Banner tipo rectángulo */
-.eventExtraBanner{
-  border-radius: 16px;
-  overflow:hidden;
-  border: 1px solid rgba(18,18,18,.10);
-  background:#f3f3f3;
-}
-
-.eventBannerImg{
-  width:100%;
-  height: clamp(140px, 18vw, 200px);
-  object-fit: cover;
-  display:block;
-}
-
-/* Texto adicional (sensación “bloque”, no card pesado) */
-.eventExtraText{
-  border-radius: 16px;
-  border: 1px solid rgba(18,18,18,.10);
-  background: rgba(18,18,18,.03);
-  padding: 14px;
-}
-
-.eventExtraKicker{
-  margin:0 0 6px;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing:.18em;
-  text-transform: uppercase;
-  color: rgba(18,18,18,.62);
-}
-
-.eventExtraTitle{
-  margin:0 0 8px;
-  font-size: 14px;
-  font-weight: 900;
-  letter-spacing:.14em;
-  text-transform: uppercase;
-  color: rgba(18,18,18,.92);
-}
-
-.eventExtraDesc{
-  margin:0;
-  font-size: 14px;
-  line-height: 1.75;
-  color: rgba(18,18,18,.72);
-}
-
-/* ============================================================
-   FECHAS + DETALLES (apilado como referencia)
-============================================================ */
-.eventInfo{
-  margin-top: 14px;
-  display:grid;
-  grid-template-columns: 1fr;
-  gap: 14px;
-}
-
-.eventBlock{
-  border-radius: 16px;
-  border: 1px solid rgba(18,18,18,.10);
-  background: #fff;
-  padding: 14px;
-}
-
-.h2{
-  margin:0;
-  font-weight: 900;
-  letter-spacing:.16em;
-  text-transform: uppercase;
-  font-size: 18px;
-  color: rgba(18,18,18,.92);
-}
-.sub{
-  margin: 10px 0 14px;
-  color: rgba(18,18,18,.62);
-  line-height: 1.7;
-  font-size: 14px;
-}
-
-/* Dates list */
-.dates{
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-
-.dateItem{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(18,18,18,.10);
-  background: rgba(18,18,18,.02);
-}
-
-.dateLeft{ display:flex; flex-direction:column; gap:4px; min-width:0; }
-
-.dateMain{
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing:.14em;
-  text-transform: uppercase;
-  color: rgba(18,18,18,.90);
-}
-
-.dateHint{
-  font-size: 13px;
-  color: rgba(18,18,18,.62);
-  line-height: 1.4;
-}
-
-.datePick{
-  border-radius: 999px;
-  border:1px solid rgba(18,18,18,.14);
-  background: rgba(18,18,18,.02);
-  color: rgba(18,18,18,.88);
-  padding: 12px 18px;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing:.18em;
-  text-transform: uppercase;
-  cursor:pointer;
-  flex: 0 0 auto;
-  white-space: nowrap;
-  min-height: 46px;
-}
-.datePick:hover{ background: rgba(18,18,18,.04); border-color: rgba(18,18,18,.22); }
-.datePick:focus-visible{ box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28)); outline:none; }
-
-/* notices (tu JS usa IDs) */
-.notice{
-  margin-top: 12px;
-  display:flex;
-  align-items:flex-start;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(18,18,18,.10);
-  background: rgba(18,18,18,.02);
-  color: rgba(18,18,18,.72);
-  font-size: 13px;
-  line-height: 1.55;
-}
-.noticeLegend{
-  margin:0;
-  color: rgba(18,18,18,.68);
-  font-size: 14px;
-  line-height: 1.55;
-}
-
-/* kv */
-.kv{
-  display:flex;
-  flex-direction:column;
-  gap: 10px;
-  margin-top: 6px;
-}
+/* KV */
+.kv{ display:flex; flex-direction:column; gap:10px; margin-top: 10px; }
 .kvRow{
   display:flex;
+  gap: 10px;
   justify-content:space-between;
   align-items:center;
-  gap: 10px;
   border-bottom: 1px solid rgba(18,18,18,.08);
   padding-bottom: 10px;
 }
 .kvRow:last-child{ border-bottom:0; padding-bottom:0; }
+
 .kvLabel{
   color: rgba(18,18,18,.62);
   font-size: 12px;
@@ -524,6 +447,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   gap:12px;
   flex-wrap:wrap;
 }
+.actions .btn{ min-height: 44px; padding: 11px 16px; border-radius: 14px; }
 
 .fine{
   margin: 12px 0 0;
@@ -532,28 +456,25 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   line-height:1.55;
 }
 
-/* ============================================================
-   BOTTOM FRANJA (incluye + recomendaciones)
-============================================================ */
-.eventBottom{
+/* Bottom tips */
+.tipsSection{
   margin-top: 16px;
-  border-top: 1px solid rgba(18,18,18,.08);
-  padding-top: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(18,18,18,.10);
+  background: #fff;
+  padding: 16px;
 }
-
-.eventBottomGrid{
+.tipsGrid{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  gap: 16px;
 }
-
-.eventBottomItem{
-  border-radius: 16px;
-  border: 1px solid rgba(18,18,18,.10);
-  background: rgba(18,18,18,.02);
+.tip{
+  border-radius: 18px;
+  border: 1px solid rgba(18,18,18,.08);
+  background: rgba(18,18,18,.01);
   padding: 14px;
 }
-
 .miniTitle{
   margin:0 0 10px;
   font-size: 12px;
@@ -570,9 +491,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   font-size: 14px;
 }
 
-/* ============================================================
-   Footer
-============================================================ */
+/* Footer */
 .footer{
   border-top: 1px solid rgba(18,18,18,.10);
   background: #fff;
@@ -588,15 +507,13 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   letter-spacing:.12em;
   text-transform: uppercase;
 }
-.footerRow .social{ display:flex; gap:10px; flex-wrap:wrap; }
+.footerRow .social{ gap:10px; display:flex; flex-wrap:wrap; }
 
-/* ============================================================
-   Responsive
-============================================================ */
+/* Responsive */
 @media (max-width: 980px){
-  .eventRow{ grid-template-columns: 1fr; }
-  .eventImg{ height: 360px; }
-  .eventBottomGrid{ grid-template-columns: 1fr; }
+  .heroMain{ grid-template-columns: 1fr; }
+  .heroImgTall{ height: 320px; }
+  .tipsGrid{ grid-template-columns: 1fr; }
 }
 
 @media (max-width: 760px){
@@ -610,31 +527,23 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
 @media (max-width: 640px){
   .container{ width: calc(100% - 28px); }
-  .nav{ padding: 12px 0; }
-  .backIcon{ width: 40px; height: 40px; }
-  .brandRight span{ max-width: 56vw; font-size: 12px; }
-
   .heroWrap{ padding: 18px 0 44px; }
-  .eventShell{ padding: 14px; }
+  .heroCard{ padding: 14px; }
+  .heroImgTall{ height: 280px; }
 
-  .eventTitle{ font-size: clamp(22px, 8.6vw, 34px); }
-  .eventDesc{ font-size: 14px; }
+  .bannerText{ padding: 16px 14px; }
+  .bannerTextInner{ font-size: 16px; }
 
-  .eventImg{ height: 320px; }
-
-  .dateItem{ flex-direction: column; align-items: stretch; }
-  .datePick{ width:100%; min-height:48px; }
+  .dateSelectRow{ flex-direction: column; align-items: stretch; }
+  .datePick{ width: 100%; }
 
   .actions{ grid-template-columns: 1fr; }
 
-  .notice{ flex-direction: column; gap: 10px; }
-  .notice .badge{ align-self:flex-start; }
-
   .footerRow{
     flex-direction: column;
-    align-items:center;
-    text-align:center;
-    gap:10px;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
   }
   .footerRow .social{ width:100%; justify-content:center; }
 }
@@ -644,5 +553,5 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   .brandRight span{ max-width: 62vw; }
 }
 
-/* hard rule */
+/* Hard rule */
 [hidden]{ display:none !important; }
