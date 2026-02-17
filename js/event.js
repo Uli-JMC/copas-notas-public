@@ -1,13 +1,18 @@
 "use strict";
 
 /* ============================================================
-   event.js (Supabase-first) ✅ LIKE REFERENCE PATCH
-   - Foto principal: #evPhoto (events.img)
-   - Bloque gris: #evBannerText (placeholder, luego BD)
-   - Fechas: si hay más de 1 => dropdown
-   - Status pill arriba: #statusPill
+   event.js (Supabase-first) ✅ DROPDOWN FECHAS + FIX + PRICE (Opción A)
+   - ✅ Si hay 1 fecha: se muestra card normal con botón Elegir (igual que antes)
+   - ✅ Si hay 2+ fechas: se muestra dropdown + botón Elegir
+   - No marca "Agotado" si fechas aún no cargaron (evita falso sold-out)
+   - Loader suave para evitar “brinco” visual al refrescar
+   - ✅ Muestra Precio (events.price_amount + events.price_currency)
+     - Si no hay precio => "Por confirmar"
 ============================================================ */
 
+// ============================================================
+// Helpers
+// ============================================================
 const $ = (sel) => document.querySelector(sel);
 
 function escapeHtml(str) {
@@ -93,7 +98,7 @@ function getDefaultHero() {
   }
 }
 
-/* Precio */
+// ✅ Precio helpers (Opción A)
 function normCurrency(cur) {
   const c = String(cur || "").trim().toUpperCase();
   if (c === "USD" || c === "CRC") return c;
@@ -118,6 +123,7 @@ function formatMoney(amount, currency) {
     return isCRC ? `₡${fixed}` : `$${fixed}`;
   }
 }
+
 function safePriceText(priceAmount, priceCurrency) {
   const cur = normCurrency(priceCurrency);
   const n = Number(priceAmount);
@@ -125,10 +131,13 @@ function safePriceText(priceAmount, priceCurrency) {
   return formatMoney(n, cur);
 }
 
-/* Loader */
+// ============================================================
+// Loader
+// ============================================================
 function setLoading(on) {
   const loader = $("#pageLoader");
   const card = $("#heroCard");
+
   if (loader) {
     loader.style.opacity = on ? "1" : "0";
     loader.style.pointerEvents = on ? "auto" : "none";
@@ -139,10 +148,12 @@ function setLoading(on) {
   }
 }
 
-/* Fetch */
+// ============================================================
+// Supabase fetch
+// ============================================================
 async function fetchEventFromSupabase(eventId) {
   if (!hasSupabase()) {
-    console.error("APP.supabase no está listo.");
+    console.error("APP.supabase no está listo. Orden: Supabase CDN -> supabaseClient.js -> event.js");
     toast("Error", "Supabase no está listo.");
     return null;
   }
@@ -150,6 +161,7 @@ async function fetchEventFromSupabase(eventId) {
   const eid = String(eventId ?? "").trim();
   if (!eid) return null;
 
+  // 1) Evento
   const evRes = await APP.supabase
     .from("events")
     .select(
@@ -165,6 +177,7 @@ async function fetchEventFromSupabase(eventId) {
   }
   if (!evRes.data) return null;
 
+  // 2) Fechas
   let datesOk = true;
 
   const datesRes = await APP.supabase
@@ -179,6 +192,7 @@ async function fetchEventFromSupabase(eventId) {
   }
 
   const datesRaw = Array.isArray(datesRes.data) ? datesRes.data : [];
+
   const dates = datesRaw
     .map((d) => ({
       id: String(d?.id || ""),
@@ -207,17 +221,24 @@ async function fetchEventFromSupabase(eventId) {
     title: String(evRes.data.title || "Evento"),
     desc: String(evRes.data.description || ""),
     img: normalizeImgPath(evRes.data.img || getDefaultHero()),
+
     dates,
     seats: seatsTotalAvailable,
     datesOk,
+
     location: safeText(evRes.data.location, "Por confirmar"),
     timeRange: safeText(evRes.data.time_range, "Por confirmar"),
     durationHours: safeText(evRes.data.duration_hours, "Por confirmar"),
+
+    priceAmount: evRes.data.price_amount,
+    priceCurrency: evRes.data.price_currency,
     priceText: safePriceText(evRes.data.price_amount, evRes.data.price_currency),
   };
 }
 
-/* State */
+// ============================================================
+// State + single listener
+// ============================================================
 let CURRENT = null;
 
 function goRegisterWithDate(eventId, dateId, dateLabel) {
@@ -236,10 +257,21 @@ function ensurePickListener() {
     if (!pickBtn) return;
     if (!CURRENT) return;
 
-    const dateId = String(pickBtn.getAttribute("data-pick") || "");
+    // ✅ Caso dropdown: botón tiene data-pick="__dropdown__"
+    let dateId = String(pickBtn.getAttribute("data-pick") || "");
     if (!dateId) return;
 
-    const dateObj = (CURRENT.dates || []).find((d) => String(d.id) === dateId);
+    if (dateId === "__dropdown__") {
+      const sel = $("#dateSelect");
+      const v = String(sel?.value || "");
+      if (!v) {
+        toast("Elegí una fecha", "Seleccioná una fecha para continuar.");
+        return;
+      }
+      dateId = v;
+    }
+
+    const dateObj = (CURRENT.dates || []).find((d) => String(d.id) === String(dateId));
     const label = dateObj ? String(dateObj.label || "") : "";
     const seats = dateObj ? (Number(dateObj.seats) || 0) : 0;
 
@@ -256,71 +288,26 @@ function ensurePickListener() {
   });
 }
 
-/* Notices + status pill arriba */
-function setNotices({ sold, available, pending }) {
-  const soldNotice = $("#soldNotice");
-  const availNotice = $("#availNotice");
-  const pendingNotice = $("#pendingNotice");
-
-  [soldNotice, availNotice, pendingNotice].forEach((el) => {
-    if (!el) return;
-    el.setAttribute("hidden", "");
-  });
-
-  if (sold && soldNotice) soldNotice.removeAttribute("hidden");
-  else if (available && availNotice) availNotice.removeAttribute("hidden");
-  else if (pending && pendingNotice) pendingNotice.removeAttribute("hidden");
-
-  const statusPill = $("#statusPill");
-  if (!statusPill) return;
-
-  if (sold) {
-    statusPill.textContent = "Agotado";
-    statusPill.classList.add("danger");
-    statusPill.removeAttribute("hidden");
-  } else if (available) {
-    statusPill.textContent = "Inscripciones disponibles";
-    statusPill.classList.remove("danger");
-    statusPill.removeAttribute("hidden");
-  } else if (pending) {
-    statusPill.textContent = "Cupos por confirmar";
-    statusPill.classList.remove("danger");
-    statusPill.removeAttribute("hidden");
-  } else {
-    statusPill.setAttribute("hidden", "");
-  }
-}
-
-/* Render helpers */
-function setHeroPhoto(ev) {
-  const imgEl = $("#evPhoto");
-  if (imgEl && ev?.img) {
-    imgEl.src = ev.img;
-    imgEl.alt = ev.title ? `Foto del evento: ${ev.title}` : "Foto del evento";
-  }
-}
-
-/* Dates renderer: dropdown si >1 */
-function renderDates(ev) {
-  const host = $("#dateList");
-  if (!host) return;
-  host.innerHTML = "";
-
+// ============================================================
+// Render helpers: fechas (1 vs dropdown)
+// ============================================================
+function renderDatesUI(dateListEl, ev, soldOutTotal) {
   const dates = Array.isArray(ev.dates) ? ev.dates : [];
-  const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
 
   if (!ev.datesOk) {
-    host.innerHTML = `<div class="emptyMonth">Fechas y cupos por confirmar.</div>`;
+    dateListEl.innerHTML = `<div class="emptyMonth">Fechas y cupos por confirmar.</div>`;
     return;
   }
   if (!dates.length) {
-    host.innerHTML = `<div class="emptyMonth">Fechas por confirmar.</div>`;
+    dateListEl.innerHTML = `<div class="emptyMonth">Fechas por confirmar.</div>`;
     return;
   }
 
-  // 1 fecha => fila normal
+  // ✅ 1 sola fecha => UI actual (card)
   if (dates.length === 1) {
     const x = dates[0];
+    const dateId = String(x?.id || "");
+    const label = String(x?.label || "").trim();
     const seats = Math.max(0, Number(x?.seats) || 0);
     const dateSoldOut = seats <= 0;
 
@@ -332,7 +319,7 @@ function renderDates(ev) {
 
     const main = document.createElement("div");
     main.className = "dateMain";
-    main.textContent = x.label || "Por definir";
+    main.textContent = label || "Por definir";
 
     const hint = document.createElement("div");
     hint.className = "dateHint";
@@ -347,7 +334,7 @@ function renderDates(ev) {
     btn.className = "datePick";
     btn.type = "button";
     btn.textContent = "Elegir";
-    btn.setAttribute("data-pick", String(x.id || ""));
+    btn.setAttribute("data-pick", dateId);
 
     if (soldOutTotal || dateSoldOut) {
       btn.disabled = true;
@@ -357,64 +344,122 @@ function renderDates(ev) {
 
     row.appendChild(left);
     row.appendChild(btn);
-    host.appendChild(row);
+    dateListEl.appendChild(row);
     return;
   }
 
-  // >1 fechas => dropdown (como pediste)
-  const first = dates.find((d) => (Number(d?.seats) || 0) > 0) || dates[0];
+  // ✅ 2+ fechas => DROPDOWN + botón
+  // UX: opciones deshabilitadas si 0 cupos
+  const wrap = document.createElement("div");
+  wrap.className = "dateItem";
+  wrap.style.alignItems = "stretch";
 
-  const row = document.createElement("div");
-  row.className = "dateSelectRow";
+  const left = document.createElement("div");
+  left.className = "dateLeft";
 
-  const select = document.createElement("select");
-  select.className = "dateSelect";
-  select.id = "dateSelect";
+  const main = document.createElement("div");
+  main.className = "dateMain";
+  main.textContent = "Seleccioná una fecha";
 
-  dates.forEach((d) => {
+  const hint = document.createElement("div");
+  hint.className = "dateHint";
+  hint.textContent = "Si hay más de una fecha, elegí tu opción aquí.";
+
+  left.appendChild(main);
+  left.appendChild(hint);
+
+  const right = document.createElement("div");
+  right.style.display = "flex";
+  right.style.gap = "10px";
+  right.style.alignItems = "center";
+  right.style.justifyContent = "flex-end";
+  right.style.flex = "0 0 auto";
+
+  const sel = document.createElement("select");
+  sel.id = "dateSelect";
+  sel.setAttribute("aria-label", "Seleccionar fecha");
+  // estilo inline para no tocar tu CSS ahora; luego lo refinamos en CSS si querés
+  sel.style.minHeight = "46px";
+  sel.style.borderRadius = "999px";
+  sel.style.border = "1px solid rgba(18,18,18,.14)";
+  sel.style.background = "rgba(18,18,18,.02)";
+  sel.style.padding = "10px 12px";
+  sel.style.fontSize = "12px";
+  sel.style.fontWeight = "900";
+  sel.style.letterSpacing = ".14em";
+  sel.style.textTransform = "uppercase";
+  sel.style.color = "rgba(18,18,18,.88)";
+  sel.style.maxWidth = "260px";
+
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = "Elegir fecha…";
+  sel.appendChild(opt0);
+
+  dates.forEach((x) => {
+    const id = String(x?.id || "");
+    const label = String(x?.label || "").trim() || "Por definir";
+    const seats = Math.max(0, Number(x?.seats) || 0);
+
     const opt = document.createElement("option");
-    opt.value = String(d.id || "");
-    const seats = Math.max(0, Number(d?.seats) || 0);
-    opt.textContent = `${d.label || "Por definir"} — ${seats > 0 ? `${seats} cupos` : "Sin cupos"}`;
-    if (String(d.id) === String(first.id)) opt.selected = true;
-    select.appendChild(opt);
+    opt.value = id;
+    opt.textContent = `${label}${seats <= 0 ? " (Sin cupos)" : ` (${seats})`}`;
+    if (seats <= 0) opt.disabled = true;
+    sel.appendChild(opt);
   });
 
   const btn = document.createElement("button");
   btn.className = "datePick";
   btn.type = "button";
   btn.textContent = "Elegir";
-  btn.setAttribute("data-pick", String(first.id || ""));
+  btn.setAttribute("data-pick", "__dropdown__");
 
-  // update data-pick al cambiar
-  select.addEventListener("change", () => {
-    btn.setAttribute("data-pick", String(select.value || ""));
-    const d = dates.find((x) => String(x.id) === String(select.value));
-    const seats = d ? (Number(d.seats) || 0) : 0;
-
-    const dateSoldOut = seats <= 0;
-    if (soldOutTotal || dateSoldOut) {
-      btn.disabled = true;
-      btn.style.opacity = ".55";
-      btn.style.cursor = "not-allowed";
-    } else {
-      btn.disabled = false;
-      btn.style.opacity = "1";
-      btn.style.cursor = "pointer";
-    }
-  });
-
-  // estado inicial
-  const initSeats = Number(first?.seats) || 0;
-  if (soldOutTotal || initSeats <= 0) {
+  // si todo sold out => deshabilitar
+  if (soldOutTotal) {
     btn.disabled = true;
     btn.style.opacity = ".55";
     btn.style.cursor = "not-allowed";
   }
 
-  row.appendChild(select);
-  row.appendChild(btn);
-  host.appendChild(row);
+  // habilitar/deshabilitar según selección válida
+  sel.addEventListener("change", () => {
+    if (btn.disabled && soldOutTotal) return;
+    const v = String(sel.value || "");
+    btn.disabled = !v;
+    btn.style.opacity = btn.disabled ? ".55" : "1";
+    btn.style.cursor = btn.disabled ? "not-allowed" : "pointer";
+  });
+
+  // estado inicial
+  btn.disabled = true;
+  btn.style.opacity = ".55";
+  btn.style.cursor = "not-allowed";
+
+  right.appendChild(sel);
+  right.appendChild(btn);
+
+  wrap.appendChild(left);
+  wrap.appendChild(right);
+
+  dateListEl.appendChild(wrap);
+}
+
+// ============================================================
+// Render
+// ============================================================
+function setNotices({ sold, available, pending }) {
+  const soldNotice = $("#soldNotice");
+  const availNotice = $("#availNotice");
+  const pendingNotice = $("#pendingNotice");
+
+  [soldNotice, availNotice, pendingNotice].forEach((el) => {
+    if (!el) return;
+    el.setAttribute("hidden", "");
+  });
+
+  if (sold && soldNotice) soldNotice.removeAttribute("hidden");
+  else if (available && availNotice) availNotice.removeAttribute("hidden");
+  else if (pending && pendingNotice) pendingNotice.removeAttribute("hidden");
 }
 
 function renderEvent(ev) {
@@ -428,7 +473,6 @@ function renderEvent(ev) {
 
   const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
 
-  // compat heroBg
   const heroBg = $("#heroBg");
   if (heroBg) {
     const bg = normalizeImgPath(ev.img || getDefaultHero());
@@ -436,11 +480,16 @@ function renderEvent(ev) {
     heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
   }
 
-  setHeroPhoto(ev);
+  // ✅ FOTO REAL (izquierda) — tu CSS ya la hace grande
+  const heroImgEl = $("#evPhoto");
+  if (heroImgEl) {
+    heroImgEl.src = ev.img || getDefaultHero();
+    heroImgEl.alt = ev.title ? `Foto del evento: ${ev.title}` : "Foto del evento";
+  }
 
-  // meta pills
   const metaRow = $("#metaRow");
   const datesText = (ev.dates || []).map((d) => d.label).filter(Boolean).join(" • ");
+
   if (metaRow) {
     metaRow.innerHTML = `
       <span class="pill"><span class="dot"></span> ${escapeHtml(ev.type)}</span>
@@ -450,16 +499,19 @@ function renderEvent(ev) {
     `;
   }
 
-  // title/desc
   const t = $("#evTitle");
   const d = $("#evDesc");
   if (t) t.textContent = ev.title;
   if (d) d.textContent = ev.desc || "";
 
-  // dates
-  renderDates(ev);
+  // ✅ Dates UI
+  const dateList = $("#dateList");
+  if (dateList) {
+    dateList.innerHTML = "";
+    renderDatesUI(dateList, ev, soldOutTotal);
+  }
 
-  // kv
+  // ✅ KV
   const kv = $("#kv");
   if (kv) {
     kv.innerHTML = `
@@ -492,7 +544,7 @@ function renderEvent(ev) {
     `;
   }
 
-  // notices + status pill
+  // ✅ Notices
   if (!ev.datesOk) {
     setNotices({ sold: false, available: false, pending: true });
   } else if (soldOutTotal) {
@@ -501,7 +553,7 @@ function renderEvent(ev) {
     setNotices({ sold: false, available: true, pending: false });
   }
 
-  // register button
+  // ✅ btnRegister (elige primera fecha con cupos si existe)
   const btnRegister = $("#btnRegister");
   if (btnRegister) {
     const firstAvailable = (ev.dates || []).find((x) => (Number(x?.seats) || 0) > 0);
@@ -530,12 +582,14 @@ function renderEvent(ev) {
   const heroCard = $("#heroCard");
   if (heroCard) heroCard.classList.toggle("isSoldOut", soldOutTotal);
 
-  if (soldOutTotal) {
+  if (soldOutTotal && ev.datesOk) {
     toast("Evento agotado", "Este evento no tiene cupos disponibles.");
   }
 }
 
-/* Init */
+// ============================================================
+// Init
+// ============================================================
 (async function init() {
   ensurePickListener();
 

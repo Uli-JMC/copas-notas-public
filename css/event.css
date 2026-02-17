@@ -1,26 +1,31 @@
 /* ============================================================
-   event.css ✅ LIKE REFERENCE (LO QUE QUIERO) — 2026-02-17
-   - Foto grande a la izquierda
-   - Columna derecha limpia (pills, título, desc, bloque gris, fechas, detalles)
-   - Dropdown si hay múltiples fechas (JS)
-   - heroBg apagado (compat)
+   event.css ✅ EVENT PAGE (2026) — 1:1 referencia (foto izq + contenido der)
+   ✅ Mantiene HTML/JS intactos
+   ✅ Foto grande lateral: .heroMedia + #evPhoto
+   ✅ Columna derecha: meta + title + desc + (grid apilado) + divider + minicards
+   ✅ “Fechas / Detalles” se apilan (no 2 columnas)
+   ✅ MiniCards abajo a lo ancho
+   ✅ heroBg se apaga visualmente (solo compat JS)
 ============================================================ */
 
 :root{
+  /* Hereda tokens de base.css, fallback si falta */
   --event-bg: var(--bg, #ffffff);
   --event-text: var(--text, rgba(18,18,18,.92));
   --event-muted: var(--muted, rgba(18,18,18,.62));
   --event-line: var(--line, rgba(18,18,18,.12));
 
-  --radius: 18px;
-  --radius-lg: 22px;
-  --shadow: 0 22px 60px rgba(0,0,0,.12);
-  --shadow-soft: 0 12px 28px rgba(0,0,0,.08);
+  --event-radius: var(--radius-xl, 18px);
+  --event-shadow: var(--shadow-mid, 0 22px 60px rgba(0,0,0,.20));
+  --event-shadow-soft: var(--shadow-soft, 0 18px 50px rgba(0,0,0,.12));
 
-  --pad: 18px;
-  --gap: 16px;
+  --event-pad: 20px;
+  --event-gap: 14px;
 }
 
+/* ============================================================
+   Base / Layout
+============================================================ */
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
 
@@ -30,7 +35,7 @@ body{
   color: var(--event-text);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Helvetica Neue", Helvetica, sans-serif;
   letter-spacing:.2px;
-  overflow-x:hidden;
+  overflow-x: hidden;
 }
 
 p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
@@ -40,7 +45,9 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   margin: 0 auto;
 }
 
-/* ===== Header (igual a tu base) ===== */
+/* ============================================================
+   Header (topbar)
+============================================================ */
 .topbar{
   position: sticky;
   top:0;
@@ -50,8 +57,13 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
+
 @media (max-width: 900px){
-  .topbar{ background:#fff; backdrop-filter:none; -webkit-backdrop-filter:none; }
+  .topbar{
+    background: #fff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 .nav{
@@ -68,7 +80,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   gap:10px;
   text-decoration:none;
   color: var(--event-text);
-  min-width:0;
+  min-width: 0;
 }
 
 .backIcon{
@@ -82,11 +94,13 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   flex: 0 0 auto;
   transition: transform .15s ease, background .15s ease, border-color .15s ease;
 }
+
 .brand:hover .backIcon{
   background: rgba(18,18,18,.06);
   border-color: rgba(18,18,18,.20);
   transform: translateY(-1px);
 }
+
 .backText{
   color: var(--event-muted);
   font-size: 12px;
@@ -95,12 +109,21 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   white-space: nowrap;
 }
 
-.brandRight{ text-decoration:none; min-width:0; }
+.brandRight{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  text-decoration:none;
+  min-width: 0;
+}
+
 .brandRight span{
+  font-family: inherit;
   letter-spacing:.10em;
   font-weight: 900;
   font-size: 13px;
   text-transform: uppercase;
+  line-height:1;
   white-space:nowrap;
   overflow:hidden;
   text-overflow: ellipsis;
@@ -108,7 +131,9 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   color: rgba(18,18,18,.86);
 }
 
-/* ===== Buttons (fallback) ===== */
+/* ============================================================
+   Botones (fallback si base.css no estuviera)
+============================================================ */
 .btn{
   border: 1px solid rgba(18,18,18,.16);
   background: rgba(18,18,18,.02);
@@ -123,6 +148,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   align-items:center;
   justify-content:center;
   gap:10px;
+
   transition: transform .15s ease, background .15s ease, border-color .15s ease, filter .15s ease;
   outline:none;
   cursor:pointer;
@@ -132,23 +158,31 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   line-height: 1;
   font-weight: 900;
 }
+
 .btn:hover{
   transform: translateY(-1px);
   border-color: rgba(18,18,18,.24);
   background: rgba(18,18,18,.04);
 }
-.btn.primary{
-  background:#000 !important;
-  border-color:#000 !important;
-  color:#fff !important;
-  border-width:2px;
-}
-.btn.primary:hover{ filter: brightness(1.06); }
-.btn[aria-disabled="true"], .btn:disabled{ opacity:.55; pointer-events:none; }
 
+.btn:active{ transform: translateY(0); }
+
+.btn:focus-visible{
+  box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28));
+}
+
+.btn[aria-disabled="true"],
+.btn:disabled{
+  opacity:.55;
+  pointer-events:none;
+}
+
+/* ============================================================
+   Footer icon buttons
+============================================================ */
 .icon-btn{
-  width:44px;height:44px;
-  border-radius:999px;
+  width:44px; height:44px;
+  border-radius: 999px;
   border:1px solid rgba(18,18,18,.14);
   display:grid;
   place-items:center;
@@ -156,67 +190,90 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   color: var(--event-text);
   text-decoration:none;
   transition: transform .15s ease, background .15s ease, border-color .15s ease;
+  outline:none;
+  flex: 0 0 auto;
 }
+
 .icon-btn:hover{
   background: rgba(18,18,18,.04);
   border-color: rgba(18,18,18,.20);
   transform: translateY(-1px);
 }
 
-/* ===== Hero ===== */
+.icon-btn:focus-visible{
+  box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28));
+}
+
+/* ============================================================
+   Hero
+============================================================ */
 .hero{
   position: relative;
   min-height: calc(100vh - 72px);
   min-height: calc(100dvh - 72px);
-  background:#fff;
+  overflow:hidden;
+  border-bottom: 1px solid rgba(18,18,18,.08);
+  background: #fff;
 }
-.heroBg{ display:none !important; } /* apagado */
 
-.heroWrap{ padding: 22px 0 56px; }
+/* ✅ En tu referencia NO se nota fondo borroso. Lo apagamos. */
+.heroBg{
+  display:none !important;
+}
 
+.heroWrap{
+  position: relative;
+  z-index: 2;
+  padding: 34px 0 58px;
+}
+
+/* ============================================================
+   CARD PRINCIPAL — GRID 1:1 (foto izq + contenido der)
+============================================================ */
 .heroCard{
-  border-radius: calc(var(--radius-lg) + 6px);
-  border: 1px solid rgba(18,18,18,.08);
+  border-radius: calc(var(--event-radius) + 6px);
+  border: 1px solid rgba(18,18,18,.10);
   background: rgba(255,255,255,.96);
-  box-shadow: var(--shadow);
-  padding: var(--pad);
-}
-.heroCard.isSoldOut{ filter:saturate(.95); }
+  box-shadow: var(--event-shadow);
+  padding: var(--event-pad);
 
-.heroMain{
+  /* ✅ Layout referencia */
   display:grid;
-  grid-template-columns: 1.1fr .9fr; /* foto grande + columna derecha */
-  gap: var(--gap);
+  grid-template-columns: 1.05fr .95fr;
+  gap: 18px;
   align-items:start;
 }
 
-/* Left image big */
-.heroLeft{
-  border-radius: var(--radius-lg);
+.heroCard.isSoldOut{ filter: saturate(.92); }
+
+/* ============================================================
+   FOTO GRANDE (izquierda)
+   (tu HTML: .heroMedia > #evPhoto.heroImg)
+============================================================ */
+.heroMedia{
+  grid-column: 1;
+  grid-row: 1 / span 6;
+  border-radius: 18px;
   overflow:hidden;
   border: 1px solid rgba(18,18,18,.10);
-  background:#f6f6f6;
-  box-shadow: var(--shadow-soft);
+  background: #f3f3f3;
+  box-shadow: var(--event-shadow-soft);
+  align-self: stretch;
 }
-.heroImgTall{
+
+.heroImg{
   width:100%;
-  height: min(560px, 62vh);
+  height:100%;
+  min-height: 520px;
   object-fit: cover;
   display:block;
 }
 
-/* Right column */
-.heroRight{ min-width:0; padding-top: 4px; }
-
-.heroMetaRow{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 12px;
-  flex-wrap:wrap;
-}
-
+/* ============================================================
+   META + TITLE + DESC (columna derecha)
+============================================================ */
 .heroMeta{
+  grid-column: 2;
   display:flex;
   align-items:center;
   gap:10px;
@@ -226,6 +283,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   letter-spacing:.18em;
   font-size: 11px;
   min-width: 0;
+  padding-bottom: 6px;
 }
 
 .pill{
@@ -241,83 +299,80 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   font-size: 11px;
   text-transform: uppercase;
   white-space:nowrap;
+  max-width: 100%;
   font-weight: 900;
 }
-.dot{ width:6px;height:6px;border-radius:999px;background: rgba(18,18,18,.55); display:inline-block; }
 
-.statusPillWrap{ display:flex; justify-content:flex-end; }
-.statusPill{
-  border: 1px solid rgba(18,18,18,.12);
-  background: rgba(18,18,18,.04);
-  padding: 8px 12px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing:.14em;
-  text-transform: uppercase;
-  color: rgba(18,18,18,.92);
-  white-space:nowrap;
-}
-.statusPill.danger{
-  border-color: rgba(215,44,44,.20);
-  background: rgba(215,44,44,.10);
-  color: rgba(215,44,44,.92);
+.dot{
+  width:6px; height:6px;
+  border-radius:999px;
+  background: rgba(18,18,18,.55);
+  display:inline-block;
 }
 
 .title{
-  margin: 10px 0 10px;
+  grid-column: 2;
+  margin: 2px 0 6px;
   font-weight: 900;
   letter-spacing: .02em;
   text-transform: uppercase;
-  font-size: clamp(28px, 3.6vw, 44px);
+  font-size: clamp(30px, 4.4vw, 54px);
   line-height: 1.02;
+  color: rgba(18,18,18,.92);
 }
+
 .desc{
-  margin: 0 0 14px;
+  grid-column: 2;
+  margin: 0 0 10px;
   color: rgba(18,18,18,.68);
   line-height: 1.7;
-  font-size: 14.5px;
-  max-width: 74ch;
+  max-width: 66ch;
+  font-size: 15px;
 }
 
-/* Grey block text */
-.bannerText{
-  border-radius: 14px;
+/* ============================================================
+   Fechas + Detalles (columna derecha, APILADO)
+   ✅ Tu HTML tiene .grid con 2 panels; aquí lo forzamos a 1 columna.
+============================================================ */
+.grid{
+  grid-column: 2;
+  display:grid;
+  grid-template-columns: 1fr;  /* ✅ apilado como referencia */
+  gap: var(--event-gap);
+  align-items:start;
+}
+
+.panel{
+  border-radius: var(--event-radius);
   border: 1px solid rgba(18,18,18,.10);
-  background: #d7d7d7;
-  padding: 18px 16px;
-  margin: 12px 0 18px;
+  background: #fff;
+  padding: 16px;
 }
-.bannerTextInner{
-  margin:0;
-  color:#fff;
-  font-weight: 800;
-  letter-spacing:.02em;
-  text-align:center;
-  font-size: clamp(16px, 1.8vw, 20px);
-  line-height: 1.35;
-}
-
-/* Sections on right */
-.section{ margin-top: 14px; }
 
 .h2{
   margin:0;
-  font-weight: 900;
+  font-weight: 800;
   letter-spacing: .16em;
   text-transform: uppercase;
   font-size: 16px;
   line-height: 1.2;
   color: rgba(18,18,18,.92);
 }
+
 .sub{
-  margin: 8px 0 12px;
+  margin: 10px 0 14px;
   color: rgba(18,18,18,.62);
   line-height: 1.7;
-  font-size: 13px;
+  font-size: 14px;
 }
 
-/* Dates UI (single row or dropdown) */
+/* Dates */
+.dates{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
 .dateItem{
   display:flex;
   align-items:center;
@@ -327,8 +382,16 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   border-radius: 14px;
   border: 1px solid rgba(18,18,18,.10);
   background: rgba(18,18,18,.02);
+  min-width: 0;
 }
-.dateLeft{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+
+.dateLeft{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width: 0;
+}
+
 .dateMain{
   font-size: 12px;
   font-weight: 900;
@@ -336,7 +399,12 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   text-transform: uppercase;
   color: rgba(18,18,18,.90);
 }
-.dateHint{ font-size: 13px; color: rgba(18,18,18,.62); line-height:1.4; }
+
+.dateHint{
+  font-size: 13px;
+  color: rgba(18,18,18,.62);
+  line-height: 1.4;
+}
 
 .datePick{
   border-radius: 999px;
@@ -349,39 +417,27 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   letter-spacing:.18em;
   text-transform: uppercase;
   cursor:pointer;
+  flex: 0 0 auto;
   white-space: nowrap;
   min-height: 46px;
 }
-.datePick:hover{ background: rgba(18,18,18,.04); border-color: rgba(18,18,18,.22); }
 
-/* Dropdown */
-.dateSelectRow{
-  display:flex;
-  gap: 10px;
-  align-items:center;
+.datePick:hover{
+  background: rgba(18,18,18,.04);
+  border-color: rgba(18,18,18,.22);
 }
-.dateSelect{
-  flex: 1;
-  min-width: 0;
-  height: 46px;
-  border-radius: 14px;
-  border: 1px solid rgba(18,18,18,.12);
-  background: rgba(255,255,255,.92);
-  padding: 0 12px;
-  font-weight: 800;
-  letter-spacing: .02em;
+
+.datePick:focus-visible{
+  box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28));
   outline: none;
 }
-.dateSelect:focus{
-  box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.22));
-}
 
-/* Notices (se quedan, pero compactos) */
+/* Notices */
 .notice{
-  margin-top: 12px;
+  margin-top: 14px;
   display:flex;
   align-items:flex-start;
-  gap: 12px;
+  gap: 14px; /* ✅ antes 40, en referencia es más pegado */
   padding: 12px 12px;
   border-radius: 14px;
   border: 1px solid rgba(18,18,18,.10);
@@ -390,7 +446,13 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   font-size: 13px;
   line-height: 1.55;
 }
-.noticeLegend{ margin: 0; color: rgba(18,18,18,.68); font-size: 13px; }
+
+.noticeLegend{
+  margin: 0;
+  color: rgba(18,18,18,.68);
+  line-height: 1.55;
+  font-size: 14px;
+}
 
 .badge{
   display:inline-flex;
@@ -407,6 +469,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   color: rgba(18,18,18,.92);
   white-space:nowrap;
 }
+
 .badge.danger{
   border-color: rgba(215,44,44,.20);
   background: rgba(215,44,44,.10);
@@ -414,7 +477,13 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* KV */
-.kv{ display:flex; flex-direction:column; gap:10px; margin-top: 10px; }
+.kv{
+  display:flex;
+  flex-direction:column;
+  gap: 10px;
+  margin-top: 6px;
+}
+
 .kvRow{
   display:flex;
   gap: 10px;
@@ -423,6 +492,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   border-bottom: 1px solid rgba(18,18,18,.08);
   padding-bottom: 10px;
 }
+
 .kvRow:last-child{ border-bottom:0; padding-bottom:0; }
 
 .kvLabel{
@@ -432,6 +502,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   letter-spacing:.14em;
   text-transform: uppercase;
 }
+
 .kvValue{
   color: rgba(18,18,18,.92);
   font-size: 12px;
@@ -441,13 +512,35 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   text-align:right;
 }
 
+/* Actions */
 .actions{
   margin-top: 14px;
   display:flex;
   gap:12px;
   flex-wrap:wrap;
 }
-.actions .btn{ min-height: 44px; padding: 11px 16px; border-radius: 14px; }
+
+.actions .btn{
+  min-height: 44px;
+  padding: 11px 16px;
+  border-radius: 14px;
+}
+
+/* secundario */
+.actions .btn:not(.primary){
+  background: rgba(18, 18, 18, .03);
+  border-color: rgba(18, 18, 18, .10);
+  color: rgba(18,18,18,.88);
+}
+
+/* primary negro */
+.actions .btn.primary{
+  background: #000 !important;
+  border-color: #000 !important;
+  color: #fff !important;
+  border-width: 2px;
+}
+.actions .btn.primary:hover{ filter: brightness(1.06); }
 
 .fine{
   margin: 12px 0 0;
@@ -456,25 +549,32 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   line-height:1.55;
 }
 
-/* Bottom tips */
-.tipsSection{
-  margin-top: 16px;
-  border-radius: 20px;
-  border: 1px solid rgba(18,18,18,.10);
-  background: #fff;
-  padding: 16px;
+/* ============================================================
+   Divider + MiniCards ABAJO a lo ancho (como referencia)
+============================================================ */
+.divider{
+  grid-column: 1 / -1;
+  margin: 18px 0;
+  height:1px;
+  background: rgba(18,18,18,.08);
+  border-radius: 999px;
 }
-.tipsGrid{
+
+.miniCards{
+  grid-column: 1 / -1; /* ✅ ocupa todo el ancho */
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: var(--event-gap);
 }
-.tip{
-  border-radius: 18px;
-  border: 1px solid rgba(18,18,18,.08);
-  background: rgba(18,18,18,.01);
-  padding: 14px;
+
+.miniCard{
+  border-radius: var(--event-radius);
+  border: 1px solid rgba(18,18,18,.10);
+  background: rgba(18,18,18,.02);
+  box-shadow: 0 10px 30px rgba(0,0,0,.06);
+  padding: 16px;
 }
+
 .miniTitle{
   margin:0 0 10px;
   font-size: 12px;
@@ -483,6 +583,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   text-transform: uppercase;
   color: rgba(18,18,18,.92);
 }
+
 .miniList{
   margin:0;
   padding-left: 18px;
@@ -491,12 +592,15 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   font-size: 14px;
 }
 
-/* Footer */
+/* ============================================================
+   Footer
+============================================================ */
 .footer{
   border-top: 1px solid rgba(18,18,18,.10);
   background: #fff;
   padding: 18px 0;
 }
+
 .footerRow{
   display:flex;
   align-items:center;
@@ -507,13 +611,38 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   letter-spacing:.12em;
   text-transform: uppercase;
 }
-.footerRow .social{ gap:10px; display:flex; flex-wrap:wrap; }
 
-/* Responsive */
+.footerRow .social{
+  gap:10px;
+  display:flex;
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   Responsive
+============================================================ */
 @media (max-width: 980px){
-  .heroMain{ grid-template-columns: 1fr; }
-  .heroImgTall{ height: 320px; }
-  .tipsGrid{ grid-template-columns: 1fr; }
+  .heroCard{
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .heroMedia{
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .heroImg{
+    min-height: 320px;
+  }
+
+  .heroMeta, .title, .desc, .grid{
+    grid-column: 1;
+  }
+
+  .miniCards{
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px){
@@ -523,21 +652,46 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
     gap:12px;
   }
   .actions .btn{ width:100%; }
+
+  .kvRow{ align-items:flex-start; }
+  .kvValue{ text-align:right; }
 }
 
 @media (max-width: 640px){
   .container{ width: calc(100% - 28px); }
-  .heroWrap{ padding: 18px 0 44px; }
+
+  .nav{ padding: 12px 0; }
+  .backIcon{ width: 40px; height: 40px; }
+
+  .heroWrap{ padding: 22px 0 46px; }
   .heroCard{ padding: 14px; }
-  .heroImgTall{ height: 280px; }
 
-  .bannerText{ padding: 16px 14px; }
-  .bannerTextInner{ font-size: 16px; }
+  .brandRight span{ max-width: 56vw; font-size: 12px; }
 
-  .dateSelectRow{ flex-direction: column; align-items: stretch; }
-  .datePick{ width: 100%; }
+  .title{ font-size: clamp(26px, 9vw, 44px); }
+
+  .desc{ font-size: 14px; }
+  .panel{ padding: 14px; }
+
+  .dateItem{
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .datePick{
+    width: 100%;
+    padding: 12px 20px;
+    min-height: 48px;
+  }
 
   .actions{ grid-template-columns: 1fr; }
+
+  .notice{
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .notice .badge{ align-self: flex-start; }
 
   .footerRow{
     flex-direction: column;
@@ -545,7 +699,10 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
     text-align: center;
     gap: 10px;
   }
-  .footerRow .social{ width:100%; justify-content:center; }
+  .footerRow .social{
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 @media (max-width: 420px){
@@ -553,5 +710,5 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   .brandRight span{ max-width: 62vw; }
 }
 
-/* Hard rule */
+/* ✅ Hard rule */
 [hidden]{ display:none !important; }

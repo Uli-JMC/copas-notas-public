@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="es">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,15 +9,14 @@
   <meta name="description" content="Detalle del evento: fechas, cupos y descripción." />
 
   <link rel="stylesheet" href="./css/base.css" />
-  <!-- cache buster -->
-  <link rel="stylesheet" href="./css/event.css?v=20260217-likeRef" />
+  <link rel="stylesheet" href="./css/event.css" />
 </head>
 
 <body>
   <!-- Toasts -->
   <div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
 
-  <!-- Loader -->
+  <!-- ✅ Loader suave -->
   <div id="pageLoader" aria-hidden="true"
     style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);backdrop-filter: blur(6px);z-index:9999;opacity:0;pointer-events:none;transition:opacity .2s ease;">
     <div
@@ -24,10 +24,12 @@
     </div>
   </div>
   <style>
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 
-  <!-- Header (NO TOCAR) -->
+  <!-- Header -->
   <header class="topbar">
     <div class="container">
       <div class="nav">
@@ -35,6 +37,8 @@
           <span class="backIcon" aria-hidden="true">←</span>
           <span class="backText">Volver</span>
         </a>
+
+        <!-- ✅ SIN LOGO: solo texto -->
         <a class="brandRight" href="./home.html" aria-label="Ir a home">
           <span>Entre Copas &amp; Notas</span>
         </a>
@@ -42,111 +46,92 @@
     </div>
   </header>
 
-  <!-- Página -->
+  <!-- Hero -->
   <section class="hero" aria-label="Detalle del evento">
-    <!-- compat JS (apagado por CSS) -->
-    <div class="heroBg" id="heroBg" aria-hidden="true"></div>
+    <div class="heroBg" id="heroBg"></div>
 
     <div class="container heroWrap">
       <div class="heroCard" id="heroCard">
 
-        <!-- ====== LAYOUT 1:1 (foto izquierda + contenido derecha) ====== -->
-        <div class="heroMain">
-          <!-- Left: Foto grande -->
-          <div class="heroLeft" aria-label="Imagen del evento">
-            <img
-              id="evPhoto"
-              class="heroImgTall"
-              src="./assets/img/hero-1.jpg"
-              alt="Foto del evento"
-              loading="eager"
-              decoding="async"
-            />
+        <!-- ✅ NUEVO: Imagen del evento (viene de Supabase events.img) -->
+        <!-- Nota: el CSS lo va a acomodar lateral (foto grande) -->
+        <div class="heroMedia" aria-label="Imagen del evento">
+          <img
+            id="evPhoto"
+            class="heroImg"
+            src="./assets/img/hero-1.jpg"
+            alt="Foto del evento"
+            loading="eager"
+            decoding="async"
+          />
+        </div>
+
+        <div class="heroMeta" id="metaRow"></div>
+
+        <h1 class="title" id="evTitle">Evento</h1>
+        <p class="desc" id="evDesc">Descripción del evento.</p>
+
+        <div class="grid">
+          <div class="panel">
+            <h2 class="h2">Fechas disponibles</h2>
+            <p class="sub">Seleccioná una fecha para tu inscripción (si hay más de una).</p>
+
+            <div class="dates" id="dateList"></div>
+
+            <!-- ✅ Estado: disponible -->
+            <div class="notice" id="availNotice" hidden>
+              <span class="badge">Inscripciones disponibles</span>
+              <p class="noticeLegend">Inscribite y disfrutá de esta experiencia.</p>
+            </div>
+
+            <!-- ✅ Estado: agotado -->
+            <div class="notice" id="soldNotice" hidden>
+              <span class="badge danger">Agotado</span>
+              <p class="noticeLegend">Este evento no tiene cupos disponibles.</p>
+            </div>
+
+            <!-- ✅ Estado: por confirmar -->
+            <div class="notice" id="pendingNotice" hidden>
+              <span class="badge">Cupos por confirmar</span>
+              <p class="noticeLegend">Estamos actualizando las fechas y cupos. Probá en unos segundos.</p>
+            </div>
           </div>
 
-          <!-- Right: Contenido -->
-          <div class="heroRight">
-            <div class="heroMetaRow">
-              <div class="heroMeta" id="metaRow"></div>
+          <div class="panel">
+            <h2 class="h2">Detalles</h2>
 
-              <!-- “Inscripciones disponibles / Agotado / Cupos por confirmar” arriba a la derecha -->
-              <div class="statusPillWrap">
-                <div class="statusPill" id="statusPill" hidden></div>
-              </div>
+            <div class="kv" id="kv"></div>
+
+            <div class="actions">
+              <a class="btn" id="btnHome" href="./home.html#proximos">Ver otros eventos</a>
+              <a class="btn primary" id="btnRegister" href="./register.html">Inscribirme</a>
             </div>
 
-            <h1 class="title" id="evTitle">Evento</h1>
-            <p class="desc" id="evDesc">Descripción del evento.</p>
-
-            <!-- Bloque gris (texto adicional / supabase luego) -->
-            <div class="bannerText" id="evBannerWrap">
-              <p class="bannerTextInner" id="evBannerText">
-                Texto adicional solo para event (amplía la descripción). Aquí luego lo conectamos a BD.
-              </p>
-            </div>
-
-            <!-- Fechas -->
-            <div class="section">
-              <h2 class="h2">Fechas disponibles</h2>
-              <p class="sub">Seleccioná una fecha para tu inscripción (si hay más de una).</p>
-
-              <!-- JS renderiza: dropdown si hay >1, si no lista normal -->
-              <div id="dateList"></div>
-
-              <!-- Notices (se mantienen por compatibilidad, pero ya no “rompen” el layout) -->
-              <div class="notice" id="availNotice" hidden>
-                <span class="badge">Inscripciones disponibles</span>
-                <p class="noticeLegend">Inscribite y disfrutá de esta experiencia.</p>
-              </div>
-
-              <div class="notice" id="soldNotice" hidden>
-                <span class="badge danger">Agotado</span>
-                <p class="noticeLegend">Este evento no tiene cupos disponibles.</p>
-              </div>
-
-              <div class="notice" id="pendingNotice" hidden>
-                <span class="badge">Cupos por confirmar</span>
-                <p class="noticeLegend">Estamos actualizando las fechas y cupos. Probá en unos segundos.</p>
-              </div>
-            </div>
-
-            <!-- Detalles -->
-            <div class="section">
-              <h2 class="h2">Detalles</h2>
-              <div class="kv" id="kv"></div>
-
-              <div class="actions">
-                <a class="btn" id="btnHome" href="./home.html#proximos">Ver otros eventos</a>
-                <a class="btn primary" id="btnRegister" href="./register.html">Inscribirme</a>
-              </div>
-
-              <p class="fine">
-                Al inscribirte, te llega confirmación al correo. Si seleccionás “recibir info”, también por WhatsApp.
-              </p>
-            </div>
+            <p class="fine">
+              Al inscribirte, te llega confirmación al correo. Si seleccionás “recibir info”, también por WhatsApp.
+            </p>
           </div>
         </div>
 
-        <!-- Bottom tips (como tu base) -->
-        <div class="tipsSection" aria-label="Qué incluye y recomendaciones">
-          <div class="tipsGrid">
-            <div class="tip">
-              <p class="miniTitle">¿Qué incluye?</p>
-              <ul class="miniList">
-                <li>Guía durante la experiencia</li>
-                <li>Degustación según el formato del evento</li>
-                <li>Dinámica y recomendaciones prácticas</li>
-              </ul>
-            </div>
+        <div class="divider"></div>
 
-            <div class="tip">
-              <p class="miniTitle">Recomendaciones</p>
-              <ul class="miniList">
-                <li>Llegá 10–15 min antes</li>
-                <li>Traé buena vibra y curiosidad</li>
-                <li>Indicá alergias al inscribirte</li>
-              </ul>
-            </div>
+        <div class="miniCards">
+          <div class="miniCard">
+            <p class="miniTitle">¿Qué incluye?</p>
+            <ul class="miniList">
+              <li>Guía durante la experiencia</li>
+              <li>Degustación según el formato del evento</li>
+              <li>Dinámica y recomendaciones prácticas</li>
+            </ul>
+          </div>
+
+          <div class="miniCard">
+            <p class="miniTitle">Recomendaciones</p>
+            <ul class="miniList">
+              <li>Llegá 10–15 min antes</li>
+              <li>Traé buena vibra y curiosidad</li>
+              <li>Indicá alergias al inscribirte</li>
+            </ul>
           </div>
         </div>
 
@@ -154,7 +139,7 @@
     </div>
   </section>
 
-  <!-- Footer (NO TOCAR) -->
+  <!-- Footer -->
   <footer class="footer">
     <div class="container">
       <div class="footerRow">
@@ -176,6 +161,7 @@
   <script src="./js/supabaseClient.js"></script>
 
   <!-- Lógica -->
-  <script src="./js/event.js?v=20260217-likeRef"></script>
+  <script src="./js/event.js"></script>
 </body>
+
 </html>
