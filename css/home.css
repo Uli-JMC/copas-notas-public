@@ -770,11 +770,6 @@
   text-align: center; /* ✅ como la referencia */
 }
 
-#servicios .sub{
-  color: rgba(255,255,255,.86);
-  text-align: center; /* ✅ */
-}
-
 /* Overlay suave para legibilidad (sin “card feel”) */
 #servicios.section::before{
   content: "";
@@ -849,11 +844,7 @@
   font-size: 15px;
   max-width: 56ch;
   text-shadow: 0 12px 36px rgba(0,0,0,.40);
-
-  text-align: justify;
-  text-justify: inter-word;
-  hyphens: auto;
-  -webkit-hyphens: auto;
+  text-align: left;
 }
 
 /* Mobile: títulos + texto CENTRADOS (incluye 01/02/03) */
