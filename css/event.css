@@ -343,9 +343,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 .panel{
-  border-radius: var(--event-radius);
-  border: 1px solid rgba(18,18,18,.10);
-  background: #fff;
   padding: 16px;
 }
 
