@@ -849,3 +849,185 @@ body.is-loading .pageLoader{
 /* ✅ cuando el drawer está cerrado que no capture clicks */
 .mobileDrawer[aria-hidden="true"]{ pointer-events:none; }
 .mobileDrawer[aria-hidden="false"]{ pointer-events:auto; }
+
+/* ============================================================
+   ✅ PROMO BANNER (home-promos.js) — faltaba en base.css
+   Clases que el JS inyecta:
+   .pbanner .pbannerRow .pbannerText .pbannerTitle .pbannerDesc
+   .pbannerActions .pbtn .pbtn--primary
+============================================================ */
+
+#promoBannerMount{
+  /* JS maneja min-height para anti-jump */
+  width: 100%;
+}
+
+.pbanner{
+  width: 100%;
+  background: rgba(255,255,255,.96);
+  border-bottom: 1px solid rgba(18,18,18,.10);
+  box-shadow: 0 10px 24px rgba(0,0,0,.06);
+}
+
+.pbanner .container{
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.pbannerRow{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.pbannerText{
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pbannerTitle{
+  font-weight: 900;
+  letter-spacing: .10em;
+  text-transform: uppercase;
+  font-size: 12px;
+  color: rgba(18,18,18,.92);
+}
+
+.pbannerDesc{
+  color: rgba(18,18,18,.62);
+  font-size: 13px;
+  line-height: 1.5;
+  /* evita que “reviente” en una sola línea */
+  max-width: 72ch;
+}
+
+.pbannerActions{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Botones del banner (no usa .btn, usa .pbtn) */
+.pbtn{
+  border: 1px solid rgba(18,18,18,.14);
+  background: rgba(18,18,18,.04);
+  color: rgba(18,18,18,.92);
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 40px;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.pbtn:hover{
+  transform: translateY(-1px);
+  background: rgba(18,18,18,.06);
+  border-color: rgba(18,18,18,.22);
+}
+
+.pbtn--primary{
+  background: #000;
+  border-color: #000;
+  color: #fff;
+}
+
+.pbtn--primary:hover{
+  filter: brightness(1.06);
+}
+
+@media (max-width: 760px){
+  .pbannerRow{
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .pbannerActions{
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+/* ============================================================
+   ✅ PROMO MODAL — ajuste “anti apiñado”
+   - más aire entre badge/título/desc
+   - mejor line-height
+   - acciones más ordenadas
+============================================================ */
+
+/* permite que el contenido respire y no se “corte” en pantallas bajas */
+.pmodalCard{
+  max-height: calc(100dvh - 36px);
+}
+
+/* si algo crece mucho, que el card scrollee */
+.pmodalCard{
+  overflow: hidden;
+}
+
+.pmodalBody{
+  padding: 22px;
+  gap: 14px;
+}
+
+/* Top con separación real */
+.pmodalTop{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 46px; /* espacio visual para el botón X */
+}
+
+.pmodalTitle{
+  font-size: 18px;
+  line-height: 1.15;
+  letter-spacing: .10em;
+}
+
+.pmodalDesc{
+  font-size: 15px;
+  line-height: 1.8;
+  color: rgba(18,18,18,.66);
+  max-width: 60ch;
+}
+
+/* Acciones: más aire y consistencia */
+.pmodalActions{
+  margin-top: 4px;
+  gap: 12px;
+}
+
+/* Nota un poco más legible */
+.pmodalNote{
+  margin-top: 4px;
+  line-height: 1.7;
+}
+
+/* Si el contenido del lado derecho crece, que pueda scrollear */
+@media (min-width: 861px){
+  .pmodalBody{
+    overflow: auto;
+  }
+}
+
+@media (max-width: 860px){
+  .pmodalBody{
+    padding: 18px;
+  }
+  .pmodalTop{
+    padding-right: 0;
+  }
+}
