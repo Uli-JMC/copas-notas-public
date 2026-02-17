@@ -1221,3 +1221,34 @@
     justify-content: center;
   }
 }
+
+/* ============================================================
+   ✅ PATCH: Servicios - texto JUSTIFICADO en desktop
+   ✅ y CENTRADO en móvil
+============================================================ */
+
+/* Desktop / Tablet: justificado */
+#servicios .serviceText{
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+/* Mobile: centrado */
+@media (max-width: 640px){
+  #servicios .serviceText{
+    text-align: center;
+    text-justify: auto;
+    hyphens: none;
+    -webkit-hyphens: none;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+@media (max-width: 640px){
+  #servicios .sub{
+    text-align: center;
+  }
+}
