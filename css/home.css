@@ -39,6 +39,8 @@
    ✅ PATCH 2026-02-16 (SERVICIOS SIN CARDS):
    - Elimina about cards (aboutGrid/aboutCard/aboutIcon)
    - Mantiene foto de fondo fija + texto como la referencia (3 columnas)
+   - ✅ Desktop: texto justificado
+   - ✅ Mobile: títulos + texto centrados
 ============================================================ */
 
 /* ============================================================
@@ -51,18 +53,17 @@
   /* ✅ Hero “más metido” solo desktop (mobile lo apaga el media query) */
   --heroShift: clamp(36px, 5vw, 96px);
 
-  /* ✅ NEW: reveal tuning */
+  /* ✅ reveal tuning */
   --reveal-y: 14px;
   --reveal-dur: .75s;
   --reveal-ease: cubic-bezier(.16,1,.3,1);
 
-  /* ✅ NEW: servicios (tono dorado como la referencia) */
+  /* ✅ servicios (tono dorado como la referencia) */
   --servicesGold: rgba(198, 169, 110, .92);
 }
 
 /* ============================================================
-   ✅ NEW: SCROLL REVEAL (para .reveal + .is-in)
-   - Tu JS ya agrega estas clases; aquí está la animación real
+   ✅ SCROLL REVEAL (para .reveal + .is-in)
 ============================================================ */
 .reveal{
   opacity: 0;
@@ -81,7 +82,6 @@
   filter: blur(0);
 }
 
-/* Evita animaciones si el usuario lo pide */
 @media (prefers-reduced-motion: reduce){
   .reveal{
     opacity: 1 !important;
@@ -149,22 +149,15 @@
   pointer-events: none;
   transform: scale(1.02);
 
-  /* ✅ NEW: mejor rendering / evita flicker */
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   -webkit-transform: translateZ(0) scale(1.02);
   transform: translateZ(0) scale(1.02);
 
-  /* ✅ NEW: mejora “cinema” suave sin romper branding */
   filter: saturate(1.02) contrast(1.02);
-}
-
-/* ✅ NEW: solo si el browser soporta performance hints */
-.heroBgVideo{
   will-change: transform, filter, opacity;
 }
 
-/* Fallback suave si el navegador no puede renderizar video */
 @supports not (object-fit: cover){
   .heroBgVideo{
     width: auto;
@@ -185,20 +178,15 @@
   background-size: cover;
   background-position: center;
   transform: scale(1.02);
-  z-index: -3; /* ✅ antes era -2, ahora baja para que el video quede encima */
+  z-index: -3;
 }
 
 .slide::after{
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(70% 55% at 35% 45%, rgba(0,0,0,.18), rgba(0,0,0,0) 62%);
   z-index: -1;
   pointer-events: none;
-}
-
-/* ✅ NEW: overlay extra solo cuando hay video (más legibilidad) */
-.slide::after{
   background:
     radial-gradient(70% 55% at 35% 45%, rgba(0,0,0,.18), rgba(0,0,0,0) 62%),
     linear-gradient(180deg, rgba(0,0,0,.06) 0%, rgba(0,0,0,0) 40%, rgba(0,0,0,.10) 100%);
@@ -233,7 +221,7 @@
   justify-content: flex-end;
 }
 
-/* ✅ Centrado sutil (desktop only) — ahora más “metido” */
+/* ✅ Centrado sutil (desktop only) */
 .heroLeft{ transform: translateX(var(--heroShift)); }
 .heroRight{ transform: translateX(calc(var(--heroShift) * -1)); }
 
@@ -275,7 +263,6 @@
   white-space: nowrap;
 }
 
-/* ✅ Pills de estado */
 .pill--success,
 .eventPill--success{
   background: rgba(34,197,94,.14);
@@ -353,9 +340,7 @@
   cursor: not-allowed;
 }
 
-/* ============================================================
-   ✅ BOTONES DE ESTADO (FINALIZADO/AGOTADO) — GANA A inviteBlack
-============================================================ */
+/* ✅ BOTONES DE ESTADO */
 .heroPanelBtn.btn--success{
   background: rgba(34,197,94,.14);
   border-color: rgba(34,197,94,.32);
@@ -482,6 +467,7 @@
     margin-top: 18px;
     width: min(520px, 100%);
   }
+
   .heroMobileActions .btn{
     width: 100%;
     justify-content: center;
@@ -701,7 +687,6 @@
 
 .eventRowRight .btn.primary.inviteBlack:hover{ filter: brightness(1.06); }
 
-/* ✅ Botón de estado sobre inviteBlack */
 .eventRowRight .btn.primary.inviteBlack.btn--success{
   background: rgba(34,197,94,.14) !important;
   border-color: rgba(34,197,94,.32) !important;
@@ -756,6 +741,8 @@
    ✅ SERVICIOS — FOTO FIJA + TEXTO (SIN CARDS) ✅ 2026-02-16
    - Mantiene la foto (aboutImg) como fondo fijo
    - El texto NO va en recuadros, va “flotando” como la referencia
+   - Desktop: texto justificado
+   - Mobile: títulos + texto centrados
 ============================================================ */
 #servicios.section{
   position: relative;
@@ -778,8 +765,15 @@
 
 #servicios.section > .container{ position: relative; z-index: 1; }
 
-#servicios .h2{ color: rgba(255,255,255,.96); }
-#servicios .sub{ color: rgba(255,255,255,.86); }
+#servicios .h2{
+  color: rgba(255,255,255,.96);
+  text-align: center; /* ✅ como la referencia */
+}
+
+#servicios .sub{
+  color: rgba(255,255,255,.86);
+  text-align: center; /* ✅ */
+}
 
 /* Overlay suave para legibilidad (sin “card feel”) */
 #servicios.section::before{
@@ -792,7 +786,7 @@
   pointer-events: none;
 }
 
-/* ✅ NUEVA GRID tipo la referencia */
+/* ✅ Grid tipo referencia */
 .servicesGrid{
   margin-top: 26px;
   display: grid;
@@ -808,13 +802,11 @@
   }
 }
 
-/* Cada columna (SIN fondo) */
 .serviceCol{
   position: relative;
   padding: 0;
 }
 
-/* Top: número + línea */
 .serviceTop{
   display: grid;
   grid-template-columns: auto 1fr;
@@ -838,7 +830,6 @@
   transform: translateY(2px);
 }
 
-/* Título grande (dorado como screenshot) */
 .serviceTitle{
   margin: 0;
   font-weight: 900;
@@ -850,7 +841,7 @@
   text-shadow: 0 18px 60px rgba(0,0,0,.45);
 }
 
-/* Texto (SIN recuadro) */
+/* Texto: default desktop/tablet JUSTIFICADO */
 .serviceText{
   margin-top: 18px;
   color: rgba(255,255,255,.84);
@@ -858,17 +849,54 @@
   font-size: 15px;
   max-width: 56ch;
   text-shadow: 0 12px 36px rgba(0,0,0,.40);
+
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 
-/* Mobile: más compacto */
+/* Mobile: títulos + texto CENTRADOS (incluye 01/02/03) */
 @media (max-width: 640px){
-  .serviceNum{ font-size: 24px; }
-  .serviceTitle{ font-size: clamp(20px, 7vw, 30px); }
-  .serviceText{ font-size: 14.5px; line-height: 1.65; }
+  .serviceTop{
+    grid-template-columns: 1fr;
+    gap: 10px;
+    justify-items: center;
+    margin-bottom: 14px;
+  }
+
+  .serviceNum{
+    font-size: 24px;
+    text-align: center;
+  }
+
+  .serviceLine{
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .serviceTitle{
+    font-size: clamp(20px, 7vw, 30px);
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .serviceText{
+    font-size: 14.5px;
+    line-height: 1.65;
+
+    text-align: center;
+    text-justify: auto;
+    hyphens: none;
+    -webkit-hyphens: none;
+
+    margin-left: auto;
+    margin-right: auto;
+  }
 }
 
-/* ✅ Apaga completamente los estilos anteriores de “about cards”
-   (por si quedan restos en el DOM o estilos colisionan) */
+/* ✅ Apaga completamente estilos anteriores de “about cards” */
 .aboutGrid,
 .aboutCard,
 .aboutIcon,
@@ -1219,36 +1247,5 @@
 
   .footerBottom .social{
     justify-content: center;
-  }
-}
-
-/* ============================================================
-   ✅ PATCH: Servicios - texto JUSTIFICADO en desktop
-   ✅ y CENTRADO en móvil
-============================================================ */
-
-/* Desktop / Tablet: justificado */
-#servicios .serviceText{
-  text-align: justify;
-  text-justify: inter-word;
-  hyphens: auto;
-  -webkit-hyphens: auto;
-}
-
-/* Mobile: centrado */
-@media (max-width: 640px){
-  #servicios .serviceText{
-    text-align: center;
-    text-justify: auto;
-    hyphens: none;
-    -webkit-hyphens: none;
-    margin-left: auto;
-    margin-right: auto;
-  }
-}
-
-@media (max-width: 640px){
-  #servicios .sub{
-    text-align: center;
   }
 }
