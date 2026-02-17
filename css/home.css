@@ -998,7 +998,7 @@
 }
 
 /* ============================================================
-   ✅ TESTIMONIAL — MORADO SÓLIDO (mismo del drawer/menu)
+   ✅ TESTIMONIAL — GRIS SÓLIDO (mismo del drawer/menu)
 ============================================================ */
 .testimonial{
   position: relative;
@@ -1071,6 +1071,39 @@
 
 @media (prefers-reduced-motion: reduce){
   .quote.is-anim{ animation: none; }
+}
+
+.miniLink{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  margin-left:10px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.22);
+  background:rgba(255,255,255,.10);
+  color:rgba(255,255,255,.92);
+  text-decoration:none;
+  font-weight:800;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  font-size:11px;
+  line-height:1;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.miniLink:hover{
+  background:rgba(255,255,255,.16);
+  border-color:rgba(255,255,255,.30);
+}
+
+/* móvil: baja debajo del texto */
+@media (max-width: 640px){
+  .miniLink{
+    margin-left:0;
+    margin-top:10px;
+  }
 }
 
 /* ============================================================
