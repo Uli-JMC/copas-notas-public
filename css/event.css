@@ -1,10 +1,12 @@
 /* ============================================================
-   event.css ✅ EVENT PAGE (2026) — SENSORIAL (NEW LAYOUT)
-   - Alineado a base.css (tokens, botones, feel)
-   - Hero con foto real (#heroMedia) + contenido editorial
-   - #heroBg queda opcional (suave) por compatibilidad
-   - Panel único (fechas + detalles + CTA) menos “dashboard”
-   - Sección extra desde BD: #evExtra / #evExtraText
+   event.css ✅ EVENT PAGE (2026) — ALINEADO A base.css/home.css
+   ✅ FULL UPDATE (TIPO + ESPACIADOS + RESPONSIVE PRO)
+   ✅ BOTONES ACCIONES = ESTILO HOME (outline suave + primary negro tipo inviteBlack)
+   - Mantiene tu HTML/JS intactos
+   - Tipografía igual “feel” que home (sans + uppercase + tracking)
+   - Hero overlay suave + card glass
+   - Grid/panels con espaciado consistente
+   - Responsive más estable (760/980/640/420)
 ============================================================ */
 
 :root{
@@ -15,18 +17,12 @@
   --event-line: var(--line, rgba(18,18,18,.12));
 
   --event-radius: var(--radius-xl, 18px);
-  --event-radius-md: var(--radius, 12px);
   --event-shadow: var(--shadow-mid, 0 22px 60px rgba(0,0,0,.20));
   --event-shadow-soft: var(--shadow-soft, 0 18px 50px rgba(0,0,0,.12));
 
+  /* espaciados consistentes */
   --event-pad: 20px;
   --event-gap: 14px;
-
-  /* “sensory” surface */
-  --glass: rgba(255,255,255,.92);
-  --glass-strong: rgba(255,255,255,.96);
-  --ink: rgba(18,18,18,.92);
-  --ink-2: rgba(18,18,18,.72);
 }
 
 /* ============================================================
@@ -117,7 +113,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   white-space: nowrap;
 }
 
-/* right brand (texto sin logo) */
+/* right brand (texto sin logo si lo quitás en HTML) */
 .brandRight{
   display:flex;
   align-items:center;
@@ -126,6 +122,16 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   min-width: 0;
 }
 
+/* si el img existe (por si lo reactivás) */
+.brandRight img{
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  flex: 0 0 auto;
+  filter: drop-shadow(0 8px 20px rgba(0,0,0,.08));
+}
+
+/* ✅ Tipografía alineada a home (no serif) */
 .brandRight span{
   font-family: inherit;
   letter-spacing:.10em;
@@ -141,7 +147,8 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Botones fallback (si base.css no estuviera)
+   Botones (fallback si base.css no estuviera)
+   ✅ Base neutra
 ============================================================ */
 .btn{
   border: 1px solid rgba(18,18,18,.16);
@@ -198,7 +205,9 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   pointer-events:none;
 }
 
-/* Icon buttons (footer) */
+/* ============================================================
+   Icon buttons (footer)
+============================================================ */
 .icon-btn{
   width:44px; height:44px;
   border-radius: 999px;
@@ -224,92 +233,60 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   ✅ PAGE WRAP
+   Hero
 ============================================================ */
-.eventPage{
-  background: #fff;
-}
-
-/* ============================================================
-   ✅ EVENT HERO (sensorial)
-============================================================ */
-.eventHero{
+.hero{
   position: relative;
-  overflow: hidden;
+  min-height: calc(100vh - 72px);
+  min-height: calc(100dvh - 72px);
+  overflow:hidden;
   border-bottom: 1px solid rgba(18,18,18,.08);
   background: #fff;
 }
 
-/* #heroBg queda “suave” (opcional) */
+/* background overlay */
 .heroBg{
   position:absolute;
   inset:0;
   background:
-    radial-gradient(70% 50% at 35% 30%, rgba(0,0,0,.10), rgba(0,0,0,0) 62%),
-    linear-gradient(180deg, rgba(0,0,0,.10) 0%, rgba(0,0,0,.14) 55%, rgba(0,0,0,.18) 100%),
+    radial-gradient(70% 55% at 35% 35%, rgba(0,0,0,.18), rgba(0,0,0,0) 62%),
+    linear-gradient(180deg, rgba(0,0,0,.18) 0%, rgba(0,0,0,.32) 55%, rgba(0,0,0,.44) 100%),
     var(--bgimg);
   background-size: cover;
   background-position: center;
-  transform: scale(1.01);
-  opacity: .18;               /* ✅ ya no domina */
-  filter: saturate(1.02) contrast(1.01);
-  pointer-events: none;
+  transform: scale(1.02);
+  filter: saturate(1.05) contrast(1.02);
 }
 
-/* grid hero: media + contenido */
-.eventHeroWrap{
+.heroWrap{
   position: relative;
   z-index: 2;
-  padding: 28px 0 22px;
-  display: grid;
-  grid-template-columns: 1.05fr .95fr;
-  gap: 18px;
-  align-items: start;
+  padding: 34px 0 58px;
 }
 
-/* ✅ Media real (foto del evento) */
-.eventHeroMedia{
-  margin: 0;
-  border-radius: calc(var(--event-radius) + 8px);
-  border: 1px solid rgba(18,18,18,.10);
-  background: rgba(18,18,18,.04);
-  box-shadow: var(--event-shadow-soft);
-  overflow: hidden;
-
-  /* sensorial: formato estable */
-  min-height: 420px;
-  background-size: cover;
-  background-position: center;
-}
-
-/* si no hay imagen, que no se vea “vacío” */
-.eventHeroMedia:empty{
-  display: block;
-  background:
-    radial-gradient(65% 60% at 30% 35%, rgba(18,18,18,.06), rgba(18,18,18,.01) 62%),
-    linear-gradient(180deg, rgba(18,18,18,.04), rgba(18,18,18,.02));
-}
-
-/* Contenido editorial */
-.eventHeroContent{
-  border-radius: calc(var(--event-radius) + 8px);
-  border: 1px solid rgba(18,18,18,.10);
-  background: var(--glass);
+/* card principal */
+.heroCard{
+  border-radius: calc(var(--event-radius) + 6px);
+  border: 1px solid rgba(255,255,255,.16);
+  background: rgba(255,255,255,.92);
   box-shadow: var(--event-shadow);
   padding: var(--event-pad);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 @media (prefers-reduced-transparency: reduce){
-  .eventHeroContent{
-    background: var(--glass-strong);
+  .heroCard{
+    background: rgba(255,255,255,.98);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
 }
 
-/* meta pills row */
+/* sold out */
+.heroCard.isSoldOut{ filter: saturate(.92); }
+
+/* meta pills */
 .heroMeta{
   display:flex;
   align-items:center;
@@ -347,41 +324,52 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   display:inline-block;
 }
 
-/* ✅ Title un poco más pequeño (menos “gritón”) */
+/* ✅ TÍTULO igual feel home */
 .title{
   margin: 12px 0 6px;
+  font-family: inherit;
   font-weight: 900;
   letter-spacing: .02em;
   text-transform: uppercase;
-  font-size: clamp(26px, 3.4vw, 44px);
-  line-height: 1.04;
-  color: var(--ink);
+  font-size: clamp(30px, 4.4vw, 54px);
+  line-height: 1.02;
+  color: rgba(18,18,18,.92);
 }
 
 /* descripción */
 .desc{
-  margin: 0 0 14px;
+  margin: 0 0 32px;
   color: rgba(18,18,18,.68);
-  line-height: 1.75;
+  line-height: 1.7;
   max-width: 72ch;
   font-size: 15px;
 }
 
 /* ============================================================
-   ✅ EXTRA (BD) — Menú / Bebidas
+   Grid / Panels
 ============================================================ */
-.eventExtra{
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(18,18,18,.08);
+.grid{
+  display:grid;
+  grid-template-columns: 1.05fr .95fr;
+  gap: var(--event-gap);
+  align-items: start;
 }
 
+.panel{
+  border-radius: var(--event-radius);
+  border: 1px solid rgba(18,18,18,.10);
+  background: #fff;
+  padding: 16px;
+}
+
+/* ✅ H2 alineado a home */
 .h2{
   margin:0;
+  font-family: inherit;
   font-weight: 800;
   letter-spacing: .16em;
   text-transform: uppercase;
-  font-size: clamp(16px, 1.6vw, 20px);
+  font-size: clamp(18px, 2.2vw, 22px);
   line-height: 1.2;
   color: rgba(18,18,18,.92);
 }
@@ -391,101 +379,6 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   color: rgba(18,18,18,.62);
   line-height: 1.7;
   font-size: var(--fs-14, 14px);
-}
-
-.extraBox{
-  border-radius: var(--event-radius);
-  border: 1px solid rgba(18,18,18,.10);
-  background: rgba(18,18,18,.02);
-  padding: 14px 14px;
-  color: rgba(18,18,18,.74);
-  line-height: 1.75;
-  font-size: 14px;
-}
-
-/* Si el texto viene con saltos de línea */
-.extraBox p{ margin: 0; }
-.extraBox p + p{ margin-top: 10px; }
-.extraBox ul{ margin: 10px 0 0; padding-left: 18px; }
-.extraBox li{ margin: 6px 0; }
-
-/* ============================================================
-   ✅ PANEL ÚNICO (Fechas + Detalles + CTA)
-============================================================ */
-.eventPanel{
-  padding: 20px 0 14px;
-  background: #fff;
-}
-
-.panelOne{
-  border-radius: calc(var(--event-radius) + 8px);
-  border: 1px solid rgba(18,18,18,.10);
-  background: #fff;
-  box-shadow: 0 16px 44px rgba(0,0,0,.08);
-  overflow: hidden;
-}
-
-/* header del panel */
-.panelHead{
-  padding: 18px 18px 14px;
-  border-bottom: 1px solid rgba(18,18,18,.08);
-  display:flex;
-  align-items:flex-start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-/* acciones arriba */
-.actions{
-  display:flex;
-  gap:12px;
-  flex-wrap:wrap;
-}
-
-.actionsTop .btn{
-  min-height: 44px;
-  padding: 11px 16px;
-  border-radius: 14px;
-}
-
-/* secundario suave */
-.actionsTop .btn:not(.primary){
-  background: rgba(18, 18, 18, .03);
-  border-color: rgba(18, 18, 18, .10);
-  color: rgba(18,18,18,.88);
-}
-
-/* primary negro */
-.actionsTop .btn.primary{
-  background: #000 !important;
-  border-color: #000 !important;
-  color: #fff !important;
-  border-width: 2px;
-}
-
-.actionsTop .btn.primary:hover{ filter: brightness(1.06); }
-
-.panelGrid{
-  display:grid;
-  grid-template-columns: 1.05fr .95fr;
-  gap: 0;
-}
-
-.panelCol{
-  padding: 16px 18px 18px;
-}
-
-.panelCol + .panelCol{
-  border-left: 1px solid rgba(18,18,18,.08);
-}
-
-.kicker{
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing:.18em;
-  text-transform: uppercase;
-  color: rgba(18,18,18,.82);
 }
 
 /* ============================================================
@@ -557,13 +450,13 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Notices
+   Notices (con leyenda opcional debajo)
 ============================================================ */
 .notice{
   margin-top: 14px;
   display:flex;
   align-items:flex-start;
-  gap: 14px;
+  gap: 40px;
   padding: 12px 12px;
   border-radius: 14px;
   border: 1px solid rgba(18,18,18,.10);
@@ -573,6 +466,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   line-height: 1.55;
 }
 
+/* para el cambio que pediste (leyenda abajo) */
 .noticeLegend{
   margin: 0;
   color: rgba(18,18,18,.68);
@@ -640,28 +534,68 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   text-align:right;
 }
 
+/* Actions (botones del panel de Detalles) */
+.actions{
+  margin-top: 14px;
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+/* ============================================================
+   ✅ BOTONES ACTIONS = IGUAL A HOME (eventRowRight)
+   - secundario gris suave
+   - primary NEGRO tipo .primary.inviteBlack
+============================================================ */
+.actions .btn{
+  min-height: 44px;
+  padding: 11px 16px;
+  border-radius: 14px;
+}
+
+/* secundario (igual a home) */
+.actions .btn:not(.primary){
+  background: rgba(18, 18, 18, .03);
+  border-color: rgba(18, 18, 18, .10);
+  color: rgba(18,18,18,.88);
+}
+
+/* primary negro (igual a home inviteBlack) */
+.actions .btn.primary{
+  background: #000 !important;
+  border-color: #000 !important;
+  color: #fff !important;
+  border-width: 2px;
+}
+
+.actions .btn.primary:hover{
+  filter: brightness(1.06);
+}
+
 .fine{
-  margin: 14px 0 0;
+  margin: 12px 0 0;
   color: rgba(18,18,18,.58);
   font-size:12px;
   line-height:1.55;
 }
 
-/* ============================================================
-   ✅ AFTER (cierre más ligero)
-============================================================ */
-.eventAfter{
-  padding: 14px 0 22px;
-  background: #fff;
+.divider{
+  margin: 18px 0;
+  height:1px;
+  background: rgba(18,18,18,.08);
+  border-radius: 999px;
 }
 
-.afterGrid{
+/* ============================================================
+   Mini cards
+============================================================ */
+.miniCards{
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--event-gap);
 }
 
-.afterBlock{
+.miniCard{
   border-radius: var(--event-radius);
   border: 1px solid rgba(18,18,18,.10);
   background: rgba(18,18,18,.02);
@@ -713,37 +647,21 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 }
 
 /* ============================================================
-   Responsive
+   Responsive (mejor escalado)
 ============================================================ */
 @media (max-width: 980px){
-  .eventHeroWrap{
-    grid-template-columns: 1fr;
-  }
-  .eventHeroMedia{
-    min-height: 320px;
-  }
-  .panelGrid{
-    grid-template-columns: 1fr;
-  }
-  .panelCol + .panelCol{
-    border-left: 0;
-    border-top: 1px solid rgba(18,18,18,.08);
-  }
-  .afterGrid{
-    grid-template-columns: 1fr;
-  }
+  .grid{ grid-template-columns: 1fr; }
+  .miniCards{ grid-template-columns: 1fr; }
 }
 
+/* ✅ tablets: acciones en 2 columnas */
 @media (max-width: 760px){
-  .panelHead{
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .actionsTop{
+  .actions{
     display:grid;
     grid-template-columns: 1fr 1fr;
+    gap:12px;
   }
-  .actionsTop .btn{ width:100%; }
+  .actions .btn{ width:100%; }
 
   .kvRow{ align-items:flex-start; }
   .kvValue{ text-align:right; }
@@ -755,33 +673,20 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   .nav{ padding: 12px 0; }
   .backIcon{ width: 40px; height: 40px; }
 
+  .heroWrap{ padding: 22px 0 46px; }
+  .heroCard{ padding: 14px; }
+
   .brandRight span{ max-width: 56vw; font-size: 12px; }
 
-  .eventHeroWrap{
-    padding: 18px 0 14px;
-    gap: 14px;
-  }
-
-  .eventHeroMedia{
-    min-height: 260px;
-    border-radius: calc(var(--event-radius) + 6px);
-  }
-
-  .eventHeroContent{
-    padding: 14px;
-  }
-
   .title{
-    font-size: clamp(22px, 8.6vw, 36px);
-    line-height: 1.04;
+    font-size: clamp(26px, 9vw, 44px);
+    line-height: 1.02;
   }
 
   .desc{ font-size: 14px; }
+  .panel{ padding: 14px; }
 
-  .panelHead{ padding: 16px 14px 12px; }
-  .panelCol{ padding: 14px; }
-
-  /* Dates: stack */
+  /* ✅ Dates: stack */
   .dateItem{
     flex-direction: column;
     align-items: stretch;
@@ -793,15 +698,21 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
     min-height: 48px;
   }
 
-  .actionsTop{ grid-template-columns: 1fr; }
+  .actions{ grid-template-columns: 1fr; }
 
-  /* notice en móvil = columna */
+  /* ✅ FIX: notice en móvil = columna (badge arriba, texto abajo) */
   .notice{
     flex-direction: column;
     gap: 10px;
     align-items: stretch;
   }
-  .notice .badge{ align-self: flex-start; }
+  .notice .badge{
+    align-self: flex-start;
+  }
+  .notice > *{
+    width: 100%;
+    margin-left: 0 !important;
+  }
 
   .footerRow{
     flex-direction: column;

@@ -38,6 +38,7 @@
           <span class="backText">Volver</span>
         </a>
 
+        <!-- ✅ SIN LOGO: solo texto -->
         <a class="brandRight" href="./home.html" aria-label="Ir a home">
           <span>Entre Copas &amp; Notas</span>
         </a>
@@ -47,24 +48,14 @@
 
   <!-- Hero -->
   <section class="hero" aria-label="Detalle del evento">
-    <!-- ✅ Background sigue existiendo (pero lo podés suavizar/ocultar en CSS) -->
     <div class="heroBg" id="heroBg"></div>
 
     <div class="container heroWrap">
       <div class="heroCard" id="heroCard">
         <div class="heroMeta" id="metaRow"></div>
 
-        <!-- ✅ NUEVO: foto principal del evento (sensorial) -->
-        <div class="heroMedia" id="heroMedia" aria-label="Imagen del evento"></div>
-
         <h1 class="title" id="evTitle">Evento</h1>
         <p class="desc" id="evDesc">Descripción del evento.</p>
-
-        <!-- ✅ NUEVO: sección extra desde BD (menu/itinerary/extra/details) -->
-        <section class="evExtra" id="evExtra" hidden aria-label="Detalle de la experiencia">
-          <h2 class="h2">Experiencia</h2>
-          <div class="evExtraText" id="evExtraText"></div>
-        </section>
 
         <div class="grid">
           <div class="panel">
@@ -73,16 +64,19 @@
 
             <div class="dates" id="dateList"></div>
 
+            <!-- ✅ Estado: disponible -->
             <div class="notice" id="availNotice" hidden>
               <span class="badge">Inscripciones disponibles</span>
               <p class="noticeLegend">Inscribite y disfrutá de esta experiencia.</p>
             </div>
 
+            <!-- ✅ Estado: agotado -->
             <div class="notice" id="soldNotice" hidden>
               <span class="badge danger">Agotado</span>
               <p class="noticeLegend">Este evento no tiene cupos disponibles.</p>
             </div>
 
+            <!-- ✅ Estado: por confirmar -->
             <div class="notice" id="pendingNotice" hidden>
               <span class="badge">Cupos por confirmar</span>
               <p class="noticeLegend">Estamos actualizando las fechas y cupos. Probá en unos segundos.</p>
