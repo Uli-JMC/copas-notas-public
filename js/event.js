@@ -1,709 +1,712 @@
 "use strict";
 
 /* ============================================================
-   event.js (Supabase-first) ✅ DROPDOWN FECHAS + FIX + PRICE + MEDIA (v2026-02)
-   - ✅ La imagen principal viene de media_items (event_img_desktop / event_img_mobile)
-   - ✅ "Ver más info" (mobile) viene de media_items (event_more_img)
-   - ✅ more_img_alt se queda en events.more_img_alt
+   event.js ✅ PRO (Supabase-first) — 2026-02-18.2
+   - ✅ Hero del evento desde media_items (target='event'):
+       folders: event_img_desktop | event_img_mobile
+   - ✅ "Ver más info" (mobile) desde media_items:
+       folder: event_more_img
+   - ✅ more_img_alt sigue en events.more_img_alt
+   - ✅ Fechas dropdown (1 vs N) + control cupos
+   - ✅ Precio: price_amount + price_currency
 ============================================================ */
 
-// ============================================================
-// Helpers
-// ============================================================
-const $ = (sel) => document.querySelector(sel);
+(() => {
+  // ----------------------------
+  // Helpers
+  // ----------------------------
+  const $ = (sel, root = document) => root.querySelector(sel);
 
-function escapeHtml(str) {
-  return String(str ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
+  const safeStr = (x) => String(x ?? "");
+  const cleanSpaces = (s) => safeStr(s).replace(/\s+/g, " ").trim();
 
-function safeCssUrl(url) {
-  return String(url ?? "")
-    .replaceAll("'", "%27")
-    .replaceAll('"', "%22")
-    .replaceAll(")", "%29")
-    .trim();
-}
-
-function normalizeImgPath(input) {
-  const fallback = "./assets/img/hero-1.jpg";
-  const raw = String(input ?? "").trim();
-  if (!raw) return fallback;
-
-  // ✅ URLs absolutas: NO tocarlas
-  if (/^https?:\/\//i.test(raw)) return raw;
-
-  const [pathPart, rest] = raw.split(/(?=[?#])/);
-  let p = pathPart.replaceAll("\\", "/");
-
-  if (p.startsWith("./")) p = p.slice(2);
-  if (p.startsWith("/")) return p + (rest || "");
-  if (p.startsWith("assets/img/")) return "./" + p + (rest || "");
-  if (p.startsWith("img/")) return "./assets/" + p + (rest || "");
-
-  return "./assets/img/" + p + (rest || "");
-}
-
-function toast(title, msg, timeoutMs = 3800) {
-  const toastsEl = $("#toasts");
-  if (!toastsEl) return;
-
-  const el = document.createElement("div");
-  el.className = "toast";
-  el.innerHTML = `
-    <div>
-      <p class="tTitle">${escapeHtml(title)}</p>
-      <p class="tMsg">${escapeHtml(msg)}</p>
-    </div>
-    <button class="close" aria-label="Cerrar" type="button">✕</button>
-  `;
-  toastsEl.appendChild(el);
-
-  const kill = () => {
-    el.style.opacity = "0";
-    el.style.transform = "translateY(-6px)";
-    setTimeout(() => el.remove(), 180);
-  };
-
-  el.querySelector(".close")?.addEventListener("click", kill, { once: true });
-  setTimeout(kill, timeoutMs);
-}
-
-function getParam(name) {
-  const url = new URL(window.location.href);
-  return url.searchParams.get(name);
-}
-
-function safeText(v, fallback = "Por confirmar") {
-  const t = String(v ?? "").trim();
-  return t ? t : fallback;
-}
-
-function hasSupabase() {
-  return !!(window.APP && APP.supabase);
-}
-
-// ✅ Precio helpers
-function normCurrency(cur) {
-  const c = String(cur || "").trim().toUpperCase();
-  if (c === "USD" || c === "CRC") return c;
-  return "";
-}
-function formatMoney(amount, currency) {
-  const cur = normCurrency(currency);
-  const n = Number(amount);
-  if (!cur || !Number.isFinite(n)) return "Por confirmar";
-
-  const isCRC = cur === "CRC";
-  const decimals = isCRC ? 0 : 2;
-
-  try {
-    const formatted = n.toLocaleString("es-CR", {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
-    return isCRC ? `₡${formatted}` : `$${formatted}`;
-  } catch (_) {
-    const fixed = n.toFixed(decimals);
-    return isCRC ? `₡${fixed}` : `$${fixed}`;
+  function escapeHtml(str) {
+    return safeStr(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
   }
-}
-function safePriceText(priceAmount, priceCurrency) {
-  const cur = normCurrency(priceCurrency);
-  const n = Number(priceAmount);
-  if (!cur || !Number.isFinite(n)) return "Por confirmar";
-  return formatMoney(n, cur);
-}
 
-// ============================================================
-// Loader
-// ============================================================
-function setLoading(on) {
-  const loader = $("#pageLoader");
-  const card = $("#heroCard");
-
-  if (loader) {
-    loader.style.opacity = on ? "1" : "0";
-    loader.style.pointerEvents = on ? "auto" : "none";
+  function safeCssUrl(url) {
+    return safeStr(url).replaceAll("'", "%27").replaceAll('"', "%22").replaceAll(")", "%29").trim();
   }
-  if (card) {
-    card.style.opacity = on ? "0" : "1";
-    card.style.transition = "opacity .2s ease";
+
+  function normalizeImgPath(input) {
+    const fallback = "./assets/img/hero-1.jpg";
+    const raw = cleanSpaces(input);
+    if (!raw) return fallback;
+
+    // ✅ URL absoluta: no tocar
+    if (/^https?:\/\//i.test(raw)) return raw;
+
+    // assets locales
+    const [pathPart, rest] = raw.split(/(?=[?#])/);
+    let p = pathPart.replaceAll("\\", "/");
+
+    if (p.startsWith("./")) p = p.slice(2);
+    if (p.startsWith("/")) return p + (rest || "");
+    if (p.startsWith("assets/img/")) return "./" + p + (rest || "");
+    if (p.startsWith("img/")) return "./assets/" + p + (rest || "");
+
+    return "./assets/img/" + p + (rest || "");
   }
-}
 
-// ============================================================
-// Media fetch (media_items)
-// ============================================================
-async function fetchEventMediaFromSupabase(eventId) {
-  const sb = APP.supabase;
-  const eid = String(eventId ?? "").trim();
-  if (!eid) return {};
+  function toast(title, msg, timeoutMs = 3800) {
+    try {
+      if (window.APP && typeof APP.toast === "function") return APP.toast(title, msg, timeoutMs);
+    } catch (_) {}
 
-  const folders = ["event_img_desktop", "event_img_mobile", "event_more_img"];
+    const toastsEl = $("#toasts");
+    if (!toastsEl) return;
 
-  try {
-    const { data, error } = await sb
-      .from("media_items")
-      .select("folder, public_url, path")
-      .eq("target", "event")
-      .eq("event_id", eid)
-      .in("folder", folders);
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.innerHTML = `
+      <div>
+        <p class="tTitle">${escapeHtml(title)}</p>
+        <p class="tMsg">${escapeHtml(msg)}</p>
+      </div>
+      <button class="close" aria-label="Cerrar" type="button">✕</button>
+    `;
+    toastsEl.appendChild(el);
 
-    if (error) {
-      console.error(error);
+    const kill = () => {
+      el.style.opacity = "0";
+      el.style.transform = "translateY(-6px)";
+      setTimeout(() => el.remove(), 180);
+    };
+
+    el.querySelector(".close")?.addEventListener("click", kill, { once: true });
+    setTimeout(kill, timeoutMs);
+  }
+
+  function getParam(name) {
+    try {
+      const url = new URL(window.location.href);
+      return url.searchParams.get(name);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function safeText(v, fallback = "Por confirmar") {
+    const t = cleanSpaces(v);
+    return t ? t : fallback;
+  }
+
+  function getSB() {
+    return window.APP && (APP.supabase || APP.sb) ? (APP.supabase || APP.sb) : null;
+  }
+
+  function hasSupabase() {
+    return !!getSB();
+  }
+
+  // ----------------------------
+  // Precio helpers
+  // ----------------------------
+  function normCurrency(cur) {
+    const c = cleanSpaces(cur).toUpperCase();
+    return c === "USD" || c === "CRC" ? c : "";
+  }
+
+  function formatMoney(amount, currency) {
+    const cur = normCurrency(currency);
+    const n = Number(amount);
+    if (!cur || !Number.isFinite(n)) return "Por confirmar";
+
+    const isCRC = cur === "CRC";
+    const decimals = isCRC ? 0 : 2;
+
+    try {
+      const formatted = n.toLocaleString("es-CR", {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      });
+      return isCRC ? `₡${formatted}` : `$${formatted}`;
+    } catch (_) {
+      const fixed = n.toFixed(decimals);
+      return isCRC ? `₡${fixed}` : `$${fixed}`;
+    }
+  }
+
+  function safePriceText(priceAmount, priceCurrency) {
+    const cur = normCurrency(priceCurrency);
+    const n = Number(priceAmount);
+    if (!cur || !Number.isFinite(n)) return "Por confirmar";
+    return formatMoney(n, cur);
+  }
+
+  // ----------------------------
+  // Loader
+  // ----------------------------
+  function setLoading(on) {
+    const loader = $("#pageLoader");
+    const card = $("#heroCard");
+
+    if (loader) {
+      loader.style.opacity = on ? "1" : "0";
+      loader.style.pointerEvents = on ? "auto" : "none";
+    }
+    if (card) {
+      card.style.opacity = on ? "0" : "1";
+      card.style.transition = "opacity .2s ease";
+    }
+  }
+
+  // ----------------------------
+  // Media fetch (media_items target=event)
+  // ----------------------------
+  async function fetchEventMediaFromSupabase(eventId) {
+    const sb = getSB();
+    const eid = cleanSpaces(eventId);
+    if (!sb || !eid) return {};
+
+    const folders = ["event_img_desktop", "event_img_mobile", "event_more_img"];
+
+    try {
+      const { data, error } = await sb
+        .from("media_items")
+        .select("folder, public_url, path, updated_at")
+        .eq("target", "event")
+        .eq("event_id", eid)
+        .in("folder", folders)
+        .order("updated_at", { ascending: false });
+
+      if (error) {
+        console.error("[event] media_items error:", error);
+        return {};
+      }
+
+      // toma el más nuevo por folder
+      const map = {};
+      (Array.isArray(data) ? data : []).forEach((row) => {
+        const f = cleanSpaces(row?.folder);
+        const url = cleanSpaces(row?.public_url);
+        if (f && url && !map[f]) map[f] = url;
+      });
+
+      return map;
+    } catch (err) {
+      console.error("[event] media_items fetch failed:", err);
       return {};
     }
-
-    const map = {};
-    (Array.isArray(data) ? data : []).forEach((row) => {
-      const f = String(row?.folder || "").trim();
-      const url = String(row?.public_url || "").trim();
-
-      // ✅ Solo usamos public_url aquí.
-      // Si viniera path, NO lo convertimos a ./assets/img porque no es un asset local.
-      if (f && url) map[f] = url;
-    });
-
-    return map;
-  } catch (err) {
-    console.error(err);
-    return {};
-  }
-}
-
-// ============================================================
-// Supabase fetch
-// ============================================================
-async function fetchEventFromSupabase(eventId) {
-  if (!hasSupabase()) {
-    console.error("APP.supabase no está listo. Orden: Supabase CDN -> supabaseClient.js -> event.js");
-    toast("Error", "Supabase no está listo.");
-    return null;
   }
 
-  const eid = String(eventId ?? "").trim();
-  if (!eid) return null;
-
-  // 1) Evento
-  const selectBase =
-    "id,title,type,month_key,description,location,time_range,duration_hours,price_amount,price_currency,more_img_alt,created_at,updated_at";
-
-  const evRes = await APP.supabase
-    .from("events")
-    .select(selectBase)
-    .eq("id", eid)
-    .maybeSingle();
-
-  if (evRes.error) {
-    console.error(evRes.error);
-    toast("Error", "No se pudo cargar el evento.");
-    return null;
-  }
-  if (!evRes.data) return null;
-
-  // 1.1) Media del evento desde media_items
-  const media = await fetchEventMediaFromSupabase(eid);
-
-  // ✅ Preferencia: desktop -> mobile -> fallback local
-  const heroUrl = normalizeImgPath(
-    media.event_img_desktop || media.event_img_mobile || "./assets/img/hero-1.jpg"
-  );
-
-  // ✅ Si no hay event_more_img, lo dejamos vacío
-  const moreUrlRaw = String(media.event_more_img || "").trim();
-  const moreUrl = moreUrlRaw ? normalizeImgPath(moreUrlRaw) : "";
-
-  // 2) Fechas
-  let datesOk = true;
-
-  const datesRes = await APP.supabase
-    .from("event_dates")
-    .select("id,event_id,label,seats_total,seats_available,created_at")
-    .eq("event_id", eid);
-
-  if (datesRes.error) {
-    console.error(datesRes.error);
-    datesOk = false;
-    toast("Aviso", "El evento cargó, pero aún no se pudieron cargar las fechas.");
-  }
-
-  const datesRaw = Array.isArray(datesRes.data) ? datesRes.data : [];
-
-  const dates = datesRaw
-    .map((d) => ({
-      id: String(d?.id || ""),
-      label: String(d?.label || "").trim(),
-      seats: Math.max(0, Number(d?.seats_available ?? 0)),
-      seats_total: Math.max(0, Number(d?.seats_total ?? 0)),
-      created_at: d?.created_at ? String(d.created_at) : "",
-    }))
-    .filter((d) => d.id);
-
-  if (!datesRes.error && dates.length === 0) datesOk = false;
-
-  dates.sort((a, b) => {
-    const ta = a.created_at ? Date.parse(a.created_at) : 0;
-    const tb = b.created_at ? Date.parse(b.created_at) : 0;
-    if (ta !== tb) return ta - tb;
-    return String(a.label).localeCompare(String(b.label), "es");
-  });
-
-  const seatsTotalAvailable = dates.reduce((acc, x) => acc + (Number(x.seats) || 0), 0);
-
-  return {
-    id: String(evRes.data.id || ""),
-    type: String(evRes.data.type || "Experiencia"),
-    monthKey: String(evRes.data.month_key || "—").toUpperCase(),
-    title: String(evRes.data.title || "Evento"),
-    desc: String(evRes.data.description || ""),
-
-    img: heroUrl,
-
-    // ✅ "Ver más" viene de media_items
-    moreImg: moreUrl,
-    moreImgAlt: String(evRes.data.more_img_alt || "").trim(),
-
-    dates,
-    seats: seatsTotalAvailable,
-    datesOk,
-
-    location: safeText(evRes.data.location, "Por confirmar"),
-    timeRange: safeText(evRes.data.time_range, "Por confirmar"),
-    durationHours: safeText(evRes.data.duration_hours, "Por confirmar"),
-
-    priceAmount: evRes.data.price_amount,
-    priceCurrency: evRes.data.price_currency,
-    priceText: safePriceText(evRes.data.price_amount, evRes.data.price_currency),
-  };
-}
-
-// ============================================================
-// State + single listener
-// ============================================================
-let CURRENT = null;
-
-function goRegisterWithDate(eventId, dateId, dateLabel) {
-  const e = encodeURIComponent(String(eventId || ""));
-  const d = encodeURIComponent(String(dateId || ""));
-  const l = encodeURIComponent(String(dateLabel || ""));
-  window.location.href = `./register.html?event=${e}&date_id=${d}&date_label=${l}`;
-}
-
-function ensurePickListener() {
-  if (ensurePickListener._done) return;
-  ensurePickListener._done = true;
-
-  document.addEventListener("click", (e) => {
-    const pickBtn = e.target.closest("[data-pick]");
-    if (!pickBtn) return;
-    if (!CURRENT) return;
-
-    let dateId = String(pickBtn.getAttribute("data-pick") || "");
-    if (!dateId) return;
-
-    if (dateId === "__dropdown__") {
-      const sel = $("#dateSelect");
-      const v = String(sel?.value || "");
-      if (!v) {
-        toast("Elegí una fecha", "Seleccioná una fecha para continuar.");
-        return;
-      }
-      dateId = v;
+  // ----------------------------
+  // Supabase fetch (event + dates)
+  // ----------------------------
+  async function fetchEventFromSupabase(eventId) {
+    const sb = getSB();
+    if (!sb) {
+      console.error("APP.supabase no está listo. Orden: Supabase CDN -> supabaseClient.js -> event.js");
+      toast("Error", "Supabase no está listo.");
+      return null;
     }
 
-    const dateObj = (CURRENT.dates || []).find((d) => String(d.id) === String(dateId));
-    const label = dateObj ? String(dateObj.label || "") : "";
-    const seats = dateObj ? (Number(dateObj.seats) || 0) : 0;
+    const eid = cleanSpaces(eventId);
+    if (!eid) return null;
 
-    const soldOutTotal = CURRENT.datesOk && (Number(CURRENT.seats) || 0) <= 0;
-    const dateSoldOut = seats <= 0;
+    const selectBase =
+      "id,title,type,month_key,description,location,time_range,duration_hours,price_amount,price_currency,more_img_alt,created_at,updated_at";
 
-    if (soldOutTotal || dateSoldOut || pickBtn.disabled) {
-      toast("No disponible", "Esta fecha no tiene cupos.");
+    const evRes = await sb.from("events").select(selectBase).eq("id", eid).maybeSingle();
+
+    if (evRes.error) {
+      console.error(evRes.error);
+      toast("Error", "No se pudo cargar el evento.");
+      return null;
+    }
+    if (!evRes.data) return null;
+
+    const media = await fetchEventMediaFromSupabase(eid);
+
+    const heroUrl = normalizeImgPath(media.event_img_desktop || media.event_img_mobile || "./assets/img/hero-1.jpg");
+
+    const moreUrlRaw = cleanSpaces(media.event_more_img || "");
+    const moreUrl = moreUrlRaw ? normalizeImgPath(moreUrlRaw) : "";
+
+    let datesOk = true;
+
+    const datesRes = await sb
+      .from("event_dates")
+      .select("id,event_id,label,seats_total,seats_available,created_at")
+      .eq("event_id", eid);
+
+    if (datesRes.error) {
+      console.error(datesRes.error);
+      datesOk = false;
+      toast("Aviso", "El evento cargó, pero aún no se pudieron cargar las fechas.");
+    }
+
+    const datesRaw = Array.isArray(datesRes.data) ? datesRes.data : [];
+    const dates = datesRaw
+      .map((d) => ({
+        id: safeStr(d?.id || ""),
+        label: cleanSpaces(d?.label || ""),
+        seats: Math.max(0, Number(d?.seats_available ?? 0)),
+        seats_total: Math.max(0, Number(d?.seats_total ?? 0)),
+        created_at: d?.created_at ? safeStr(d.created_at) : "",
+      }))
+      .filter((d) => d.id);
+
+    if (!datesRes.error && dates.length === 0) datesOk = false;
+
+    dates.sort((a, b) => {
+      const ta = a.created_at ? Date.parse(a.created_at) : 0;
+      const tb = b.created_at ? Date.parse(b.created_at) : 0;
+      if (ta !== tb) return ta - tb;
+      return safeStr(a.label).localeCompare(safeStr(b.label), "es");
+    });
+
+    const seatsTotalAvailable = dates.reduce((acc, x) => acc + (Number(x.seats) || 0), 0);
+
+    return {
+      id: safeStr(evRes.data.id || ""),
+      type: safeStr(evRes.data.type || "Experiencia"),
+      monthKey: safeStr(evRes.data.month_key || "—").toUpperCase(),
+      title: safeStr(evRes.data.title || "Evento"),
+      desc: safeStr(evRes.data.description || ""),
+
+      img: heroUrl,
+
+      moreImg: moreUrl,
+      moreImgAlt: cleanSpaces(evRes.data.more_img_alt || ""),
+
+      dates,
+      seats: seatsTotalAvailable,
+      datesOk,
+
+      location: safeText(evRes.data.location, "Por confirmar"),
+      timeRange: safeText(evRes.data.time_range, "Por confirmar"),
+      durationHours: safeText(evRes.data.duration_hours, "Por confirmar"),
+
+      priceAmount: evRes.data.price_amount,
+      priceCurrency: evRes.data.price_currency,
+      priceText: safePriceText(evRes.data.price_amount, evRes.data.price_currency),
+    };
+  }
+
+  // ----------------------------
+  // State + click delegation
+  // ----------------------------
+  let CURRENT = null;
+
+  function goRegisterWithDate(eventId, dateId, dateLabel) {
+    const e = encodeURIComponent(safeStr(eventId || ""));
+    const d = encodeURIComponent(safeStr(dateId || ""));
+    const l = encodeURIComponent(safeStr(dateLabel || ""));
+    window.location.href = `./register.html?event=${e}&date_id=${d}&date_label=${l}`;
+  }
+
+  function ensurePickListener() {
+    if (ensurePickListener._done) return;
+    ensurePickListener._done = true;
+
+    document.addEventListener("click", (e) => {
+      const pickBtn = e.target?.closest?.("[data-pick]");
+      if (!pickBtn || !CURRENT) return;
+
+      let dateId = safeStr(pickBtn.getAttribute("data-pick") || "");
+      if (!dateId) return;
+
+      if (dateId === "__dropdown__") {
+        const sel = $("#dateSelect");
+        const v = safeStr(sel?.value || "");
+        if (!v) {
+          toast("Elegí una fecha", "Seleccioná una fecha para continuar.");
+          return;
+        }
+        dateId = v;
+      }
+
+      const dateObj = (CURRENT.dates || []).find((d) => safeStr(d.id) === safeStr(dateId));
+      const label = dateObj ? safeStr(dateObj.label || "") : "";
+      const seats = dateObj ? (Number(dateObj.seats) || 0) : 0;
+
+      const soldOutTotal = CURRENT.datesOk && (Number(CURRENT.seats) || 0) <= 0;
+      const dateSoldOut = seats <= 0;
+
+      if (soldOutTotal || dateSoldOut || pickBtn.disabled) {
+        toast("No disponible", "Esta fecha no tiene cupos.");
+        return;
+      }
+
+      toast("Fecha seleccionada", `Te inscribiremos para: ${label || "esta fecha"}`);
+      goRegisterWithDate(CURRENT.id, dateId, label);
+    });
+  }
+
+  // ----------------------------
+  // "Ver más info" (mobile)
+  // ----------------------------
+  function ensureMoreInfoBlock() {
+    if (ensureMoreInfoBlock._done) return;
+    ensureMoreInfoBlock._done = true;
+
+    const desc = $("#evDesc");
+    if (!desc) return;
+
+    const wrap = document.createElement("div");
+    wrap.className = "moreInfo";
+    wrap.id = "moreInfo";
+    wrap.setAttribute("hidden", "");
+
+    wrap.innerHTML = `
+      <button class="btn moreBtn" type="button" id="moreBtn" aria-expanded="false" aria-controls="morePanel">
+        Ver más info
+      </button>
+
+      <div class="morePanel" id="morePanel" hidden>
+        <div class="moreMedia">
+          <img id="moreImg" class="moreImg" alt="Más información del evento" loading="lazy" decoding="async" />
+        </div>
+      </div>
+    `;
+
+    desc.insertAdjacentElement("afterend", wrap);
+
+    const btn = $("#moreBtn");
+    const panel = $("#morePanel");
+
+    btn?.addEventListener("click", () => {
+      const isOpen = btn.getAttribute("aria-expanded") === "true";
+      const next = !isOpen;
+
+      btn.setAttribute("aria-expanded", next ? "true" : "false");
+      if (panel) {
+        if (next) panel.removeAttribute("hidden");
+        else panel.setAttribute("hidden", "");
+      }
+    });
+  }
+
+  function setMoreInfoMedia(ev) {
+    const wrap = $("#moreInfo");
+    const img = $("#moreImg");
+    const btn = $("#moreBtn");
+    const panel = $("#morePanel");
+    if (!wrap || !img || !btn || !panel) return;
+
+    const raw = cleanSpaces(ev?.moreImg || "");
+    if (!raw) {
+      wrap.setAttribute("hidden", "");
       return;
     }
 
-    toast("Fecha seleccionada", `Te inscribiremos para: ${label || "esta fecha"}`);
-    goRegisterWithDate(CURRENT.id, dateId, label);
-  });
-}
+    img.src = raw;
+    img.alt = ev?.moreImgAlt
+      ? ev.moreImgAlt
+      : ev?.title
+      ? `Más info: ${ev.title}`
+      : "Más información del evento";
 
-// ============================================================
-// "Ver más info" (mobile)
-// ============================================================
-function ensureMoreInfoBlock() {
-  if (ensureMoreInfoBlock._done) return;
-  ensureMoreInfoBlock._done = true;
+    wrap.removeAttribute("hidden");
+    btn.setAttribute("aria-expanded", "false");
+    panel.setAttribute("hidden", "");
+  }
 
-  const desc = $("#evDesc");
-  if (!desc) return;
+  // ----------------------------
+  // Dates UI
+  // ----------------------------
+  function renderDatesUI(dateListEl, ev, soldOutTotal) {
+    const dates = Array.isArray(ev.dates) ? ev.dates : [];
 
-  const wrap = document.createElement("div");
-  wrap.className = "moreInfo";
-  wrap.id = "moreInfo";
-  wrap.setAttribute("hidden", "");
-
-  wrap.innerHTML = `
-    <button class="btn moreBtn" type="button" id="moreBtn" aria-expanded="false" aria-controls="morePanel">
-      Ver más info
-    </button>
-
-    <div class="morePanel" id="morePanel" hidden>
-      <div class="moreMedia">
-        <img id="moreImg" class="moreImg" alt="Más información del evento" loading="lazy" decoding="async" />
-      </div>
-    </div>
-  `;
-
-  desc.insertAdjacentElement("afterend", wrap);
-
-  const btn = $("#moreBtn");
-  const panel = $("#morePanel");
-
-  btn?.addEventListener("click", () => {
-    const isOpen = btn.getAttribute("aria-expanded") === "true";
-    const next = !isOpen;
-
-    btn.setAttribute("aria-expanded", next ? "true" : "false");
-    if (panel) {
-      if (next) panel.removeAttribute("hidden");
-      else panel.setAttribute("hidden", "");
+    if (!ev.datesOk) {
+      dateListEl.innerHTML = `<div class="emptyMonth">Fechas y cupos por confirmar.</div>`;
+      return;
     }
-  });
-}
+    if (!dates.length) {
+      dateListEl.innerHTML = `<div class="emptyMonth">Fechas por confirmar.</div>`;
+      return;
+    }
 
-function setMoreInfoMedia(ev) {
-  const wrap = $("#moreInfo");
-  const img = $("#moreImg");
-  const btn = $("#moreBtn");
-  const panel = $("#morePanel");
-  if (!wrap || !img || !btn || !panel) return;
+    if (dates.length === 1) {
+      const x = dates[0];
+      const dateId = safeStr(x?.id || "");
+      const label = cleanSpaces(x?.label || "");
+      const seats = Math.max(0, Number(x?.seats) || 0);
+      const dateSoldOut = seats <= 0;
 
-  const raw = String(ev?.moreImg || "").trim();
-  const has = !!raw;
+      const row = document.createElement("div");
+      row.className = "dateItem";
 
-  if (!has) {
-    wrap.setAttribute("hidden", "");
-    return;
-  }
+      const left = document.createElement("div");
+      left.className = "dateLeft";
 
-  img.src = raw;
-  img.alt = ev?.moreImgAlt
-    ? ev.moreImgAlt
-    : (ev?.title ? `Más info: ${ev.title}` : "Más información del evento");
+      const main = document.createElement("div");
+      main.className = "dateMain";
+      main.textContent = label || "Por definir";
 
-  wrap.removeAttribute("hidden");
+      const hint = document.createElement("div");
+      hint.className = "dateHint";
+      hint.innerHTML = dateSoldOut
+        ? `<span style="opacity:.8;">Sin cupos para esta fecha.</span>`
+        : `Cupos disponibles: <b>${escapeHtml(seats)}</b>`;
 
-  btn.setAttribute("aria-expanded", "false");
-  panel.setAttribute("hidden", "");
-}
+      left.appendChild(main);
+      left.appendChild(hint);
 
-// ============================================================
-// Render helpers: fechas (1 vs dropdown)
-// ============================================================
-function renderDatesUI(dateListEl, ev, soldOutTotal) {
-  const dates = Array.isArray(ev.dates) ? ev.dates : [];
+      const btn = document.createElement("button");
+      btn.className = "datePick";
+      btn.type = "button";
+      btn.textContent = "Elegir";
+      btn.setAttribute("data-pick", dateId);
 
-  if (!ev.datesOk) {
-    dateListEl.innerHTML = `<div class="emptyMonth">Fechas y cupos por confirmar.</div>`;
-    return;
-  }
-  if (!dates.length) {
-    dateListEl.innerHTML = `<div class="emptyMonth">Fechas por confirmar.</div>`;
-    return;
-  }
+      if (soldOutTotal || dateSoldOut) {
+        btn.disabled = true;
+        btn.style.opacity = ".55";
+        btn.style.cursor = "not-allowed";
+      }
 
-  if (dates.length === 1) {
-    const x = dates[0];
-    const dateId = String(x?.id || "");
-    const label = String(x?.label || "").trim();
-    const seats = Math.max(0, Number(x?.seats) || 0);
-    const dateSoldOut = seats <= 0;
+      row.appendChild(left);
+      row.appendChild(btn);
+      dateListEl.appendChild(row);
+      return;
+    }
 
-    const row = document.createElement("div");
-    row.className = "dateItem";
+    // dropdown
+    const wrap = document.createElement("div");
+    wrap.className = "dateItem";
+    wrap.style.alignItems = "stretch";
 
     const left = document.createElement("div");
     left.className = "dateLeft";
 
     const main = document.createElement("div");
     main.className = "dateMain";
-    main.textContent = label || "Por definir";
+    main.textContent = "Seleccioná una fecha";
 
     const hint = document.createElement("div");
     hint.className = "dateHint";
-    hint.innerHTML = dateSoldOut
-      ? `<span style="opacity:.8;">Sin cupos para esta fecha.</span>`
-      : `Cupos disponibles: <b>${escapeHtml(seats)}</b>`;
+    hint.textContent = "Si hay más de una fecha, elegí tu opción aquí.";
 
     left.appendChild(main);
     left.appendChild(hint);
+
+    const right = document.createElement("div");
+    right.style.display = "flex";
+    right.style.gap = "10px";
+    right.style.alignItems = "center";
+    right.style.justifyContent = "flex-end";
+    right.style.flex = "0 0 auto";
+
+    const sel = document.createElement("select");
+    sel.id = "dateSelect";
+    sel.setAttribute("aria-label", "Seleccionar fecha");
+    sel.style.minHeight = "46px";
+    sel.style.borderRadius = "999px";
+    sel.style.border = "1px solid rgba(18,18,18,.14)";
+    sel.style.background = "rgba(18,18,18,.02)";
+    sel.style.padding = "10px 12px";
+    sel.style.fontSize = "12px";
+    sel.style.fontWeight = "900";
+    sel.style.letterSpacing = ".14em";
+    sel.style.textTransform = "uppercase";
+    sel.style.color = "rgba(18,18,18,.88)";
+    sel.style.maxWidth = "260px";
+
+    const opt0 = document.createElement("option");
+    opt0.value = "";
+    opt0.textContent = "Elegir fecha…";
+    sel.appendChild(opt0);
+
+    dates.forEach((x) => {
+      const id = safeStr(x?.id || "");
+      const label = cleanSpaces(x?.label || "") || "Por definir";
+      const seats = Math.max(0, Number(x?.seats) || 0);
+
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.textContent = `${label}${seats <= 0 ? " (Sin cupos)" : ` (${seats})`}`;
+      if (seats <= 0) opt.disabled = true;
+      sel.appendChild(opt);
+    });
 
     const btn = document.createElement("button");
     btn.className = "datePick";
     btn.type = "button";
     btn.textContent = "Elegir";
-    btn.setAttribute("data-pick", dateId);
+    btn.setAttribute("data-pick", "__dropdown__");
 
-    if (soldOutTotal || dateSoldOut) {
+    if (soldOutTotal) {
       btn.disabled = true;
       btn.style.opacity = ".55";
       btn.style.cursor = "not-allowed";
     }
 
-    row.appendChild(left);
-    row.appendChild(btn);
-    dateListEl.appendChild(row);
-    return;
-  }
+    sel.addEventListener("change", () => {
+      if (btn.disabled && soldOutTotal) return;
+      const v = safeStr(sel.value || "");
+      btn.disabled = !v;
+      btn.style.opacity = btn.disabled ? ".55" : "1";
+      btn.style.cursor = btn.disabled ? "not-allowed" : "pointer";
+    });
 
-  const wrap = document.createElement("div");
-  wrap.className = "dateItem";
-  wrap.style.alignItems = "stretch";
-
-  const left = document.createElement("div");
-  left.className = "dateLeft";
-
-  const main = document.createElement("div");
-  main.className = "dateMain";
-  main.textContent = "Seleccioná una fecha";
-
-  const hint = document.createElement("div");
-  hint.className = "dateHint";
-  hint.textContent = "Si hay más de una fecha, elegí tu opción aquí.";
-
-  left.appendChild(main);
-  left.appendChild(hint);
-
-  const right = document.createElement("div");
-  right.style.display = "flex";
-  right.style.gap = "10px";
-  right.style.alignItems = "center";
-  right.style.justifyContent = "flex-end";
-  right.style.flex = "0 0 auto";
-
-  const sel = document.createElement("select");
-  sel.id = "dateSelect";
-  sel.setAttribute("aria-label", "Seleccionar fecha");
-  sel.style.minHeight = "46px";
-  sel.style.borderRadius = "999px";
-  sel.style.border = "1px solid rgba(18,18,18,.14)";
-  sel.style.background = "rgba(18,18,18,.02)";
-  sel.style.padding = "10px 12px";
-  sel.style.fontSize = "12px";
-  sel.style.fontWeight = "900";
-  sel.style.letterSpacing = ".14em";
-  sel.style.textTransform = "uppercase";
-  sel.style.color = "rgba(18,18,18,.88)";
-  sel.style.maxWidth = "260px";
-
-  const opt0 = document.createElement("option");
-  opt0.value = "";
-  opt0.textContent = "Elegir fecha…";
-  sel.appendChild(opt0);
-
-  dates.forEach((x) => {
-    const id = String(x?.id || "");
-    const label = String(x?.label || "").trim() || "Por definir";
-    const seats = Math.max(0, Number(x?.seats) || 0);
-
-    const opt = document.createElement("option");
-    opt.value = id;
-    opt.textContent = `${label}${seats <= 0 ? " (Sin cupos)" : ` (${seats})`}`;
-    if (seats <= 0) opt.disabled = true;
-    sel.appendChild(opt);
-  });
-
-  const btn = document.createElement("button");
-  btn.className = "datePick";
-  btn.type = "button";
-  btn.textContent = "Elegir";
-  btn.setAttribute("data-pick", "__dropdown__");
-
-  if (soldOutTotal) {
     btn.disabled = true;
     btn.style.opacity = ".55";
     btn.style.cursor = "not-allowed";
+
+    right.appendChild(sel);
+    right.appendChild(btn);
+
+    wrap.appendChild(left);
+    wrap.appendChild(right);
+    dateListEl.appendChild(wrap);
   }
 
-  sel.addEventListener("change", () => {
-    if (btn.disabled && soldOutTotal) return;
-    const v = String(sel.value || "");
-    btn.disabled = !v;
-    btn.style.opacity = btn.disabled ? ".55" : "1";
-    btn.style.cursor = btn.disabled ? "not-allowed" : "pointer";
-  });
+  // ----------------------------
+  // Render
+  // ----------------------------
+  function setNotices({ sold, available, pending }) {
+    const soldNotice = $("#soldNotice");
+    const availNotice = $("#availNotice");
+    const pendingNotice = $("#pendingNotice");
 
-  btn.disabled = true;
-  btn.style.opacity = ".55";
-  btn.style.cursor = "not-allowed";
+    [soldNotice, availNotice, pendingNotice].forEach((el) => el && el.setAttribute("hidden", ""));
 
-  right.appendChild(sel);
-  right.appendChild(btn);
-
-  wrap.appendChild(left);
-  wrap.appendChild(right);
-
-  dateListEl.appendChild(wrap);
-}
-
-// ============================================================
-// Render
-// ============================================================
-function setNotices({ sold, available, pending }) {
-  const soldNotice = $("#soldNotice");
-  const availNotice = $("#availNotice");
-  const pendingNotice = $("#pendingNotice");
-
-  [soldNotice, availNotice, pendingNotice].forEach((el) => {
-    if (!el) return;
-    el.setAttribute("hidden", "");
-  });
-
-  if (sold && soldNotice) soldNotice.removeAttribute("hidden");
-  else if (available && availNotice) availNotice.removeAttribute("hidden");
-  else if (pending && pendingNotice) pendingNotice.removeAttribute("hidden");
-}
-
-function renderEvent(ev) {
-  CURRENT = ev;
-
-  if (!ev) {
-    toast("Evento no encontrado", "Volviendo a la lista de eventos…");
-    setTimeout(() => (window.location.href = "./home.html#proximos"), 900);
-    return;
+    if (sold && soldNotice) soldNotice.removeAttribute("hidden");
+    else if (available && availNotice) availNotice.removeAttribute("hidden");
+    else if (pending && pendingNotice) pendingNotice.removeAttribute("hidden");
   }
 
-  const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
+  function renderEvent(ev) {
+    CURRENT = ev;
 
-  const heroBg = $("#heroBg");
-  if (heroBg) {
-    const bg = normalizeImgPath(ev.img || "./assets/img/hero-1.jpg");
-    heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(bg)}')`);
-    heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
-  }
-
-  const heroImgEl = $("#evPhoto");
-  if (heroImgEl) {
-    heroImgEl.src = ev.img || "./assets/img/hero-1.jpg";
-    heroImgEl.alt = ev.title ? `Foto del evento: ${ev.title}` : "Foto del evento";
-  }
-
-  ensureMoreInfoBlock();
-  setMoreInfoMedia(ev);
-
-  const metaRow = $("#metaRow");
-  const datesText = (ev.dates || []).map((d) => d.label).filter(Boolean).join(" • ");
-
-  if (metaRow) {
-    metaRow.innerHTML = `
-      <span class="pill"><span class="dot"></span> ${escapeHtml(ev.type)}</span>
-      <span class="pill">${escapeHtml(datesText || (ev.datesOk ? "Por definir" : "Cupos por confirmar"))}</span>
-      <span class="pill">${escapeHtml(ev.monthKey || "—")}</span>
-      ${soldOutTotal ? `<span class="pill">AGOTADO</span>` : ``}
-    `;
-  }
-
-  const t = $("#evTitle");
-  const d = $("#evDesc");
-  if (t) t.textContent = ev.title;
-  if (d) d.textContent = ev.desc || "";
-
-  const dateList = $("#dateList");
-  if (dateList) {
-    dateList.innerHTML = "";
-    renderDatesUI(dateList, ev, soldOutTotal);
-  }
-
-  const kv = $("#kv");
-  if (kv) {
-    kv.innerHTML = `
-      <div class="kvRow">
-        <div class="kvLabel">Cupos disponibles</div>
-        <div class="kvValue">${
-          !ev.datesOk ? "Por confirmar" : (soldOutTotal ? "0 (Agotado)" : escapeHtml(ev.seats))
-        }</div>
-      </div>
-
-      <div class="kvRow">
-        <div class="kvLabel">Duración</div>
-        <div class="kvValue">${escapeHtml(safeText(ev.durationHours))}</div>
-      </div>
-
-      <div class="kvRow">
-        <div class="kvLabel">Hora</div>
-        <div class="kvValue">${escapeHtml(safeText(ev.timeRange))}</div>
-      </div>
-
-      <div class="kvRow">
-        <div class="kvLabel">Ubicación</div>
-        <div class="kvValue">${escapeHtml(safeText(ev.location))}</div>
-      </div>
-
-      <div class="kvRow">
-        <div class="kvLabel">Costo</div>
-        <div class="kvValue">${escapeHtml(ev.priceText || "Por confirmar")}</div>
-      </div>
-    `;
-  }
-
-  if (!ev.datesOk) setNotices({ sold: false, available: false, pending: true });
-  else if (soldOutTotal) setNotices({ sold: true, available: false, pending: false });
-  else setNotices({ sold: false, available: true, pending: false });
-
-  const btnRegister = $("#btnRegister");
-  if (btnRegister) {
-    const firstAvailable = (ev.dates || []).find((x) => (Number(x?.seats) || 0) > 0);
-
-    if (firstAvailable && String(firstAvailable.id || "")) {
-      btnRegister.href =
-        `./register.html?event=${encodeURIComponent(ev.id)}&date_id=${encodeURIComponent(firstAvailable.id)}&date_label=${encodeURIComponent(firstAvailable.label || "")}`;
-    } else {
-      btnRegister.href = `./register.html?event=${encodeURIComponent(ev.id)}`;
+    if (!ev) {
+      toast("Evento no encontrado", "Volviendo a la lista de eventos…");
+      setTimeout(() => (window.location.href = "./home.html#proximos"), 900);
+      return;
     }
 
-    if (soldOutTotal) {
-      btnRegister.setAttribute("aria-disabled", "true");
-      btnRegister.classList.remove("primary");
-      btnRegister.classList.add("btn");
-      btnRegister.style.opacity = ".55";
-      btnRegister.style.pointerEvents = "none";
-    } else {
-      btnRegister.removeAttribute("aria-disabled");
-      btnRegister.classList.add("primary");
-      btnRegister.style.opacity = "1";
-      btnRegister.style.pointerEvents = "auto";
+    const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
+
+    const heroBg = $("#heroBg");
+    if (heroBg) {
+      const bg = normalizeImgPath(ev.img || "./assets/img/hero-1.jpg");
+      heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(bg)}')`);
+      heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
     }
+
+    const heroImgEl = $("#evPhoto");
+    if (heroImgEl) {
+      heroImgEl.src = ev.img || "./assets/img/hero-1.jpg";
+      heroImgEl.alt = ev.title ? `Foto del evento: ${ev.title}` : "Foto del evento";
+    }
+
+    ensureMoreInfoBlock();
+    setMoreInfoMedia(ev);
+
+    const metaRow = $("#metaRow");
+    const datesText = (ev.dates || []).map((d) => d.label).filter(Boolean).join(" • ");
+
+    if (metaRow) {
+      metaRow.innerHTML = `
+        <span class="pill"><span class="dot"></span> ${escapeHtml(ev.type)}</span>
+        <span class="pill">${escapeHtml(datesText || (ev.datesOk ? "Por definir" : "Cupos por confirmar"))}</span>
+        <span class="pill">${escapeHtml(ev.monthKey || "—")}</span>
+        ${soldOutTotal ? `<span class="pill">AGOTADO</span>` : ``}
+      `;
+    }
+
+    const t = $("#evTitle");
+    const d = $("#evDesc");
+    if (t) t.textContent = ev.title;
+    if (d) d.textContent = ev.desc || "";
+
+    const dateList = $("#dateList");
+    if (dateList) {
+      dateList.innerHTML = "";
+      renderDatesUI(dateList, ev, soldOutTotal);
+    }
+
+    const kv = $("#kv");
+    if (kv) {
+      kv.innerHTML = `
+        <div class="kvRow">
+          <div class="kvLabel">Cupos disponibles</div>
+          <div class="kvValue">${
+            !ev.datesOk ? "Por confirmar" : soldOutTotal ? "0 (Agotado)" : escapeHtml(ev.seats)
+          }</div>
+        </div>
+
+        <div class="kvRow">
+          <div class="kvLabel">Duración</div>
+          <div class="kvValue">${escapeHtml(safeText(ev.durationHours))}</div>
+        </div>
+
+        <div class="kvRow">
+          <div class="kvLabel">Hora</div>
+          <div class="kvValue">${escapeHtml(safeText(ev.timeRange))}</div>
+        </div>
+
+        <div class="kvRow">
+          <div class="kvLabel">Ubicación</div>
+          <div class="kvValue">${escapeHtml(safeText(ev.location))}</div>
+        </div>
+
+        <div class="kvRow">
+          <div class="kvLabel">Costo</div>
+          <div class="kvValue">${escapeHtml(ev.priceText || "Por confirmar")}</div>
+        </div>
+      `;
+    }
+
+    if (!ev.datesOk) setNotices({ sold: false, available: false, pending: true });
+    else if (soldOutTotal) setNotices({ sold: true, available: false, pending: false });
+    else setNotices({ sold: false, available: true, pending: false });
+
+    const btnRegister = $("#btnRegister");
+    if (btnRegister) {
+      const firstAvailable = (ev.dates || []).find((x) => (Number(x?.seats) || 0) > 0);
+
+      if (firstAvailable && safeStr(firstAvailable.id || "")) {
+        btnRegister.href =
+          `./register.html?event=${encodeURIComponent(ev.id)}&date_id=${encodeURIComponent(firstAvailable.id)}&date_label=${encodeURIComponent(firstAvailable.label || "")}`;
+      } else {
+        btnRegister.href = `./register.html?event=${encodeURIComponent(ev.id)}`;
+      }
+
+      if (soldOutTotal) {
+        btnRegister.setAttribute("aria-disabled", "true");
+        btnRegister.classList.remove("primary");
+        btnRegister.classList.add("btn");
+        btnRegister.style.opacity = ".55";
+        btnRegister.style.pointerEvents = "none";
+      } else {
+        btnRegister.removeAttribute("aria-disabled");
+        btnRegister.classList.add("primary");
+        btnRegister.style.opacity = "1";
+        btnRegister.style.pointerEvents = "auto";
+      }
+    }
+
+    const heroCard = $("#heroCard");
+    if (heroCard) heroCard.classList.toggle("isSoldOut", soldOutTotal);
+
+    if (soldOutTotal && ev.datesOk) toast("Evento agotado", "Este evento no tiene cupos disponibles.");
   }
 
-  const heroCard = $("#heroCard");
-  if (heroCard) heroCard.classList.toggle("isSoldOut", soldOutTotal);
+  // ----------------------------
+  // Init
+  // ----------------------------
+  (async function init() {
+    ensurePickListener();
 
-  if (soldOutTotal && ev.datesOk) toast("Evento agotado", "Este evento no tiene cupos disponibles.");
-}
+    const eventId = cleanSpaces(getParam("event"));
+    if (!eventId) {
+      toast("Falta el evento", "Volviendo a la lista…");
+      setTimeout(() => (window.location.href = "./home.html#proximos"), 700);
+      return;
+    }
 
-// ============================================================
-// Init
-// ============================================================
-(async function init() {
-  ensurePickListener();
+    setLoading(true);
 
-  const eventId = String(getParam("event") ?? "").trim();
-  if (!eventId) {
-    toast("Falta el evento", "Volviendo a la lista…");
-    setTimeout(() => (window.location.href = "./home.html#proximos"), 700);
-    return;
-  }
+    const ev = await fetchEventFromSupabase(eventId);
+    renderEvent(ev);
 
-  setLoading(true);
-
-  const ev = await fetchEventFromSupabase(eventId);
-  renderEvent(ev);
-
-  setLoading(false);
+    setLoading(false);
+  })();
 })();

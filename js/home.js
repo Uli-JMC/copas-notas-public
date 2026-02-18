@@ -48,11 +48,11 @@
    - Retry con canplay si play() falla
    - guessVideoMime ignora query/hash
 
-   ✅ PATCH 2026-02-18: MEDIA_ITEMS (alineado a cambios actuales)
-   - Hero image por evento viene de media_items:
-     folders: event_img_desktop | event_img_mobile
-   - Hero video por evento viene de media_items:
-     folder: event_video
+   ✅ PATCH 2026-02-18.2: MEDIA_ITEMS (alineado a cambios actuales)
+   - HOME SLIDER viene de media_items:
+       target='home' folders: slide_img | slide_video
+   - EVENT HERO fallback viene de media_items:
+       target='event' folders: event_img_desktop | event_img_mobile
    - Fallback opcional: ev.video_url si existe en el objeto (sin pedirlo en select)
 ============================================================ */
 
@@ -530,11 +530,10 @@ function computeEventStatus(dates, durationHours) {
 }
 
 /**
- * ✅ MEDIA_ITEMS helper: trae imágenes + video por evento
- * folders:
- * - event_img_desktop
- * - event_img_mobile
- * - event_video
+ * ✅ MEDIA_ITEMS helper (PRO 2026-02-18.2)
+ * - HOME SLIDER: target='home' folders slide_img | slide_video
+ * - EVENT HERO:  target='event' folders event_img_desktop | event_img_mobile
+ * Nota: tomamos el más nuevo por folder (order updated_at desc + map first-hit)
  */
 async function fetchEventMediaMap(eventIds) {
   const ids = Array.isArray(eventIds) ? eventIds.filter(Boolean) : [];
@@ -543,10 +542,10 @@ async function fetchEventMediaMap(eventIds) {
   try {
     const res = await APP.supabase
       .from("media_items")
-      .select("event_id,folder,public_url,path,updated_at")
-      .eq("target", "event")
+      .select("event_id,target,folder,public_url,path,updated_at")
       .in("event_id", ids)
-      .in("folder", ["event_img_desktop", "event_img_mobile", "event_video"])
+      .in("target", ["home", "event"])
+      .in("folder", ["slide_img", "slide_video", "event_img_desktop", "event_img_mobile"])
       .order("updated_at", { ascending: false });
 
     if (res.error) {
@@ -554,15 +553,17 @@ async function fetchEventMediaMap(eventIds) {
       return new Map();
     }
 
-    // map: `${event_id}:${folder}` -> url (toma el más nuevo por folder)
+    // map: `${event_id}:${target}:${folder}` -> public_url (toma el más nuevo por folder)
     const map = new Map();
     (Array.isArray(res.data) ? res.data : []).forEach((r) => {
       const eid = r?.event_id;
+      const target = String(r?.target || "").trim();
       const folder = String(r?.folder || "").trim();
-      const url = String(r?.public_url || r?.path || "").trim();
-      if (!eid || !folder || !url) return;
+      const url = String(r?.public_url || "").trim();
 
-      const k = `${eid}:${folder}`;
+      if (!eid || !target || !folder || !url) return;
+
+      const k = `${eid}:${target}:${folder}`;
       if (!map.has(k)) map.set(k, url);
     });
 
@@ -623,7 +624,7 @@ async function fetchEventsFromSupabase() {
     });
   });
 
-  // ✅ MEDIA_ITEMS: mapa de imágenes + video por evento
+  // ✅ MEDIA_ITEMS: mapa de SLIDER + HERO fallback
   const ids = events.map((e) => e.id).filter(Boolean);
   const mediaMap = await fetchEventMediaMap(ids);
 
@@ -632,14 +633,19 @@ async function fetchEventsFromSupabase() {
     const status = computeEventStatus(evDates, ev?.duration_hours);
     const labels = evDates.map((x) => x.label).filter(Boolean);
 
-    const desktop = mediaMap.get(`${ev.id}:event_img_desktop`) || "";
-    const mobile = mediaMap.get(`${ev.id}:event_img_mobile`) || "";
-    const heroImg = normalizeImgPath(desktop || mobile || "/assets/img/hero-1.jpg");
+    // ✅ SLIDER FIRST (home)
+    const slideImg = String(mediaMap.get(`${ev.id}:home:slide_img`) || "").trim();
+    const slideVideo = String(mediaMap.get(`${ev.id}:home:slide_video`) || "").trim();
 
-    // ✅ VIDEO: 1) media_items event_video, 2) fallback ev.video_url si existiera (sin pedirlo)
-    const vFromMedia = String(mediaMap.get(`${ev.id}:event_video`) || "").trim();
+    // ✅ HERO FALLBACK (event)
+    const desktop = String(mediaMap.get(`${ev.id}:event:event_img_desktop`) || "").trim();
+    const mobile = String(mediaMap.get(`${ev.id}:event:event_img_mobile`) || "").trim();
+
+    const heroImg = normalizeImgPath(slideImg || desktop || mobile || "/assets/img/hero-1.jpg");
+
+    // ✅ VIDEO: 1) slide_video (home), 2) fallback ev.video_url si existiera (sin pedirlo)
     const vFallback = String(ev?.video_url || "").trim();
-    const videoUrl = normalizeVideoUrl(vFromMedia || vFallback);
+    const videoUrl = normalizeVideoUrl(slideVideo || vFallback);
 
     return {
       id: ev?.id || "",
@@ -1028,7 +1034,7 @@ function renderSlides() {
     const mobilePrimaryClass = finalized ? "btn--success" : soldOut ? "btn--danger" : "";
     const mobilePrimaryDisabled = blocked ? "aria-disabled='true'" : "";
 
-    // ✅ HERO VIDEO (opcional) — desde media_items o fallback ev.video_url (si existiera)
+    // ✅ HERO VIDEO (opcional)
     const v = String(ev?.videoUrl || "").trim();
     const mime = v ? guessVideoMime(v) : "";
     const videoHtml = v
