@@ -33,8 +33,7 @@
    - Desactiva scrollRestoration
    - Fuerza scrollTo(0,0) temprano + RAF + load
 
-   ✅ PATCH 2026-02-15: HERO VIDEO (desde media_items)
-   - media_items folder: event_video
+   ✅ PATCH 2026-02-15: HERO VIDEO
    - Soporta video de fondo por slide (autoplay muted loop playsinline)
    - Mantiene --bgimg como fallback (no rompe CSS existente)
 
@@ -50,11 +49,11 @@
    - guessVideoMime ignora query/hash
 
    ✅ PATCH 2026-02-18: MEDIA_ITEMS (alineado a cambios actuales)
-   - events ya NO requiere img ni video_url (evita 400)
    - Hero image por evento viene de media_items:
      folders: event_img_desktop | event_img_mobile
    - Hero video por evento viene de media_items:
      folder: event_video
+   - Fallback opcional: ev.video_url si existe en el objeto (sin pedirlo en select)
 ============================================================ */
 
 // ============================================================
@@ -539,23 +538,27 @@ async function fetchEventMediaMap(eventIds) {
   try {
     const res = await APP.supabase
       .from("media_items")
-      .select("event_id,folder,public_url,path")
+      .select("event_id,folder,public_url,path,updated_at")
       .eq("target", "event")
       .in("event_id", ids)
-      .in("folder", ["event_img_desktop", "event_img_mobile", "event_video"]);
+      .in("folder", ["event_img_desktop", "event_img_mobile", "event_video"])
+      .order("updated_at", { ascending: false });
 
     if (res.error) {
       console.warn("[home] media_items error:", res.error);
       return new Map();
     }
 
-    const map = new Map(); // key: `${event_id}:${folder}` -> url
+    // map: `${event_id}:${folder}` -> url (toma el más nuevo por folder)
+    const map = new Map();
     (Array.isArray(res.data) ? res.data : []).forEach((r) => {
       const eid = r?.event_id;
       const folder = String(r?.folder || "").trim();
       const url = String(r?.public_url || r?.path || "").trim();
       if (!eid || !folder || !url) return;
-      map.set(`${eid}:${folder}`, url);
+
+      const k = `${eid}:${folder}`;
+      if (!map.has(k)) map.set(k, url);
     });
 
     return map;
@@ -572,6 +575,7 @@ async function fetchEventsFromSupabase() {
   }
 
   // ✅ events: solo columnas existentes (evita 400)
+  // Nota: no pedimos img/video_url para no romper cuando no existen.
   const evRes = await APP.supabase
     .from("events")
     .select("id,title,type,month_key,description,location,time_range,duration_hours,created_at,updated_at")
@@ -628,8 +632,10 @@ async function fetchEventsFromSupabase() {
     const mobile = mediaMap.get(`${ev.id}:event_img_mobile`) || "";
     const heroImg = normalizeImgPath(desktop || mobile || "/assets/img/hero-1.jpg");
 
-    const vraw = mediaMap.get(`${ev.id}:event_video`) || "";
-    const videoUrl = normalizeVideoUrl(vraw);
+    // ✅ VIDEO: 1) media_items event_video, 2) fallback a ev.video_url si existiera (sin pedirlo)
+    const vFromMedia = String(mediaMap.get(`${ev.id}:event_video`) || "").trim();
+    const vFallback = String(ev?.video_url || "").trim(); // no viene del select, pero si existe no estorba
+    const videoUrl = normalizeVideoUrl(vFromMedia || vFallback);
 
     return {
       id: ev?.id || "",
@@ -641,7 +647,7 @@ async function fetchEventsFromSupabase() {
       title: ev?.title || "Evento",
       desc: ev?.description || "",
       img: heroImg,
-      videoUrl, // ✅ ahora sí viene desde media_items
+      videoUrl,
       location: ev?.location || "",
       timeRange: ev?.time_range || "",
       durationHours: ev?.duration_hours || "",
@@ -1018,7 +1024,7 @@ function renderSlides() {
     const mobilePrimaryClass = finalized ? "btn--success" : soldOut ? "btn--danger" : "";
     const mobilePrimaryDisabled = blocked ? "aria-disabled='true'" : "";
 
-    // ✅ HERO VIDEO (opcional) — desde media_items (event_video)
+    // ✅ HERO VIDEO (opcional) — desde media_items o fallback ev.video_url (si existiera)
     const v = String(ev?.videoUrl || "").trim();
     const mime = v ? guessVideoMime(v) : "";
     const videoHtml = v
