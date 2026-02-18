@@ -2,7 +2,16 @@
 
 /* ============================================================
    event.js (Supabase-first) ✅ DROPDOWN FECHAS + FIX + PRICE + MEDIA
-   (MISMO HEADER)
+   - ✅ Si hay 1 fecha: se muestra card normal con botón Elegir
+   - ✅ Si hay 2+ fechas: se muestra dropdown + botón Elegir
+   - No marca "Agotado" si fechas aún no cargaron (evita falso sold-out)
+   - Loader suave para evitar “brinco” visual al refrescar
+   - ✅ Muestra Precio (events.price_amount + events.price_currency)
+     - Si no hay precio => "Por confirmar"
+   - ✅ Imagen principal SIEMPRE viene de events.img (no del hero home)
+   - ✅ Mobile: botón "Ver más info" que despliega panel con imagen desde BD
+     - Usa fields opcionales: events.more_img y events.more_img_alt
+     - Si no existen o vienen vacíos, el bloque queda oculto
 ============================================================ */
 
 // ============================================================
@@ -27,7 +36,8 @@ function safeCssUrl(url) {
     .trim();
 }
 
-function normalizeImgPath(input, fallback = "./assets/img/hero-1.jpg") {
+function normalizeImgPath(input) {
+  const fallback = "./assets/img/hero-1.jpg";
   const raw = String(input ?? "").trim();
   if (!raw) return fallback;
 
@@ -83,7 +93,7 @@ function hasSupabase() {
   return !!(window.APP && APP.supabase);
 }
 
-// ✅ Precio helpers
+// ✅ Precio helpers (Opción A)
 function normCurrency(cur) {
   const c = String(cur || "").trim().toUpperCase();
   if (c === "USD" || c === "CRC") return c;
@@ -108,6 +118,7 @@ function formatMoney(amount, currency) {
     return isCRC ? `₡${fixed}` : `$${fixed}`;
   }
 }
+
 function safePriceText(priceAmount, priceCurrency) {
   const cur = normCurrency(priceCurrency);
   const n = Number(priceAmount);
@@ -133,53 +144,6 @@ function setLoading(on) {
 }
 
 // ============================================================
-// Media picking (desktop/mobile)
-// ============================================================
-function isDesktop() {
-  return window.matchMedia && window.matchMedia("(min-width: 900px)").matches;
-}
-
-function pickHeroImage(ev) {
-  const fallback = "./assets/img/hero-1.jpg";
-
-  // ✅ Importante: acá deben poder venir vacíos sin que “se rellenen solos”
-  const desk = normalizeImgPath(ev?.imgDesktop, "");
-  const mob  = normalizeImgPath(ev?.imgMobile, "");
-  const base = normalizeImgPath(ev?.img, "");
-
-  // Desktop: img_desktop > img > fallback
-  if (isDesktop()) return desk || base || fallback;
-
-  // Mobile: img_mobile > img > fallback
-  return mob || base || fallback;
-}
-
-function setHeroVideoIfPossible(ev) {
-  const v = $("#heroVideo");
-  if (!v) return;
-
-  const url = String(ev?.videoUrl || "").trim();
-  if (!url) {
-    try { v.pause?.(); } catch (_) {}
-    v.removeAttribute("src");
-    const source = v.querySelector("source");
-    if (source) source.removeAttribute("src");
-    v.setAttribute("hidden", "");
-    return;
-  }
-
-  v.removeAttribute("hidden");
-  const source = v.querySelector("source");
-  if (source) {
-    source.src = url;
-    v.load?.();
-  } else {
-    v.src = url;
-    v.load?.();
-  }
-}
-
-// ============================================================
 // Supabase fetch
 // ============================================================
 async function fetchEventFromSupabase(eventId) {
@@ -192,10 +156,28 @@ async function fetchEventFromSupabase(eventId) {
   const eid = String(eventId ?? "").trim();
   if (!eid) return null;
 
-  const sel =
-    "id,title,type,month_key,description,img,img_desktop,img_mobile,more_img,more_img_alt,video_url,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at";
+  // 1) Evento
+  // ✅ Nota: more_img / more_img_alt son opcionales (si no existen en tabla, Supabase devuelve error).
+  // Por eso: primero intentamos con esos campos; si falla, reintentamos sin ellos.
+  const selectWithMore =
+    "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,more_img,more_img_alt,created_at,updated_at";
+  const selectBase =
+    "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at";
 
-  const evRes = await APP.supabase.from("events").select(sel).eq("id", eid).maybeSingle();
+  let evRes = await APP.supabase
+    .from("events")
+    .select(selectWithMore)
+    .eq("id", eid)
+    .maybeSingle();
+
+  if (evRes?.error) {
+    // fallback si la columna no existe todavía
+    evRes = await APP.supabase
+      .from("events")
+      .select(selectBase)
+      .eq("id", eid)
+      .maybeSingle();
+  }
 
   if (evRes.error) {
     console.error(evRes.error);
@@ -241,14 +223,6 @@ async function fetchEventFromSupabase(eventId) {
 
   const seatsTotalAvailable = dates.reduce((acc, x) => acc + (Number(x.seats) || 0), 0);
 
-  // ✅ FIX: NO metas default aquí. Dejá que el fallback sea SOLO en pickHeroImage.
-  const rawImg = evRes.data.img || "";
-  const rawDesk = evRes.data.img_desktop || "";
-  const rawMob = evRes.data.img_mobile || "";
-  const rawMore = evRes.data.more_img || "";
-  const rawMoreAlt = evRes.data.more_img_alt || "";
-  const rawVideo = evRes.data.video_url || "";
-
   return {
     id: String(evRes.data.id || ""),
     type: String(evRes.data.type || "Experiencia"),
@@ -256,15 +230,12 @@ async function fetchEventFromSupabase(eventId) {
     title: String(evRes.data.title || "Evento"),
     desc: String(evRes.data.description || ""),
 
-    // ✅ Si vienen vacíos, quedan vacíos; fallback se decide después
-    img: normalizeImgPath(rawImg, ""),
-    imgDesktop: normalizeImgPath(rawDesk, ""),
-    imgMobile: normalizeImgPath(rawMob, ""),
+    // ✅ La imagen SIEMPRE sale del evento. Si no hay, fallback local.
+    img: normalizeImgPath(evRes.data.img || "./assets/img/hero-1.jpg"),
 
-    videoUrl: String(rawVideo || "").trim(),
-
-    moreImg: String(rawMore || "").trim(),
-    moreImgAlt: String(rawMoreAlt || "").trim(),
+    // ✅ Opcional: imagen "ver más" desde BD
+    moreImg: normalizeImgPath(evRes.data.more_img || ""),
+    moreImgAlt: String(evRes.data.more_img_alt || "").trim(),
 
     dates,
     seats: seatsTotalAvailable,
@@ -301,6 +272,7 @@ function ensurePickListener() {
     if (!pickBtn) return;
     if (!CURRENT) return;
 
+    // ✅ Caso dropdown: botón tiene data-pick="__dropdown__"
     let dateId = String(pickBtn.getAttribute("data-pick") || "");
     if (!dateId) return;
 
@@ -332,35 +304,61 @@ function ensurePickListener() {
 }
 
 // ============================================================
-// "Ver más info" (mobile) — USA TU HTML (NO inyecta)
+// "Ver más info" (mobile)
+// - Lo creamos aquí (sin tocar tu HTML), y se oculta si no hay imagen en BD
 // ============================================================
-function ensureMoreInfoWiring() {
-  if (ensureMoreInfoWiring._done) return;
-  ensureMoreInfoWiring._done = true;
+function ensureMoreInfoBlock() {
+  if (ensureMoreInfoBlock._done) return;
+  ensureMoreInfoBlock._done = true;
 
-  const btn = $("#btnMoreInfo");
+  const desc = $("#evDesc");
+  if (!desc) return;
+
+  // Insertamos el bloque justo después del párrafo de descripción.
+  const wrap = document.createElement("div");
+  wrap.className = "moreInfo";
+  wrap.id = "moreInfo";
+  wrap.setAttribute("hidden", "");
+
+  wrap.innerHTML = `
+    <button class="btn moreBtn" type="button" id="moreBtn" aria-expanded="false" aria-controls="morePanel">
+      Ver más info
+    </button>
+
+    <div class="morePanel" id="morePanel" hidden>
+      <div class="moreMedia">
+        <img id="moreImg" class="moreImg" alt="Más información del evento" loading="lazy" decoding="async" />
+      </div>
+    </div>
+  `;
+
+  desc.insertAdjacentElement("afterend", wrap);
+
+  const btn = $("#moreBtn");
   const panel = $("#morePanel");
-  if (!btn || !panel) return;
 
-  btn.addEventListener("click", () => {
+  btn?.addEventListener("click", () => {
     const isOpen = btn.getAttribute("aria-expanded") === "true";
     const next = !isOpen;
 
     btn.setAttribute("aria-expanded", next ? "true" : "false");
-    if (next) panel.removeAttribute("hidden");
-    else panel.setAttribute("hidden", "");
+    if (panel) {
+      if (next) panel.removeAttribute("hidden");
+      else panel.setAttribute("hidden", "");
+    }
   });
 }
 
 function setMoreInfoMedia(ev) {
   const wrap = $("#moreInfo");
-  const img = $("#evMoreImg");
-  const btn = $("#btnMoreInfo");
+  const img = $("#moreImg");
+  const btn = $("#moreBtn");
   const panel = $("#morePanel");
   if (!wrap || !img || !btn || !panel) return;
 
+  // Si no hay imagen (o quedó en fallback vacío), ocultamos
   const raw = String(ev?.moreImg || "").trim();
-  const has = !!raw;
+  const has = !!raw && raw !== "./assets/img/hero-1.jpg"; // evita que se vea un fallback genérico si no querés
 
   if (!has) {
     wrap.setAttribute("hidden", "");
@@ -368,11 +366,12 @@ function setMoreInfoMedia(ev) {
   }
 
   img.src = raw;
-  img.alt = ev?.moreImgAlt
-    ? ev.moreImgAlt
-    : (ev?.title ? `Más info: ${ev.title}` : "Información adicional del evento");
+  img.alt = ev?.moreImgAlt ? ev.moreImgAlt : (ev?.title ? `Más info: ${ev.title}` : "Más información del evento");
 
+  // visible en mobile (CSS lo apaga en desktop)
   wrap.removeAttribute("hidden");
+
+  // por defecto cerrado
   btn.setAttribute("aria-expanded", "false");
   panel.setAttribute("hidden", "");
 }
@@ -392,6 +391,7 @@ function renderDatesUI(dateListEl, ev, soldOutTotal) {
     return;
   }
 
+  // ✅ 1 sola fecha => UI actual (card)
   if (dates.length === 1) {
     const x = dates[0];
     const dateId = String(x?.id || "");
@@ -436,6 +436,7 @@ function renderDatesUI(dateListEl, ev, soldOutTotal) {
     return;
   }
 
+  // ✅ 2+ fechas => DROPDOWN + botón
   const wrap = document.createElement("div");
   wrap.className = "dateItem";
   wrap.style.alignItems = "stretch";
@@ -555,24 +556,23 @@ function renderEvent(ev) {
 
   const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
 
-  const heroPickedImg = pickHeroImage(ev);
-
-  if (isDesktop()) setHeroVideoIfPossible(ev);
-  else setHeroVideoIfPossible({ videoUrl: "" });
-
+  // ✅ Compat: heroBg existe pero CSS lo oculta. Igual seteamos por si luego lo usás.
   const heroBg = $("#heroBg");
   if (heroBg) {
-    heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(heroPickedImg)}')`);
-    heroBg.style.backgroundImage = `url('${safeCssUrl(heroPickedImg)}')`;
+    const bg = normalizeImgPath(ev.img || "./assets/img/hero-1.jpg");
+    heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(bg)}')`);
+    heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
   }
 
+  // ✅ FOTO REAL (izquierda) — siempre del evento
   const heroImgEl = $("#evPhoto");
   if (heroImgEl) {
-    heroImgEl.src = heroPickedImg;
+    heroImgEl.src = ev.img || "./assets/img/hero-1.jpg";
     heroImgEl.alt = ev.title ? `Foto del evento: ${ev.title}` : "Foto del evento";
   }
 
-  ensureMoreInfoWiring();
+  // ✅ Mobile: bloque "Ver más info"
+  ensureMoreInfoBlock();
   setMoreInfoMedia(ev);
 
   const metaRow = $("#metaRow");
@@ -592,12 +592,14 @@ function renderEvent(ev) {
   if (t) t.textContent = ev.title;
   if (d) d.textContent = ev.desc || "";
 
+  // ✅ Dates UI
   const dateList = $("#dateList");
   if (dateList) {
     dateList.innerHTML = "";
     renderDatesUI(dateList, ev, soldOutTotal);
   }
 
+  // ✅ KV
   const kv = $("#kv");
   if (kv) {
     kv.innerHTML = `
@@ -630,6 +632,7 @@ function renderEvent(ev) {
     `;
   }
 
+  // ✅ Notices
   if (!ev.datesOk) {
     setNotices({ sold: false, available: false, pending: true });
   } else if (soldOutTotal) {
@@ -638,6 +641,7 @@ function renderEvent(ev) {
     setNotices({ sold: false, available: true, pending: false });
   }
 
+  // ✅ btnRegister (elige primera fecha con cupos si existe)
   const btnRegister = $("#btnRegister");
   if (btnRegister) {
     const firstAvailable = (ev.dates || []).find((x) => (Number(x?.seats) || 0) > 0);
