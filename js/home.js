@@ -37,13 +37,22 @@
    - Soporta video de fondo por slide (autoplay muted loop playsinline)
    - Mantiene --bgimg como fallback (no rompe CSS existente)
 
-   ✅ PATCH 2026-02-18: MEDIA ITEMS MIGRATION (alineado a cambios)
-   - events.img / events.video_url ya NO se usan (si ya no existen en DB)
-   - Imagen hero por evento viene de media_items (target='event'):
-     - event_img_desktop (preferido)
-     - event_img_mobile (fallback)
-   - Video hero opcional por media_items:
-     - event_video (si existe, se usa; si no, queda vacío y NO rompe nada)
+   ✅ PATCH 2026-02-15.1: HERO VIDEO PERF
+   - Solo reproduce el video del slide activo
+   - Pausa los demás para ahorrar CPU/batería
+   - Pausa cuando la pestaña no está visible
+
+   ✅ PATCH 2026-02-15.2: HERO VIDEO PLAY FIX
+   - NO resetea currentTime al pausar (Safari/iOS bug)
+   - Fuerza muted/playsinline por JS antes de play()
+   - Retry con canplay si play() falla
+   - guessVideoMime ignora query/hash
+
+   ✅ PATCH 2026-02-18: MEDIA_ITEMS (alineado a cambios actuales)
+   - events ya NO requiere img ni video_url (evita 400)
+   - Hero image por evento viene de media_items:
+     folders: event_img_desktop | event_img_mobile
+   - videoUrl queda "" (si luego movemos video a media_items, se integra)
 ============================================================ */
 
 // ============================================================
@@ -531,20 +540,12 @@ function computeEventStatus(dates, durationHours) {
 }
 
 /**
- * ✅ MEDIA MAP (event hero image/video)
- * - lee media_items target='event' por event_id
- * - folders:
- *   - event_img_desktop
- *   - event_img_mobile
- *   - event_video (opcional)
+ * ✅ MEDIA_ITEMS helper: trae imágenes por evento
+ * folders: event_img_desktop | event_img_mobile
  */
-async function fetchEventMediaMap(eventIds) {
-  if (!hasSupabase()) return new Map();
-
+async function fetchEventHeroMediaMap(eventIds) {
   const ids = Array.isArray(eventIds) ? eventIds.filter(Boolean) : [];
   if (!ids.length) return new Map();
-
-  const folders = ["event_img_desktop", "event_img_mobile", "event_video"];
 
   try {
     const res = await APP.supabase
@@ -552,14 +553,14 @@ async function fetchEventMediaMap(eventIds) {
       .select("event_id,folder,public_url,path")
       .eq("target", "event")
       .in("event_id", ids)
-      .in("folder", folders);
+      .in("folder", ["event_img_desktop", "event_img_mobile"]);
 
     if (res.error) {
       console.warn("[home] media_items error:", res.error);
       return new Map();
     }
 
-    const map = new Map();
+    const map = new Map(); // key: `${event_id}:${folder}` -> url
     (Array.isArray(res.data) ? res.data : []).forEach((r) => {
       const eid = r?.event_id;
       const folder = String(r?.folder || "").trim();
@@ -581,7 +582,7 @@ async function fetchEventsFromSupabase() {
     return [];
   }
 
-  // ✅ events: SIN img/video_url (alineado a cambios en DB)
+  // ✅ IMPORTANTE: events ya NO pide img/video_url para evitar 400
   const evRes = await APP.supabase
     .from("events")
     .select("id,title,type,month_key,description,location,time_range,duration_hours,created_at,updated_at")
@@ -596,7 +597,6 @@ async function fetchEventsFromSupabase() {
   const events = Array.isArray(evRes.data) ? evRes.data : [];
   if (!events.length) return [];
 
-  // Fechas
   const datesRes = await APP.supabase
     .from("event_dates")
     .select("id,event_id,label,seats_total,seats_available,created_at,start_at,ends_at")
@@ -626,22 +626,19 @@ async function fetchEventsFromSupabase() {
     });
   });
 
-  // ✅ Media por evento (hero img + video opcional)
+  // ✅ MEDIA_ITEMS: mapa de imágenes por evento
   const ids = events.map((e) => e.id).filter(Boolean);
-  const mediaMap = await fetchEventMediaMap(ids);
+  const heroMediaMap = await fetchEventHeroMediaMap(ids);
 
   return events.map((ev) => {
     const evDates = byEvent.get(ev.id) || [];
     const status = computeEventStatus(evDates, ev?.duration_hours);
     const labels = evDates.map((x) => x.label).filter(Boolean);
 
-    const desktop = String(mediaMap.get(`${ev.id}:event_img_desktop`) || "").trim();
-    const mobile = String(mediaMap.get(`${ev.id}:event_img_mobile`) || "").trim();
-    const hero = normalizeImgPath(desktop || mobile || "/assets/img/hero-1.jpg");
-
-    // opcional: si existe, se usa; si no, queda vacío sin romper nada
-    const videoRaw = String(mediaMap.get(`${ev.id}:event_video`) || "").trim();
-    const videoUrl = videoRaw ? normalizeVideoUrl(videoRaw) : "";
+    // ✅ Preferencia: desktop -> mobile -> fallback
+    const desktop = heroMediaMap.get(`${ev.id}:event_img_desktop`) || "";
+    const mobile = heroMediaMap.get(`${ev.id}:event_img_mobile`) || "";
+    const heroImg = normalizeImgPath(desktop || mobile || "/assets/img/hero-1.jpg");
 
     return {
       id: ev?.id || "",
@@ -652,8 +649,11 @@ async function fetchEventsFromSupabase() {
       nextDateISO: status.nextIso || "",
       title: ev?.title || "Evento",
       desc: ev?.description || "",
-      img: hero,
-      videoUrl, // ✅ viene de media_items si existe, si no "" (no rompe carrusel)
+      img: heroImg,
+
+      // ✅ videoUrl queda vacío (si luego lo movemos a media_items, lo integramos)
+      videoUrl: "",
+
       location: ev?.location || "",
       timeRange: ev?.time_range || "",
       durationHours: ev?.duration_hours || "",
@@ -1036,7 +1036,7 @@ function renderSlides() {
     const mobilePrimaryClass = finalized ? "btn--success" : soldOut ? "btn--danger" : "";
     const mobilePrimaryDisabled = blocked ? "aria-disabled='true'" : "";
 
-    // ✅ HERO VIDEO (opcional)
+    // ✅ HERO VIDEO (opcional) — ahora viene vacío (no rompe nada)
     const v = String(ev?.videoUrl || "").trim();
     const mime = v ? guessVideoMime(v) : "";
     const videoHtml = v
