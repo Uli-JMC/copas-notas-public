@@ -1,17 +1,10 @@
 "use strict";
 
 /* ============================================================
-   event.js (Supabase-first) ✅ DROPDOWN FECHAS + FIX + PRICE + MEDIA
-   - ✅ Si hay 1 fecha: se muestra card normal con botón Elegir
-   - ✅ Si hay 2+ fechas: se muestra dropdown + botón Elegir
-   - No marca "Agotado" si fechas aún no cargaron (evita falso sold-out)
-   - Loader suave para evitar “brinco” visual al refrescar
-   - ✅ Muestra Precio (events.price_amount + events.price_currency)
-     - Si no hay precio => "Por confirmar"
-   - ✅ Imagen principal SIEMPRE viene de events.img (no del hero home)
-   - ✅ Mobile: botón "Ver más info" que despliega panel con imagen desde BD
-     - Usa fields opcionales: events.more_img y events.more_img_alt
-     - Si no existen o vienen vacíos, el bloque queda oculto
+   event.js (Supabase-first) ✅ DROPDOWN FECHAS + FIX + PRICE + MEDIA (v2026-02)
+   - ✅ La imagen principal viene de media_items (event_img_desktop / event_img_mobile)
+   - ✅ "Ver más info" (mobile) viene de media_items (event_more_img)
+   - ✅ more_img_alt se queda en events.more_img_alt
 ============================================================ */
 
 // ============================================================
@@ -93,7 +86,7 @@ function hasSupabase() {
   return !!(window.APP && APP.supabase);
 }
 
-// ✅ Precio helpers (Opción A)
+// ✅ Precio helpers
 function normCurrency(cur) {
   const c = String(cur || "").trim().toUpperCase();
   if (c === "USD" || c === "CRC") return c;
@@ -118,7 +111,6 @@ function formatMoney(amount, currency) {
     return isCRC ? `₡${fixed}` : `$${fixed}`;
   }
 }
-
 function safePriceText(priceAmount, priceCurrency) {
   const cur = normCurrency(priceCurrency);
   const n = Number(priceAmount);
@@ -144,6 +136,38 @@ function setLoading(on) {
 }
 
 // ============================================================
+// Media fetch (media_items)
+// ============================================================
+async function fetchEventMediaFromSupabase(eventId) {
+  const sb = APP.supabase;
+  const eid = String(eventId ?? "").trim();
+  if (!eid) return {};
+
+  const folders = ["event_img_desktop", "event_img_mobile", "event_more_img"];
+
+  const { data, error } = await sb
+    .from("media_items")
+    .select("folder, public_url, path")
+    .eq("target", "event")
+    .eq("event_id", eid)
+    .in("folder", folders);
+
+  if (error) {
+    console.error(error);
+    return {};
+  }
+
+  const map = {};
+  (Array.isArray(data) ? data : []).forEach((row) => {
+    const f = String(row?.folder || "").trim();
+    const url = String(row?.public_url || row?.path || "").trim();
+    if (f && url) map[f] = url;
+  });
+
+  return map;
+}
+
+// ============================================================
 // Supabase fetch
 // ============================================================
 async function fetchEventFromSupabase(eventId) {
@@ -156,28 +180,15 @@ async function fetchEventFromSupabase(eventId) {
   const eid = String(eventId ?? "").trim();
   if (!eid) return null;
 
-  // 1) Evento
-  // ✅ Nota: more_img / more_img_alt son opcionales (si no existen en tabla, Supabase devuelve error).
-  // Por eso: primero intentamos con esos campos; si falla, reintentamos sin ellos.
-  const selectWithMore =
-    "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,more_img,more_img_alt,created_at,updated_at";
+  // 1) Evento (sin img/video_url/more_img porque ya no existen)
   const selectBase =
-    "id,title,type,month_key,description,img,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at";
+    "id,title,type,month_key,description,location,time_range,duration_hours,price_amount,price_currency,more_img_alt,created_at,updated_at";
 
-  let evRes = await APP.supabase
+  const evRes = await APP.supabase
     .from("events")
-    .select(selectWithMore)
+    .select(selectBase)
     .eq("id", eid)
     .maybeSingle();
-
-  if (evRes?.error) {
-    // fallback si la columna no existe todavía
-    evRes = await APP.supabase
-      .from("events")
-      .select(selectBase)
-      .eq("id", eid)
-      .maybeSingle();
-  }
 
   if (evRes.error) {
     console.error(evRes.error);
@@ -185,6 +196,15 @@ async function fetchEventFromSupabase(eventId) {
     return null;
   }
   if (!evRes.data) return null;
+
+  // 1.1) Media del evento desde media_items
+  const media = await fetchEventMediaFromSupabase(eid);
+
+  // Preferencia: desktop -> mobile -> fallback local
+  const heroUrl =
+    normalizeImgPath(media.event_img_desktop || media.event_img_mobile || "./assets/img/hero-1.jpg");
+
+  const moreUrl = normalizeImgPath(media.event_more_img || "");
 
   // 2) Fechas
   let datesOk = true;
@@ -230,11 +250,11 @@ async function fetchEventFromSupabase(eventId) {
     title: String(evRes.data.title || "Evento"),
     desc: String(evRes.data.description || ""),
 
-    // ✅ La imagen SIEMPRE sale del evento. Si no hay, fallback local.
-    img: normalizeImgPath(evRes.data.img || "./assets/img/hero-1.jpg"),
+    // ✅ Imagen principal viene de media_items
+    img: heroUrl,
 
-    // ✅ Opcional: imagen "ver más" desde BD
-    moreImg: normalizeImgPath(evRes.data.more_img || ""),
+    // ✅ "Ver más" viene de media_items
+    moreImg: moreUrl,
     moreImgAlt: String(evRes.data.more_img_alt || "").trim(),
 
     dates,
@@ -272,7 +292,6 @@ function ensurePickListener() {
     if (!pickBtn) return;
     if (!CURRENT) return;
 
-    // ✅ Caso dropdown: botón tiene data-pick="__dropdown__"
     let dateId = String(pickBtn.getAttribute("data-pick") || "");
     if (!dateId) return;
 
@@ -305,7 +324,6 @@ function ensurePickListener() {
 
 // ============================================================
 // "Ver más info" (mobile)
-// - Lo creamos aquí (sin tocar tu HTML), y se oculta si no hay imagen en BD
 // ============================================================
 function ensureMoreInfoBlock() {
   if (ensureMoreInfoBlock._done) return;
@@ -314,7 +332,6 @@ function ensureMoreInfoBlock() {
   const desc = $("#evDesc");
   if (!desc) return;
 
-  // Insertamos el bloque justo después del párrafo de descripción.
   const wrap = document.createElement("div");
   wrap.className = "moreInfo";
   wrap.id = "moreInfo";
@@ -356,9 +373,8 @@ function setMoreInfoMedia(ev) {
   const panel = $("#morePanel");
   if (!wrap || !img || !btn || !panel) return;
 
-  // Si no hay imagen (o quedó en fallback vacío), ocultamos
   const raw = String(ev?.moreImg || "").trim();
-  const has = !!raw && raw !== "./assets/img/hero-1.jpg"; // evita que se vea un fallback genérico si no querés
+  const has = !!raw && raw !== "./assets/img/hero-1.jpg";
 
   if (!has) {
     wrap.setAttribute("hidden", "");
@@ -366,12 +382,12 @@ function setMoreInfoMedia(ev) {
   }
 
   img.src = raw;
-  img.alt = ev?.moreImgAlt ? ev.moreImgAlt : (ev?.title ? `Más info: ${ev.title}` : "Más información del evento");
+  img.alt = ev?.moreImgAlt
+    ? ev.moreImgAlt
+    : (ev?.title ? `Más info: ${ev.title}` : "Más información del evento");
 
-  // visible en mobile (CSS lo apaga en desktop)
   wrap.removeAttribute("hidden");
 
-  // por defecto cerrado
   btn.setAttribute("aria-expanded", "false");
   panel.setAttribute("hidden", "");
 }
@@ -391,7 +407,6 @@ function renderDatesUI(dateListEl, ev, soldOutTotal) {
     return;
   }
 
-  // ✅ 1 sola fecha => UI actual (card)
   if (dates.length === 1) {
     const x = dates[0];
     const dateId = String(x?.id || "");
@@ -436,7 +451,6 @@ function renderDatesUI(dateListEl, ev, soldOutTotal) {
     return;
   }
 
-  // ✅ 2+ fechas => DROPDOWN + botón
   const wrap = document.createElement("div");
   wrap.className = "dateItem";
   wrap.style.alignItems = "stretch";
@@ -556,7 +570,6 @@ function renderEvent(ev) {
 
   const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
 
-  // ✅ Compat: heroBg existe pero CSS lo oculta. Igual seteamos por si luego lo usás.
   const heroBg = $("#heroBg");
   if (heroBg) {
     const bg = normalizeImgPath(ev.img || "./assets/img/hero-1.jpg");
@@ -564,14 +577,12 @@ function renderEvent(ev) {
     heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
   }
 
-  // ✅ FOTO REAL (izquierda) — siempre del evento
   const heroImgEl = $("#evPhoto");
   if (heroImgEl) {
     heroImgEl.src = ev.img || "./assets/img/hero-1.jpg";
     heroImgEl.alt = ev.title ? `Foto del evento: ${ev.title}` : "Foto del evento";
   }
 
-  // ✅ Mobile: bloque "Ver más info"
   ensureMoreInfoBlock();
   setMoreInfoMedia(ev);
 
@@ -592,14 +603,12 @@ function renderEvent(ev) {
   if (t) t.textContent = ev.title;
   if (d) d.textContent = ev.desc || "";
 
-  // ✅ Dates UI
   const dateList = $("#dateList");
   if (dateList) {
     dateList.innerHTML = "";
     renderDatesUI(dateList, ev, soldOutTotal);
   }
 
-  // ✅ KV
   const kv = $("#kv");
   if (kv) {
     kv.innerHTML = `
@@ -632,16 +641,10 @@ function renderEvent(ev) {
     `;
   }
 
-  // ✅ Notices
-  if (!ev.datesOk) {
-    setNotices({ sold: false, available: false, pending: true });
-  } else if (soldOutTotal) {
-    setNotices({ sold: true, available: false, pending: false });
-  } else {
-    setNotices({ sold: false, available: true, pending: false });
-  }
+  if (!ev.datesOk) setNotices({ sold: false, available: false, pending: true });
+  else if (soldOutTotal) setNotices({ sold: true, available: false, pending: false });
+  else setNotices({ sold: false, available: true, pending: false });
 
-  // ✅ btnRegister (elige primera fecha con cupos si existe)
   const btnRegister = $("#btnRegister");
   if (btnRegister) {
     const firstAvailable = (ev.dates || []).find((x) => (Number(x?.seats) || 0) > 0);
@@ -670,9 +673,7 @@ function renderEvent(ev) {
   const heroCard = $("#heroCard");
   if (heroCard) heroCard.classList.toggle("isSoldOut", soldOutTotal);
 
-  if (soldOutTotal && ev.datesOk) {
-    toast("Evento agotado", "Este evento no tiene cupos disponibles.");
-  }
+  if (soldOutTotal && ev.datesOk) toast("Evento agotado", "Este evento no tiene cupos disponibles.");
 }
 
 // ============================================================
