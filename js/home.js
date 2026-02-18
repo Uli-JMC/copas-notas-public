@@ -37,16 +37,13 @@
    - Soporta video de fondo por slide (autoplay muted loop playsinline)
    - Mantiene --bgimg como fallback (no rompe CSS existente)
 
-   ✅ PATCH 2026-02-15.1: HERO VIDEO PERF
-   - Solo reproduce el video del slide activo
-   - Pausa los demás para ahorrar CPU/batería
-   - Pausa cuando la pestaña no está visible
-
-   ✅ PATCH 2026-02-15.2: HERO VIDEO PLAY FIX
-   - NO resetea currentTime al pausar (Safari/iOS bug)
-   - Fuerza muted/playsinline por JS antes de play()
-   - Retry con canplay si play() falla
-   - guessVideoMime ignora query/hash
+   ✅ PATCH 2026-02-18: MEDIA ITEMS MIGRATION (alineado a cambios)
+   - events.img / events.video_url ya NO se usan (si ya no existen en DB)
+   - Imagen hero por evento viene de media_items (target='event'):
+     - event_img_desktop (preferido)
+     - event_img_mobile (fallback)
+   - Video hero opcional por media_items:
+     - event_video (si existe, se usa; si no, queda vacío y NO rompe nada)
 ============================================================ */
 
 // ============================================================
@@ -533,15 +530,61 @@ function computeEventStatus(dates, durationHours) {
   return { finalized, soldOut, seatsUpcoming, nextLabel, nextIso };
 }
 
+/**
+ * ✅ MEDIA MAP (event hero image/video)
+ * - lee media_items target='event' por event_id
+ * - folders:
+ *   - event_img_desktop
+ *   - event_img_mobile
+ *   - event_video (opcional)
+ */
+async function fetchEventMediaMap(eventIds) {
+  if (!hasSupabase()) return new Map();
+
+  const ids = Array.isArray(eventIds) ? eventIds.filter(Boolean) : [];
+  if (!ids.length) return new Map();
+
+  const folders = ["event_img_desktop", "event_img_mobile", "event_video"];
+
+  try {
+    const res = await APP.supabase
+      .from("media_items")
+      .select("event_id,folder,public_url,path")
+      .eq("target", "event")
+      .in("event_id", ids)
+      .in("folder", folders);
+
+    if (res.error) {
+      console.warn("[home] media_items error:", res.error);
+      return new Map();
+    }
+
+    const map = new Map();
+    (Array.isArray(res.data) ? res.data : []).forEach((r) => {
+      const eid = r?.event_id;
+      const folder = String(r?.folder || "").trim();
+      const url = String(r?.public_url || r?.path || "").trim();
+      if (!eid || !folder || !url) return;
+      map.set(`${eid}:${folder}`, url);
+    });
+
+    return map;
+  } catch (e) {
+    console.warn("[home] media_items fetch failed:", e);
+    return new Map();
+  }
+}
+
 async function fetchEventsFromSupabase() {
   if (!hasSupabase()) {
     hardFail("APP.supabase no está listo. Revisá el orden: supabase-js CDN -> supabaseClient.js -> home.js");
     return [];
   }
 
+  // ✅ events: SIN img/video_url (alineado a cambios en DB)
   const evRes = await APP.supabase
     .from("events")
-    .select("id,title,type,month_key,description,img,video_url,location,time_range,duration_hours,created_at,updated_at")
+    .select("id,title,type,month_key,description,location,time_range,duration_hours,created_at,updated_at")
     .order("created_at", { ascending: false });
 
   if (evRes.error) {
@@ -553,6 +596,7 @@ async function fetchEventsFromSupabase() {
   const events = Array.isArray(evRes.data) ? evRes.data : [];
   if (!events.length) return [];
 
+  // Fechas
   const datesRes = await APP.supabase
     .from("event_dates")
     .select("id,event_id,label,seats_total,seats_available,created_at,start_at,ends_at")
@@ -582,10 +626,22 @@ async function fetchEventsFromSupabase() {
     });
   });
 
+  // ✅ Media por evento (hero img + video opcional)
+  const ids = events.map((e) => e.id).filter(Boolean);
+  const mediaMap = await fetchEventMediaMap(ids);
+
   return events.map((ev) => {
     const evDates = byEvent.get(ev.id) || [];
     const status = computeEventStatus(evDates, ev?.duration_hours);
     const labels = evDates.map((x) => x.label).filter(Boolean);
+
+    const desktop = String(mediaMap.get(`${ev.id}:event_img_desktop`) || "").trim();
+    const mobile = String(mediaMap.get(`${ev.id}:event_img_mobile`) || "").trim();
+    const hero = normalizeImgPath(desktop || mobile || "/assets/img/hero-1.jpg");
+
+    // opcional: si existe, se usa; si no, queda vacío sin romper nada
+    const videoRaw = String(mediaMap.get(`${ev.id}:event_video`) || "").trim();
+    const videoUrl = videoRaw ? normalizeVideoUrl(videoRaw) : "";
 
     return {
       id: ev?.id || "",
@@ -596,8 +652,8 @@ async function fetchEventsFromSupabase() {
       nextDateISO: status.nextIso || "",
       title: ev?.title || "Evento",
       desc: ev?.description || "",
-      img: normalizeImgPath(ev?.img),
-      videoUrl: normalizeVideoUrl(ev?.video_url),
+      img: hero,
+      videoUrl, // ✅ viene de media_items si existe, si no "" (no rompe carrusel)
       location: ev?.location || "",
       timeRange: ev?.time_range || "",
       durationHours: ev?.duration_hours || "",
