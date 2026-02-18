@@ -1,14 +1,18 @@
 "use strict";
 
 /* ============================================================
-   event.js ✅ PRO (Supabase-first) — 2026-02-18.2
-   - ✅ Hero del evento desde media_items (target='event'):
-       folders: event_img_desktop | event_img_mobile
+   event.js ✅ PRO (Supabase-first) — 2026-02-18.3 (DEPURADO)
+   - ✅ Hero del evento desde media_items (target='event', event_id obligatorio):
+       folders aceptados:
+         - desktop: event_img_desktop | desktop_event | desktop
+         - mobile : event_img_mobile  | mobile_event  | mobile
    - ✅ "Ver más info" (mobile) desde media_items:
-       folder: event_more_img
+       folders aceptados:
+         - event_more_img | event_more | more | event_more_image
    - ✅ more_img_alt sigue en events.more_img_alt
    - ✅ Fechas dropdown (1 vs N) + control cupos
    - ✅ Precio: price_amount + price_currency
+   - ✅ Fallbacks seguros y logs de diagnóstico
 ============================================================ */
 
 (() => {
@@ -33,13 +37,20 @@
     return safeStr(url).replaceAll("'", "%27").replaceAll('"', "%22").replaceAll(")", "%29").trim();
   }
 
+  function isAbsUrl(u) {
+    return /^https?:\/\//i.test(String(u || "").trim());
+  }
+
   function normalizeImgPath(input) {
     const fallback = "./assets/img/hero-1.jpg";
     const raw = cleanSpaces(input);
     if (!raw) return fallback;
 
     // ✅ URL absoluta: no tocar
-    if (/^https?:\/\//i.test(raw)) return raw;
+    if (isAbsUrl(raw)) return raw;
+
+    // ✅ a veces guardaste path con URL completa por error: si parece URL, no tocar
+    if (raw.includes("supabase.co/storage/v1/object/public/")) return raw;
 
     // assets locales
     const [pathPart, rest] = raw.split(/(?=[?#])/);
@@ -100,10 +111,6 @@
     return window.APP && (APP.supabase || APP.sb) ? (APP.supabase || APP.sb) : null;
   }
 
-  function hasSupabase() {
-    return !!getSB();
-  }
-
   // ----------------------------
   // Precio helpers
   // ----------------------------
@@ -157,14 +164,45 @@
   }
 
   // ----------------------------
-  // Media fetch (media_items target=event)
+  // Media fetch (media_items target=event) + aliases
   // ----------------------------
+  const FOLDER_ALIASES = {
+    // desktop
+    event_img_desktop: "event_img_desktop",
+    desktop_event: "event_img_desktop",
+    desktop: "event_img_desktop",
+
+    // mobile
+    event_img_mobile: "event_img_mobile",
+    mobile_event: "event_img_mobile",
+    mobile: "event_img_mobile",
+
+    // more
+    event_more_img: "event_more_img",
+    event_more: "event_more_img",
+    event_more_image: "event_more_img",
+    more: "event_more_img",
+  };
+
+  const WANT_FOLDERS = Object.keys(FOLDER_ALIASES);
+
+  function resolveMediaUrl(row) {
+    const pub = cleanSpaces(row?.public_url);
+    if (pub) return pub;
+
+    const p = cleanSpaces(row?.path);
+    // si path trae URL absoluta, úsala (tu caso: a veces guardaste URL en path)
+    if (isAbsUrl(p)) return p;
+
+    // si es path tipo "events/xxx.webp" no lo podemos convertir aquí sin bucket info,
+    // así que mejor devolver vacío para evitar imágenes rotas.
+    return "";
+  }
+
   async function fetchEventMediaFromSupabase(eventId) {
     const sb = getSB();
     const eid = cleanSpaces(eventId);
     if (!sb || !eid) return {};
-
-    const folders = ["event_img_desktop", "event_img_mobile", "event_more_img"];
 
     try {
       const { data, error } = await sb
@@ -172,7 +210,7 @@
         .select("folder, public_url, path, updated_at")
         .eq("target", "event")
         .eq("event_id", eid)
-        .in("folder", folders)
+        .in("folder", WANT_FOLDERS)
         .order("updated_at", { ascending: false });
 
       if (error) {
@@ -180,14 +218,23 @@
         return {};
       }
 
-      // toma el más nuevo por folder
+      // toma el más nuevo por "folder normalizado"
       const map = {};
       (Array.isArray(data) ? data : []).forEach((row) => {
-        const f = cleanSpaces(row?.folder);
-        const url = cleanSpaces(row?.public_url);
-        if (f && url && !map[f]) map[f] = url;
+        const rawFolder = cleanSpaces(row?.folder);
+        const norm = FOLDER_ALIASES[rawFolder] || "";
+        if (!norm) return;
+
+        const url = resolveMediaUrl(row);
+        if (!url) return;
+
+        if (!map[norm]) map[norm] = url; // como viene ordenado desc, el primero es el más nuevo
       });
 
+      // logs útiles
+      if (!map.event_img_desktop && !map.event_img_mobile) {
+        console.warn("[event] Sin hero en media_items para event_id:", eid, data);
+      }
       return map;
     } catch (err) {
       console.error("[event] media_items fetch failed:", err);
@@ -221,6 +268,7 @@
     }
     if (!evRes.data) return null;
 
+    // media
     const media = await fetchEventMediaFromSupabase(eid);
 
     const heroUrl = normalizeImgPath(media.event_img_desktop || media.event_img_mobile || "./assets/img/hero-1.jpg");
@@ -228,6 +276,7 @@
     const moreUrlRaw = cleanSpaces(media.event_more_img || "");
     const moreUrl = moreUrlRaw ? normalizeImgPath(moreUrlRaw) : "";
 
+    // dates
     let datesOk = true;
 
     const datesRes = await sb
