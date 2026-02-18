@@ -34,6 +34,7 @@ function normalizeImgPath(input) {
   const raw = String(input ?? "").trim();
   if (!raw) return fallback;
 
+  // ✅ URLs absolutas: NO tocarlas
   if (/^https?:\/\//i.test(raw)) return raw;
 
   const [pathPart, rest] = raw.split(/(?=[?#])/);
@@ -145,26 +146,34 @@ async function fetchEventMediaFromSupabase(eventId) {
 
   const folders = ["event_img_desktop", "event_img_mobile", "event_more_img"];
 
-  const { data, error } = await sb
-    .from("media_items")
-    .select("folder, public_url, path")
-    .eq("target", "event")
-    .eq("event_id", eid)
-    .in("folder", folders);
+  try {
+    const { data, error } = await sb
+      .from("media_items")
+      .select("folder, public_url, path")
+      .eq("target", "event")
+      .eq("event_id", eid)
+      .in("folder", folders);
 
-  if (error) {
-    console.error(error);
+    if (error) {
+      console.error(error);
+      return {};
+    }
+
+    const map = {};
+    (Array.isArray(data) ? data : []).forEach((row) => {
+      const f = String(row?.folder || "").trim();
+      const url = String(row?.public_url || "").trim();
+
+      // ✅ Solo usamos public_url aquí.
+      // Si viniera path, NO lo convertimos a ./assets/img porque no es un asset local.
+      if (f && url) map[f] = url;
+    });
+
+    return map;
+  } catch (err) {
+    console.error(err);
     return {};
   }
-
-  const map = {};
-  (Array.isArray(data) ? data : []).forEach((row) => {
-    const f = String(row?.folder || "").trim();
-    const url = String(row?.public_url || row?.path || "").trim();
-    if (f && url) map[f] = url;
-  });
-
-  return map;
 }
 
 // ============================================================
@@ -180,7 +189,7 @@ async function fetchEventFromSupabase(eventId) {
   const eid = String(eventId ?? "").trim();
   if (!eid) return null;
 
-  // 1) Evento (sin img/video_url/more_img porque ya no existen)
+  // 1) Evento
   const selectBase =
     "id,title,type,month_key,description,location,time_range,duration_hours,price_amount,price_currency,more_img_alt,created_at,updated_at";
 
@@ -200,11 +209,14 @@ async function fetchEventFromSupabase(eventId) {
   // 1.1) Media del evento desde media_items
   const media = await fetchEventMediaFromSupabase(eid);
 
-  // Preferencia: desktop -> mobile -> fallback local
-  const heroUrl =
-    normalizeImgPath(media.event_img_desktop || media.event_img_mobile || "./assets/img/hero-1.jpg");
+  // ✅ Preferencia: desktop -> mobile -> fallback local
+  const heroUrl = normalizeImgPath(
+    media.event_img_desktop || media.event_img_mobile || "./assets/img/hero-1.jpg"
+  );
 
-  const moreUrl = normalizeImgPath(media.event_more_img || "");
+  // ✅ Si no hay event_more_img, lo dejamos vacío
+  const moreUrlRaw = String(media.event_more_img || "").trim();
+  const moreUrl = moreUrlRaw ? normalizeImgPath(moreUrlRaw) : "";
 
   // 2) Fechas
   let datesOk = true;
@@ -250,7 +262,6 @@ async function fetchEventFromSupabase(eventId) {
     title: String(evRes.data.title || "Evento"),
     desc: String(evRes.data.description || ""),
 
-    // ✅ Imagen principal viene de media_items
     img: heroUrl,
 
     // ✅ "Ver más" viene de media_items
@@ -374,7 +385,7 @@ function setMoreInfoMedia(ev) {
   if (!wrap || !img || !btn || !panel) return;
 
   const raw = String(ev?.moreImg || "").trim();
-  const has = !!raw && raw !== "./assets/img/hero-1.jpg";
+  const has = !!raw;
 
   if (!has) {
     wrap.setAttribute("hidden", "");
