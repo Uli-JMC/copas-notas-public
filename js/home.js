@@ -404,7 +404,6 @@ function initScrollReveal() {
   } catch (_) {}
 
   const selectors = ["section", ".heroCard", ".eventRow", ".serviceCard", ".galleryGrid > *", ".footerWide", ".newsWrap"];
-
   const found = new Set();
 
   selectors.forEach((sel) => {
@@ -457,6 +456,12 @@ function hasSupabase() {
   return !!(window.APP && APP.supabase);
 }
 
+/**
+ * ✅ Evalúa fechas y define:
+ * - finalized: true si la ÚLTIMA fecha ya terminó
+ * - soldOut: true si NO finalizado y cupos en fechas vigentes = 0 (y existen fechas vigentes)
+ * - nextLabel: label de la próxima fecha vigente (o última si ya no hay)
+ */
 function computeEventStatus(dates, durationHours) {
   const now = nowMs();
 
@@ -575,7 +580,6 @@ async function fetchEventsFromSupabase() {
   }
 
   // ✅ events: solo columnas existentes (evita 400)
-  // Nota: no pedimos img/video_url para no romper cuando no existen.
   const evRes = await APP.supabase
     .from("events")
     .select("id,title,type,month_key,description,location,time_range,duration_hours,created_at,updated_at")
@@ -632,9 +636,9 @@ async function fetchEventsFromSupabase() {
     const mobile = mediaMap.get(`${ev.id}:event_img_mobile`) || "";
     const heroImg = normalizeImgPath(desktop || mobile || "/assets/img/hero-1.jpg");
 
-    // ✅ VIDEO: 1) media_items event_video, 2) fallback a ev.video_url si existiera (sin pedirlo)
+    // ✅ VIDEO: 1) media_items event_video, 2) fallback ev.video_url si existiera (sin pedirlo)
     const vFromMedia = String(mediaMap.get(`${ev.id}:event_video`) || "").trim();
-    const vFallback = String(ev?.video_url || "").trim(); // no viene del select, pero si existe no estorba
+    const vFallback = String(ev?.video_url || "").trim();
     const videoUrl = normalizeVideoUrl(vFromMedia || vFallback);
 
     return {
@@ -659,7 +663,7 @@ async function fetchEventsFromSupabase() {
 }
 
 // ============================================================
-// ✅ GALERÍA HOME PREVIEW
+// ✅ GALERÍA HOME PREVIEW (8 fotos desde gallery_items)
 // ============================================================
 async function fetchGalleryPreview(limit = 8) {
   if (!hasSupabase()) return [];
@@ -772,7 +776,7 @@ async function renderHomeGalleryPreview() {
 }
 
 // ============================================================
-// ✅ Quote rotator
+// ✅ Testimonial rotator (MODERNO)
 // ============================================================
 function initQuoteRotator() {
   const el = qs("#quoteRotator");
