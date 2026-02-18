@@ -2,29 +2,7 @@
 
 /* ============================================================
    event.js (Supabase-first) ✅ DROPDOWN FECHAS + FIX + PRICE + MEDIA
-   - ✅ Si hay 1 fecha: se muestra card normal con botón Elegir
-   - ✅ Si hay 2+ fechas: se muestra dropdown + botón Elegir
-   - No marca "Agotado" si fechas aún no cargaron (evita falso sold-out)
-   - Loader suave para evitar “brinco” visual al refrescar
-   - ✅ Muestra Precio (events.price_amount + events.price_currency)
-     - Si no hay precio => "Por confirmar"
-
-   ✅ UPDATE (2026-02-17):
-   - Tu tabla events YA tiene:
-       img_desktop, img_mobile, more_img, more_img_alt
-   - Este JS:
-       - Los pide en el SELECT (evita 400 porque ya existen)
-       - Hero image:
-           - Desktop: prioridad video_url si hay <video id="heroVideo"> y hay URL
-                     si no: img_desktop -> img -> fallback
-           - Mobile:  img_mobile -> img -> fallback
-       - "Ver más info": usa more_img / more_img_alt y si no hay -> se oculta
-
-   ⚠️ Requisitos en HTML (opcional):
-   - Video hero solo si existe:
-       <video id="heroVideo"><source></source></video>
-   - Ver más info usa IDs:
-       #moreInfo, #btnMoreInfo, #morePanel, #evMoreImg
+   (MISMO HEADER)
 ============================================================ */
 
 // ============================================================
@@ -163,8 +141,10 @@ function isDesktop() {
 
 function pickHeroImage(ev) {
   const fallback = "./assets/img/hero-1.jpg";
+
+  // ✅ Importante: acá deben poder venir vacíos sin que “se rellenen solos”
   const desk = normalizeImgPath(ev?.imgDesktop, "");
-  const mob = normalizeImgPath(ev?.imgMobile, "");
+  const mob  = normalizeImgPath(ev?.imgMobile, "");
   const base = normalizeImgPath(ev?.img, "");
 
   // Desktop: img_desktop > img > fallback
@@ -175,7 +155,6 @@ function pickHeroImage(ev) {
 }
 
 function setHeroVideoIfPossible(ev) {
-  // Solo si existe un <video id="heroVideo"> en tu HTML.
   const v = $("#heroVideo");
   if (!v) return;
 
@@ -213,7 +192,6 @@ async function fetchEventFromSupabase(eventId) {
   const eid = String(eventId ?? "").trim();
   if (!eid) return null;
 
-  // ✅ SELECT alineado con tu schema ACTUAL (incluye nuevas columnas)
   const sel =
     "id,title,type,month_key,description,img,img_desktop,img_mobile,more_img,more_img_alt,video_url,location,time_range,duration_hours,price_amount,price_currency,created_at,updated_at";
 
@@ -263,7 +241,8 @@ async function fetchEventFromSupabase(eventId) {
 
   const seatsTotalAvailable = dates.reduce((acc, x) => acc + (Number(x.seats) || 0), 0);
 
-  const rawImg = evRes.data.img || "./assets/img/hero-1.jpg";
+  // ✅ FIX: NO metas default aquí. Dejá que el fallback sea SOLO en pickHeroImage.
+  const rawImg = evRes.data.img || "";
   const rawDesk = evRes.data.img_desktop || "";
   const rawMob = evRes.data.img_mobile || "";
   const rawMore = evRes.data.more_img || "";
@@ -277,7 +256,8 @@ async function fetchEventFromSupabase(eventId) {
     title: String(evRes.data.title || "Evento"),
     desc: String(evRes.data.description || ""),
 
-    img: normalizeImgPath(rawImg, "./assets/img/hero-1.jpg"),
+    // ✅ Si vienen vacíos, quedan vacíos; fallback se decide después
+    img: normalizeImgPath(rawImg, ""),
     imgDesktop: normalizeImgPath(rawDesk, ""),
     imgMobile: normalizeImgPath(rawMob, ""),
 
@@ -353,8 +333,6 @@ function ensurePickListener() {
 
 // ============================================================
 // "Ver más info" (mobile) — USA TU HTML (NO inyecta)
-// IDs en tu event.html:
-//   #moreInfo, #btnMoreInfo, #morePanel, #evMoreImg
 // ============================================================
 function ensureMoreInfoWiring() {
   if (ensureMoreInfoWiring._done) return;
@@ -577,10 +555,8 @@ function renderEvent(ev) {
 
   const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
 
-  // ✅ Hero media pick (img_desktop/img_mobile)
   const heroPickedImg = pickHeroImage(ev);
 
-  // ✅ Video desktop si existe elemento + URL
   if (isDesktop()) setHeroVideoIfPossible(ev);
   else setHeroVideoIfPossible({ videoUrl: "" });
 
@@ -596,7 +572,6 @@ function renderEvent(ev) {
     heroImgEl.alt = ev.title ? `Foto del evento: ${ev.title}` : "Foto del evento";
   }
 
-  // ✅ More info (more_img / more_img_alt)
   ensureMoreInfoWiring();
   setMoreInfoMedia(ev);
 
