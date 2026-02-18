@@ -6,7 +6,8 @@
    ✅ “Fechas / Detalles” se apilan (no 2 columnas)
    ✅ MiniCards abajo a lo ancho
    ✅ heroBg se apaga visualmente (solo compat JS)
-   ✅ NUEVO: "Ver más info" (mobile-first) + panel con imagen desde BD
+   ✅ "Ver más info" (mobile-first) + panel con imagen desde BD
+   ✅ NUEVO: estilos PRO para dropdown de fechas (#dateSelect)
 ============================================================ */
 
 :root{
@@ -332,16 +333,14 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 
 /* ============================================================
    "Ver más info" (mobile-first, por defecto oculto en desktop)
-   - El JS controla hidden y el toggle
+   - El JS controla hidden y el toggle (aria-expanded + #morePanel)
 ============================================================ */
 .moreInfo{
   grid-column: 2;
   margin: 6px 0 4px;
 }
 
-.moreBtn{
-  width: fit-content;
-}
+.moreBtn{ width: fit-content; }
 
 .morePanel{
   margin-top: 10px;
@@ -352,9 +351,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   box-shadow: var(--event-shadow-soft);
 }
 
-.moreMedia{
-  width: 100%;
-}
+.moreMedia{ width: 100%; }
 
 .moreImg{
   width: 100%;
@@ -379,9 +376,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   align-items:start;
 }
 
-.panel{
-  padding: 16px;
-}
+.panel{ padding: 16px; }
 
 .h2{
   margin:0;
@@ -464,6 +459,31 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 .datePick:focus-visible{
   box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28));
   outline: none;
+}
+
+/* ✅ NUEVO: Dropdown PRO (creado por JS con id="dateSelect") */
+#dateSelect{
+  min-height: 46px;
+  border-radius: 999px;
+  border: 1px solid rgba(18,18,18,.14);
+  background: rgba(18,18,18,.02);
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: rgba(18,18,18,.88);
+  max-width: 260px;
+  outline: none;
+}
+
+#dateSelect:focus-visible{
+  box-shadow: var(--focusRing, 0 0 0 4px rgba(75,110,255,.28));
+}
+
+#dateSelect:disabled{
+  opacity:.55;
+  cursor:not-allowed;
 }
 
 /* Notices */
@@ -666,9 +686,7 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
     grid-row: auto;
   }
 
-  .heroImg{
-    min-height: 320px;
-  }
+  .heroImg{ min-height: 320px; }
 
   .heroMeta, .title, .desc, .moreInfo, .grid{
     grid-column: 1;
@@ -715,6 +733,11 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
   .dateItem{
     flex-direction: column;
     align-items: stretch;
+  }
+
+  #dateSelect{
+    max-width: 100%;
+    width: 100%;
   }
 
   .datePick{
