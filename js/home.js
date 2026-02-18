@@ -33,7 +33,8 @@
    - Desactiva scrollRestoration
    - Fuerza scrollTo(0,0) temprano + RAF + load
 
-   ✅ PATCH 2026-02-15: HERO VIDEO (events.video_url)
+   ✅ PATCH 2026-02-15: HERO VIDEO (desde media_items)
+   - media_items folder: event_video
    - Soporta video de fondo por slide (autoplay muted loop playsinline)
    - Mantiene --bgimg como fallback (no rompe CSS existente)
 
@@ -52,7 +53,8 @@
    - events ya NO requiere img ni video_url (evita 400)
    - Hero image por evento viene de media_items:
      folders: event_img_desktop | event_img_mobile
-   - videoUrl queda "" (si luego movemos video a media_items, se integra)
+   - Hero video por evento viene de media_items:
+     folder: event_video
 ============================================================ */
 
 // ============================================================
@@ -62,18 +64,13 @@
   try {
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
-    // Si entran con hash (ej: /index.html#proximos), lo limpiamos
     if (location.hash && location.hash.length > 1) {
       history.replaceState(null, "", location.pathname + location.search);
     }
 
-    // Fuerza arriba lo antes posible
     window.scrollTo(0, 0);
-
-    // Re-fuerza al siguiente frame (por si el browser ajusta scroll)
     requestAnimationFrame(() => window.scrollTo(0, 0));
 
-    // Y al terminar load (por layout/imagenes)
     window.addEventListener(
       "load",
       () => {
@@ -98,7 +95,6 @@ function escapeHtml(str) {
 }
 
 function safeAttr(str) {
-  // Para atributos HTML (src/poster). Evita comillas y < >
   return String(str ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll('"', "&quot;")
@@ -144,7 +140,7 @@ function fmtShortDate(iso) {
 }
 
 // ============================================================
-// Loading gate (evita flash)
+// Loading gate
 // ============================================================
 function setLoading(on) {
   try {
@@ -155,7 +151,7 @@ function setLoading(on) {
 }
 
 // ============================================================
-// Imagen helpers
+// Imagen / video helpers
 // ============================================================
 function normalizeImgPath(input) {
   const fallback = "/assets/img/hero-1.jpg";
@@ -176,7 +172,6 @@ function normalizeImgPath(input) {
 }
 
 function normalizeVideoUrl(input) {
-  // ✅ Mínimo: soporta absolute http(s), absolute /, o relativo tipo ./assets/video/...
   const raw = String(input ?? "").trim();
   if (!raw) return "";
 
@@ -187,10 +182,8 @@ function normalizeVideoUrl(input) {
 
   if (p.startsWith("./")) p = p.slice(2);
   if (p.startsWith("/")) return p + (rest || "");
-  // si viene "assets/..." lo normalizamos a "/assets/..."
   if (p.startsWith("assets/")) return "/" + p + (rest || "");
 
-  // fallback: lo tratamos como asset dentro de /assets/
   return "/assets/" + p + (rest || "");
 }
 
@@ -202,7 +195,6 @@ function safeCssUrl(url) {
     .trim();
 }
 
-// ✅ deduce mime por extensión (ignora query/hash)
 function guessVideoMime(url) {
   const u = String(url || "").toLowerCase().split("?")[0].split("#")[0];
   if (u.endsWith(".webm")) return "video/webm";
@@ -243,7 +235,7 @@ function toast(title, msg, timeout = 3800) {
 }
 
 // ============================================================
-// Nav helpers (rutas)
+// Nav helpers
 // ============================================================
 function goEvent(id, finalized) {
   if (finalized) {
@@ -405,7 +397,7 @@ function initMobileDrawer() {
 }
 
 // ============================================================
-// ✅ Scroll reveal (IntersectionObserver)
+// ✅ Scroll reveal
 // ============================================================
 function initScrollReveal() {
   try {
@@ -466,12 +458,6 @@ function hasSupabase() {
   return !!(window.APP && APP.supabase);
 }
 
-/**
- * ✅ Evalúa fechas y define:
- * - finalized: true si la ÚLTIMA fecha ya terminó
- * - soldOut: true si NO finalizado y cupos en fechas vigentes = 0 (y existen fechas vigentes)
- * - nextLabel: label de la próxima fecha vigente (o última si ya no hay)
- */
 function computeEventStatus(dates, durationHours) {
   const now = nowMs();
 
@@ -540,10 +526,13 @@ function computeEventStatus(dates, durationHours) {
 }
 
 /**
- * ✅ MEDIA_ITEMS helper: trae imágenes por evento
- * folders: event_img_desktop | event_img_mobile
+ * ✅ MEDIA_ITEMS helper: trae imágenes + video por evento
+ * folders:
+ * - event_img_desktop
+ * - event_img_mobile
+ * - event_video
  */
-async function fetchEventHeroMediaMap(eventIds) {
+async function fetchEventMediaMap(eventIds) {
   const ids = Array.isArray(eventIds) ? eventIds.filter(Boolean) : [];
   if (!ids.length) return new Map();
 
@@ -553,7 +542,7 @@ async function fetchEventHeroMediaMap(eventIds) {
       .select("event_id,folder,public_url,path")
       .eq("target", "event")
       .in("event_id", ids)
-      .in("folder", ["event_img_desktop", "event_img_mobile"]);
+      .in("folder", ["event_img_desktop", "event_img_mobile", "event_video"]);
 
     if (res.error) {
       console.warn("[home] media_items error:", res.error);
@@ -582,7 +571,7 @@ async function fetchEventsFromSupabase() {
     return [];
   }
 
-  // ✅ IMPORTANTE: events ya NO pide img/video_url para evitar 400
+  // ✅ events: solo columnas existentes (evita 400)
   const evRes = await APP.supabase
     .from("events")
     .select("id,title,type,month_key,description,location,time_range,duration_hours,created_at,updated_at")
@@ -626,19 +615,21 @@ async function fetchEventsFromSupabase() {
     });
   });
 
-  // ✅ MEDIA_ITEMS: mapa de imágenes por evento
+  // ✅ MEDIA_ITEMS: mapa de imágenes + video por evento
   const ids = events.map((e) => e.id).filter(Boolean);
-  const heroMediaMap = await fetchEventHeroMediaMap(ids);
+  const mediaMap = await fetchEventMediaMap(ids);
 
   return events.map((ev) => {
     const evDates = byEvent.get(ev.id) || [];
     const status = computeEventStatus(evDates, ev?.duration_hours);
     const labels = evDates.map((x) => x.label).filter(Boolean);
 
-    // ✅ Preferencia: desktop -> mobile -> fallback
-    const desktop = heroMediaMap.get(`${ev.id}:event_img_desktop`) || "";
-    const mobile = heroMediaMap.get(`${ev.id}:event_img_mobile`) || "";
+    const desktop = mediaMap.get(`${ev.id}:event_img_desktop`) || "";
+    const mobile = mediaMap.get(`${ev.id}:event_img_mobile`) || "";
     const heroImg = normalizeImgPath(desktop || mobile || "/assets/img/hero-1.jpg");
+
+    const vraw = mediaMap.get(`${ev.id}:event_video`) || "";
+    const videoUrl = normalizeVideoUrl(vraw);
 
     return {
       id: ev?.id || "",
@@ -650,10 +641,7 @@ async function fetchEventsFromSupabase() {
       title: ev?.title || "Evento",
       desc: ev?.description || "",
       img: heroImg,
-
-      // ✅ videoUrl queda vacío (si luego lo movemos a media_items, lo integramos)
-      videoUrl: "",
-
+      videoUrl, // ✅ ahora sí viene desde media_items
       location: ev?.location || "",
       timeRange: ev?.time_range || "",
       durationHours: ev?.duration_hours || "",
@@ -665,7 +653,7 @@ async function fetchEventsFromSupabase() {
 }
 
 // ============================================================
-// ✅ GALERÍA HOME PREVIEW (8 fotos desde gallery_items)
+// ✅ GALERÍA HOME PREVIEW
 // ============================================================
 async function fetchGalleryPreview(limit = 8) {
   if (!hasSupabase()) return [];
@@ -778,7 +766,7 @@ async function renderHomeGalleryPreview() {
 }
 
 // ============================================================
-// ✅ Testimonial rotator (MODERNO)
+// ✅ Quote rotator
 // ============================================================
 function initQuoteRotator() {
   const el = qs("#quoteRotator");
@@ -883,8 +871,6 @@ function pauseAllHeroVideos() {
   slidesEl.querySelectorAll("video.heroBgVideo").forEach((v) => {
     try {
       v.pause();
-      // ✅ NO resetear currentTime aquí (Safari/iOS puede romper autoplay)
-      // v.currentTime = 0;
     } catch (_) {}
   });
 }
@@ -898,7 +884,6 @@ function playActiveHeroVideo() {
   if (!v) return;
 
   try {
-    // ✅ fuerza policy autoplay (Safari/iOS lo necesita a veces explícito)
     v.muted = true;
     v.defaultMuted = true;
     v.setAttribute("muted", "");
@@ -906,7 +891,6 @@ function playActiveHeroVideo() {
     v.setAttribute("playsinline", "");
     v.setAttribute("webkit-playsinline", "");
 
-    // ✅ si aún no cargó metadata, ayuda
     if (v.readyState < 2) {
       v.preload = "metadata";
       try {
@@ -934,7 +918,6 @@ function syncHeroVideos() {
   playActiveHeroVideo();
 }
 
-// Pausa cuando la pestaña no está visible (mobile / ahorro)
 document.addEventListener("visibilitychange", () => {
   try {
     if (document.hidden) pauseAllHeroVideos();
@@ -973,7 +956,6 @@ function renderEmptyState() {
               <h1 class="heroTitle heroTitle--wix">NO HAY EVENTOS</h1>
               <p class="heroDesc heroDesc--wix">Muy pronto publicaremos nuevas experiencias.</p>
 
-              <!-- ✅ Mobile CTAs -->
               <div class="heroMobileActions">
                 <a class="btn primary" href="#proximos">Ver más</a>
                 <a class="btn" href="./gallery.html">Galería</a>
@@ -1036,7 +1018,7 @@ function renderSlides() {
     const mobilePrimaryClass = finalized ? "btn--success" : soldOut ? "btn--danger" : "";
     const mobilePrimaryDisabled = blocked ? "aria-disabled='true'" : "";
 
-    // ✅ HERO VIDEO (opcional) — ahora viene vacío (no rompe nada)
+    // ✅ HERO VIDEO (opcional) — desde media_items (event_video)
     const v = String(ev?.videoUrl || "").trim();
     const mime = v ? guessVideoMime(v) : "";
     const videoHtml = v
@@ -1062,7 +1044,6 @@ function renderSlides() {
               <h1 class="heroTitle heroTitle--wix">${escapeHtml(ev.title)}</h1>
               <p class="heroDesc heroDesc--wix">${escapeHtml(ev.desc)}</p>
 
-              <!-- ✅ Mobile CTAs (no afecta desktop) -->
               <div class="heroMobileActions">
                 <button class="btn primary ${mobilePrimaryClass}" data-action="register" data-id="${ev.id}" ${mobilePrimaryDisabled}>
                   ${escapeHtml(mobilePrimaryText)}
@@ -1100,7 +1081,6 @@ function renderSlides() {
 
   updateTransform();
 
-  // ✅ asegura video correcto al render inicial
   try {
     requestAnimationFrame(() => {
       syncHeroVideos();
@@ -1119,10 +1099,7 @@ function goTo(next, user) {
   if (!EVENTS.length) return;
   idx = (next + EVENTS.length) % EVENTS.length;
   updateTransform();
-
-  // ✅ PERF: solo reproduce el slide activo
   syncHeroVideos();
-
   if (user) restartAuto();
 }
 
@@ -1251,7 +1228,7 @@ function renderMonthGrid() {
 }
 
 // ============================================================
-// Delegation (acciones)
+// Delegation
 // ============================================================
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-action]");
@@ -1281,7 +1258,7 @@ document.addEventListener("click", (e) => {
 });
 
 // ============================================================
-// Refresh (Supabase)
+// Refresh
 // ============================================================
 async function refreshFromSupabase() {
   EVENTS = await fetchEventsFromSupabase();
@@ -1289,7 +1266,6 @@ async function refreshFromSupabase() {
   restartAuto();
   renderMonths();
 
-  // ✅ por si cambió el idx / DOM
   try {
     requestAnimationFrame(() => syncHeroVideos());
   } catch (_) {}
@@ -1300,17 +1276,14 @@ window.addEventListener("ecn:events-updated", () => {
 });
 
 // ============================================================
-// Init (SIN flash)
+// Init
 // ============================================================
 (async function init() {
   setLoading(true);
 
   try {
     initMobileDrawer();
-
-    // ✅ prepara reveal antes de renders (para que no se vea “pop” raro)
     initScrollReveal();
-
     await refreshFromSupabase();
   } finally {
     setLoading(false);
@@ -1324,7 +1297,6 @@ window.addEventListener("ecn:events-updated", () => {
     setTimeout(() => initScrollReveal(), 60);
   } catch (_) {}
 
-  // ✅ asegura que el primer slide intente play cuando ya está todo listo
   try {
     setTimeout(() => syncHeroVideos(), 120);
   } catch (_) {}
