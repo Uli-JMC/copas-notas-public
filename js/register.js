@@ -1,10 +1,15 @@
 "use strict";
 
 /* ============================================================
-   register.js (Supabase) ✅ ALINEADO + MODAL ÉXITO (SIN TIMER)
-   ...
-   ✅ PATCH 2026-02-14:
-   - events.desc -> events.description
+   register.js ✅ PRO (Supabase) — 2026-02-18.3
+   ✅ ALINEADO A TU DB ACTUAL:
+   - events.desc -> events.description (mantiene EVENT.desc para compat)
+   - ❌ events.img eliminado (ya no existe)
+   - ✅ Imagen del evento ahora viene de media_items (target='event')
+     * Soporta tus folders actuales: desktop_event | mobile_event | event_more
+     * Soporta folders “nuevo estándar” también: event_img_desktop | event_img_mobile | event_more_img
+   - ✅ Si media_items trae solo path (storage path), lo convierte a publicUrl
+   - ✅ No rompe tu modal éxito, validación, RPC, etc.
 ============================================================ */
 
 // ============================================================
@@ -153,7 +158,6 @@ function ensureValidationStylesOnce() {
 // ============================================================
 const SUCCESS = {
   overlayId: "ecnSuccessOverlay",
-  // ✅ más robusto en subpaths / archivos (misma lógica que el resto del proyecto)
   lottieJsonUrl: "./assets/img/lottie/champagne_13399330.json",
   lottieLib: "https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js",
 };
@@ -395,6 +399,77 @@ function hideSuccessModal() {
 }
 
 // ============================================================
+// ✅ Media helpers (media_items target=event)
+// ============================================================
+
+// tus folders actuales + compat con los “estándar”
+const MEDIA_FOLDERS_EVENT = [
+  "desktop_event",
+  "mobile_event",
+  "event_more",
+  "event_img_desktop",
+  "event_img_mobile",
+  "event_more_img",
+];
+
+const MEDIA_ALIAS = {
+  desktop_event: "event_img_desktop",
+  mobile_event: "event_img_mobile",
+  event_more: "event_more_img",
+};
+
+function resolveBucketPublicUrlFromPath(path) {
+  const sb = getSb();
+  const p = String(path || "").trim();
+  if (!sb || !p) return "";
+
+  // path típico: "events/archivo.webp"
+  // bucket típico (según tus urls): "media"
+  try {
+    const out = sb.storage.from("media").getPublicUrl(p);
+    return out?.data?.publicUrl || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+async function fetchEventMediaMap(eventId) {
+  const sb = getSb();
+  const eid = String(eventId || "").trim();
+  if (!sb || !eid) return {};
+
+  const { data, error } = await sb
+    .from("media_items")
+    .select("folder,public_url,path,updated_at")
+    .eq("target", "event")
+    .eq("event_id", eid)
+    .in("folder", MEDIA_FOLDERS_EVENT)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    console.warn("[register] media_items error:", error);
+    return {};
+  }
+
+  // toma el más nuevo por folder (ya viene ordenado desc)
+  const map = {};
+  (Array.isArray(data) ? data : []).forEach((r) => {
+    const folderRaw = String(r?.folder || "").trim();
+    const folder = MEDIA_ALIAS[folderRaw] || folderRaw;
+
+    let url = String(r?.public_url || "").trim();
+    if (!url) {
+      const p = String(r?.path || "").trim();
+      url = resolveBucketPublicUrlFromPath(p);
+    }
+
+    if (folder && url && !map[folder]) map[folder] = url;
+  });
+
+  return map;
+}
+
+// ============================================================
 // State
 // ============================================================
 let EVENT_ID = "";
@@ -569,15 +644,23 @@ async function fetchEventAndDates(eventId) {
   const eid = String(eventId ?? "").trim();
   if (!eid) return { event: null, dates: [] };
 
-  // ✅ FIX: description (antes desc)
+  // ✅ FIX: quitamos img (ya no existe)
   const { data: ev, error: evErr } = await sb
     .from("events")
-    .select("id, title, description, type, month_key, img, location, time_range, duration_hours")
+    .select("id, title, description, type, month_key, location, time_range, duration_hours")
     .eq("id", eid)
     .maybeSingle();
 
   if (evErr) throw evErr;
   if (!ev) return { event: null, dates: [] };
+
+  // ✅ media del evento (hero + more)
+  const media = await fetchEventMediaMap(eid);
+
+  // guardamos por si más adelante querés pintar imagen en register
+  const event_img_desktop = String(media.event_img_desktop || "").trim();
+  const event_img_mobile = String(media.event_img_mobile || "").trim();
+  const event_more_img = String(media.event_more_img || "").trim();
 
   let ds = null;
   let dErr = null;
@@ -617,6 +700,11 @@ async function fetchEventAndDates(eventId) {
   const event = {
     ...ev,
     desc: String(ev.description || ""),
+    media: {
+      event_img_desktop,
+      event_img_mobile,
+      event_more_img,
+    },
   };
 
   return { event, dates };
@@ -769,7 +857,7 @@ async function submitRegistration() {
     } else if (typeof data === "string") {
       regId = data;
     } else if (data && typeof data === "object") {
-      regId = data.registration_id ? String(data.registration_id) : (data.id ? String(data.id) : "");
+      regId = data.registration_id ? String(data.registration_id) : data.id ? String(data.id) : "";
       rn = data.reservation_number ? String(data.reservation_number) : "";
     }
 
