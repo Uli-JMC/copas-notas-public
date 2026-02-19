@@ -1,7 +1,7 @@
 "use strict";
 
 /* ============================================================
-   confirm.js ✅ FIX 2026-02 (NO REDIRECT) — confirm “limpio”
+   confirm.js ✅ FIX 2026-02-18.3 (NO REDIRECT) — confirm “limpio”
    - Lee event + date_id (+ reg=ok) desde querystring
    - Fallback: sessionStorage (última reserva)
    - Carga info de events + event_dates desde Supabase
@@ -11,6 +11,9 @@
    - ✅ WhatsApp dinámico
    - ✅ Precio formateado es-CR (₡ / $)
    - ✅ Hora: usa start_at/ends_at si existen; sino events.time_range
+
+   ✅ PATCH 2026-02-18.3:
+   - events.desc -> events.description (y se mapea a ev.desc para compat)
 ============================================================ */
 
 const $ = (sel) => document.querySelector(sel);
@@ -133,7 +136,7 @@ function setUiInfoState(title, desc) {
 
 /* ✅ Reserva #: usa registrations.reservation_number */
 async function getReservationNumber(sb, eventId, dateId) {
-  // 1) sessionStorage (si lo guardás desde register.js)
+  // 1) sessionStorage
   const ss = safeTrim(sessionStorage.getItem("ecn_last_reservation_number"));
   if (ss) return ss;
 
@@ -247,14 +250,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (badge) badge.textContent = regOk ? "REGISTRO OK" : "OK";
 
   try {
-    const { data: ev, error: evErr } = await sb
+    // ✅ FIX: usar description (NO "desc")
+    const { data: ev0, error: evErr } = await sb
       .from("events")
-      .select('id, title, "desc", type, location, time_range, duration_hours, price_amount, price_currency')
+      .select("id, title, description, type, location, time_range, duration_hours, price_amount, price_currency")
       .eq("id", eventId)
       .maybeSingle();
 
     if (evErr) throw evErr;
-    if (!ev) throw new Error("Evento no existe");
+    if (!ev0) throw new Error("Evento no existe");
+
+    // compat con tu UI anterior (ev.desc)
+    const ev = { ...ev0, desc: String(ev0.description || "") };
 
     const { data: d, error: dErr } = await sb
       .from("event_dates")
@@ -272,19 +279,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     const descEl = $("#eventDesc");
 
     // ✅ Title
-    if (titleEl) titleEl.textContent = regOk ? "¡Inscripción confirmada!" : (ev.title || "Confirmación");
+    if (titleEl) titleEl.textContent = regOk ? "¡Inscripción confirmada!" : ev.title || "Confirmación";
 
-    // ✅ Description: usa ev.desc si existe (como tu página de evento)
-    const descText = safeTrim(ev["desc"]);
+    // ✅ Description: usa description
+    const descText = safeTrim(ev.description || ev.desc);
     if (descEl) descEl.textContent = descText || "Te esperamos. Guardá estos detalles.";
 
     // ✅ Reserva #
     let reservationNumber = "";
     try {
       reservationNumber = await getReservationNumber(sb, String(eventId), String(dateId));
-      if (reservationNumber) {
-        sessionStorage.setItem("ecn_last_reservation_number", reservationNumber);
-      }
+      if (reservationNumber) sessionStorage.setItem("ecn_last_reservation_number", reservationNumber);
     } catch (e) {
       console.warn("[confirm] no reservation_number:", e);
     }
