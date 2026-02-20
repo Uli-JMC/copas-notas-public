@@ -48,11 +48,11 @@
    - Retry con canplay si play() falla
    - guessVideoMime ignora query/hash
 
-   ✅ PATCH 2026-02-18.2: MEDIA_ITEMS (alineado a cambios actuales)
-   - HOME SLIDER viene de media_items:
-       target='home' folders: slide_img | slide_video
-   - EVENT HERO fallback viene de media_items:
-       target='event' folders: event_img_desktop | event_img_mobile
+   ✅ PATCH 2026-02-20: MEDIA BINDINGS (Implementación B)
+   - HOME SLIDER viene de v_media_bindings_latest:
+       scope='event' slot: slide_img | slide_video
+   - EVENT HERO fallback viene de v_media_bindings_latest:
+       scope='event' slot: desktop_event | mobile_event
    - Fallback opcional: ev.video_url si existe en el objeto (sin pedirlo en select)
 ============================================================ */
 
@@ -530,46 +530,45 @@ function computeEventStatus(dates, durationHours) {
 }
 
 /**
- * ✅ MEDIA_ITEMS helper (PRO 2026-02-18.2)
- * - HOME SLIDER: target='home' folders slide_img | slide_video
- * - EVENT HERO:  target='event' folders event_img_desktop | event_img_mobile
- * Nota: tomamos el más nuevo por folder (order updated_at desc + map first-hit)
+ * ✅ MEDIA BINDINGS helper (PRO 2026-02-20)
+ * - HOME SLIDER (por evento): slots slide_img | slide_video
+ * - EVENT HERO fallback: slots desktop_event | mobile_event
+ * Nota: v_media_bindings_latest ya es "latest", así que no necesitamos order by updated_at
  */
 async function fetchEventMediaMap(eventIds) {
   const ids = Array.isArray(eventIds) ? eventIds.filter(Boolean) : [];
   if (!ids.length) return new Map();
 
   try {
+    if (!hasSupabase()) return new Map();
+
+    const WANT_SLOTS = ["slide_img", "slide_video", "desktop_event", "mobile_event", "event_more"];
+
     const res = await APP.supabase
-      .from("media_items")
-      .select("event_id,target,folder,public_url,path,updated_at")
-      .in("event_id", ids)
-      .in("target", ["home", "event"])
-      .in("folder", ["slide_img", "slide_video", "event_img_desktop", "event_img_mobile"])
-      .order("updated_at", { ascending: false });
+      .from("v_media_bindings_latest")
+      .select("scope_id,slot,public_url,path,media_id,binding_updated_at,media_updated_at")
+      .eq("scope", "event")
+      .in("scope_id", ids)
+      .in("slot", WANT_SLOTS);
 
     if (res.error) {
-      console.warn("[home] media_items error:", res.error);
+      console.warn("[home] v_media_bindings_latest error:", res.error);
       return new Map();
     }
 
-    // map: `${event_id}:${target}:${folder}` -> public_url (toma el más nuevo por folder)
+    // map: `${event_id}:${slot}` -> url
     const map = new Map();
     (Array.isArray(res.data) ? res.data : []).forEach((r) => {
-      const eid = r?.event_id;
-      const target = String(r?.target || "").trim();
-      const folder = String(r?.folder || "").trim();
-      const url = String(r?.public_url || "").trim();
-
-      if (!eid || !target || !folder || !url) return;
-
-      const k = `${eid}:${target}:${folder}`;
-      if (!map.has(k)) map.set(k, url);
+      const eid = String(r?.scope_id || "").trim();
+      const slot = String(r?.slot || "").trim();
+      const url = String(r?.public_url || r?.path || "").trim();
+      if (!eid || !slot || !url) return;
+      map.set(`${eid}:${slot}`, url);
     });
 
     return map;
   } catch (e) {
-    console.warn("[home] media_items fetch failed:", e);
+    console.warn("[home] v_media_bindings_latest fetch failed:", e);
     return new Map();
   }
 }
@@ -624,7 +623,7 @@ async function fetchEventsFromSupabase() {
     });
   });
 
-  // ✅ MEDIA_ITEMS: mapa de SLIDER + HERO fallback
+  // ✅ MEDIA BINDINGS: mapa de SLIDER + HERO fallback
   const ids = events.map((e) => e.id).filter(Boolean);
   const mediaMap = await fetchEventMediaMap(ids);
 
@@ -633,13 +632,13 @@ async function fetchEventsFromSupabase() {
     const status = computeEventStatus(evDates, ev?.duration_hours);
     const labels = evDates.map((x) => x.label).filter(Boolean);
 
-    // ✅ SLIDER FIRST (home)
-    const slideImg = String(mediaMap.get(`${ev.id}:home:slide_img`) || "").trim();
-    const slideVideo = String(mediaMap.get(`${ev.id}:home:slide_video`) || "").trim();
+    // ✅ SLIDER FIRST (slots por evento)
+    const slideImg = String(mediaMap.get(`${ev.id}:slide_img`) || "").trim();
+    const slideVideo = String(mediaMap.get(`${ev.id}:slide_video`) || "").trim();
 
-    // ✅ HERO FALLBACK (event)
-    const desktop = String(mediaMap.get(`${ev.id}:event:event_img_desktop`) || "").trim();
-    const mobile = String(mediaMap.get(`${ev.id}:event:event_img_mobile`) || "").trim();
+    // ✅ HERO FALLBACK (slots por evento)
+    const desktop = String(mediaMap.get(`${ev.id}:desktop_event`) || "").trim();
+    const mobile = String(mediaMap.get(`${ev.id}:mobile_event`) || "").trim();
 
     const heroImg = normalizeImgPath(slideImg || desktop || mobile || "/assets/img/hero-1.jpg");
 

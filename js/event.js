@@ -1,14 +1,13 @@
 "use strict";
 
 /* ============================================================
-   event.js ✅ PRO (Supabase-first) — 2026-02-18.3 (DEPURADO)
-   - ✅ Hero del evento desde media_items (target='event', event_id obligatorio):
-       folders aceptados:
-         - desktop: event_img_desktop | desktop_event | desktop
-         - mobile : event_img_mobile  | mobile_event  | mobile
-   - ✅ "Ver más info" (mobile) desde media_items:
-       folders aceptados:
-         - event_more_img | event_more | more | event_more_image
+   event.js ✅ PRO (Supabase-first) — 2026-02-20 (ALINEADO A IMPLEMENTACIÓN B)
+   - ✅ Hero del evento desde v_media_bindings_latest (scope='event', scope_id=eventId):
+       slots:
+         - desktop: desktop_event
+         - mobile : mobile_event
+   - ✅ "Ver más info" (mobile) desde v_media_bindings_latest:
+       slot: event_more
    - ✅ more_img_alt sigue en events.more_img_alt
    - ✅ Fechas dropdown (1 vs N) + control cupos
    - ✅ Precio: price_amount + price_currency
@@ -164,38 +163,20 @@
   }
 
   // ----------------------------
-  // Media fetch (media_items target=event) + aliases
+  // Media fetch (v_media_bindings_latest) ✅ IMPLEMENTACIÓN B
   // ----------------------------
-  const FOLDER_ALIASES = {
-    // desktop
-    event_img_desktop: "event_img_desktop",
-    desktop_event: "event_img_desktop",
-    desktop: "event_img_desktop",
+  const WANT_SLOTS = ["desktop_event", "mobile_event", "event_more"];
 
-    // mobile
-    event_img_mobile: "event_img_mobile",
-    mobile_event: "event_img_mobile",
-    mobile: "event_img_mobile",
-
-    // more
-    event_more_img: "event_more_img",
-    event_more: "event_more_img",
-    event_more_image: "event_more_img",
-    more: "event_more_img",
-  };
-
-  const WANT_FOLDERS = Object.keys(FOLDER_ALIASES);
-
-  function resolveMediaUrl(row) {
+  function resolveBindingUrl(row) {
     const pub = cleanSpaces(row?.public_url);
     if (pub) return pub;
 
     const p = cleanSpaces(row?.path);
-    // si path trae URL absoluta, úsala (tu caso: a veces guardaste URL en path)
+    // Si path trae URL absoluta, úsala
     if (isAbsUrl(p)) return p;
 
-    // si es path tipo "events/xxx.webp" no lo podemos convertir aquí sin bucket info,
-    // así que mejor devolver vacío para evitar imágenes rotas.
+    // Si es path relativo de storage (ej: "events-img/x.webp") NO lo convertimos aquí
+    // porque no guardás bucket en DB. Lo correcto es tener public_url poblado.
     return "";
   }
 
@@ -206,38 +187,35 @@
 
     try {
       const { data, error } = await sb
-        .from("media_items")
-        .select("folder, public_url, path, updated_at")
-        .eq("target", "event")
-        .eq("event_id", eid)
-        .in("folder", WANT_FOLDERS)
-        .order("updated_at", { ascending: false });
+        .from("v_media_bindings_latest")
+        .select("slot,public_url,path,media_id,binding_updated_at,media_updated_at")
+        .eq("scope", "event")
+        .eq("scope_id", eid)
+        .in("slot", WANT_SLOTS);
 
       if (error) {
-        console.error("[event] media_items error:", error);
+        console.error("[event] v_media_bindings_latest error:", error);
         return {};
       }
 
-      // toma el más nuevo por "folder normalizado"
       const map = {};
       (Array.isArray(data) ? data : []).forEach((row) => {
-        const rawFolder = cleanSpaces(row?.folder);
-        const norm = FOLDER_ALIASES[rawFolder] || "";
-        if (!norm) return;
+        const slot = cleanSpaces(row?.slot);
+        if (!slot) return;
 
-        const url = resolveMediaUrl(row);
+        const url = resolveBindingUrl(row);
         if (!url) return;
 
-        if (!map[norm]) map[norm] = url; // como viene ordenado desc, el primero es el más nuevo
+        map[slot] = url;
       });
 
-      // logs útiles
-      if (!map.event_img_desktop && !map.event_img_mobile) {
-        console.warn("[event] Sin hero en media_items para event_id:", eid, data);
+      if (!map.desktop_event && !map.mobile_event) {
+        console.warn("[event] Sin hero en bindings para event_id:", eid, data);
       }
+
       return map;
     } catch (err) {
-      console.error("[event] media_items fetch failed:", err);
+      console.error("[event] v_media_bindings_latest fetch failed:", err);
       return {};
     }
   }
@@ -268,12 +246,12 @@
     }
     if (!evRes.data) return null;
 
-    // media
+    // media (bindings)
     const media = await fetchEventMediaFromSupabase(eid);
 
-    const heroUrl = normalizeImgPath(media.event_img_desktop || media.event_img_mobile || "./assets/img/hero-1.jpg");
+    const heroUrl = normalizeImgPath(media.desktop_event || media.mobile_event || "./assets/img/hero-1.jpg");
 
-    const moreUrlRaw = cleanSpaces(media.event_more_img || "");
+    const moreUrlRaw = cleanSpaces(media.event_more || "");
     const moreUrl = moreUrlRaw ? normalizeImgPath(moreUrlRaw) : "";
 
     // dates

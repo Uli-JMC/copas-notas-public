@@ -1,14 +1,13 @@
 "use strict";
 
 /* ============================================================
-   register.js ✅ PRO (Supabase) — 2026-02-18.3
+   register.js ✅ PRO (Supabase) — 2026-02-20 (ALINEADO A IMPLEMENTACIÓN B)
    ✅ ALINEADO A TU DB ACTUAL:
    - events.desc -> events.description (mantiene EVENT.desc para compat)
    - ❌ events.img eliminado (ya no existe)
-   - ✅ Imagen del evento ahora viene de media_items (target='event')
-     * Soporta tus folders actuales: desktop_event | mobile_event | event_more
-     * Soporta folders “nuevo estándar” también: event_img_desktop | event_img_mobile | event_more_img
-   - ✅ Si media_items trae solo path (storage path), lo convierte a publicUrl
+   - ✅ Imagen del evento ahora viene de v_media_bindings_latest:
+       scope='event' + scope_id=eventId
+       slots: desktop_event | mobile_event | event_more
    - ✅ No rompe tu modal éxito, validación, RPC, etc.
 ============================================================ */
 
@@ -74,6 +73,33 @@ function validEmail(email) {
 function setHiddenDateId(value) {
   const el = $("#dateId");
   if (el) el.value = String(value || "");
+}
+
+function safeCssUrl(url) {
+  return String(url ?? "").replaceAll("'", "%27").replaceAll('"', "%22").replaceAll(")", "%29").trim();
+}
+
+function isAbsUrl(u) {
+  return /^https?:\/\//i.test(String(u || "").trim());
+}
+
+function normalizeImgPath(input) {
+  const fallback = "./assets/img/hero-1.jpg";
+  const raw = safeTrim(input);
+  if (!raw) return fallback;
+
+  if (isAbsUrl(raw)) return raw;
+  if (raw.includes("supabase.co/storage/v1/object/public/")) return raw;
+
+  const [pathPart, rest] = raw.split(/(?=[?#])/);
+  let p = pathPart.replaceAll("\\", "/");
+
+  if (p.startsWith("./")) p = p.slice(2);
+  if (p.startsWith("/")) return p + (rest || "");
+  if (p.startsWith("assets/img/")) return "./" + p + (rest || "");
+  if (p.startsWith("img/")) return "./assets/" + p + (rest || "");
+
+  return "./assets/img/" + p + (rest || "");
 }
 
 // ============================================================
@@ -352,6 +378,8 @@ function ensureSuccessModalDOM() {
     window.location.href = "./home.html#proximos";
   });
 
+  overlay.querySelector('[data-act="close"]')?.addEventListener("click", () => hideSuccessModal());
+
   overlay.addEventListener("click", (e) => {
     if (e.target === overlay) hideSuccessModal();
   });
@@ -399,71 +427,48 @@ function hideSuccessModal() {
 }
 
 // ============================================================
-// ✅ Media helpers (media_items target=event)
+// ✅ Media helpers (v_media_bindings_latest) — IMPLEMENTACIÓN B
 // ============================================================
+const VIEW_LATEST = "v_media_bindings_latest";
+const EVENT_MEDIA_SLOTS = ["desktop_event", "mobile_event", "event_more"];
 
-// tus folders actuales + compat con los “estándar”
-const MEDIA_FOLDERS_EVENT = [
-  "desktop_event",
-  "mobile_event",
-  "event_more",
-  "event_img_desktop",
-  "event_img_mobile",
-  "event_more_img",
-];
+function resolveBindingUrl(row) {
+  const pub = safeTrim(row?.public_url || "");
+  if (pub) return pub;
 
-const MEDIA_ALIAS = {
-  desktop_event: "event_img_desktop",
-  mobile_event: "event_img_mobile",
-  event_more: "event_more_img",
-};
+  const p = safeTrim(row?.path || "");
+  if (isAbsUrl(p)) return p;
 
-function resolveBucketPublicUrlFromPath(path) {
-  const sb = getSb();
-  const p = String(path || "").trim();
-  if (!sb || !p) return "";
-
-  // path típico: "events/archivo.webp"
-  // bucket típico (según tus urls): "media"
-  try {
-    const out = sb.storage.from("media").getPublicUrl(p);
-    return out?.data?.publicUrl || "";
-  } catch (_) {
-    return "";
-  }
+  // path relativo de storage NO lo convertimos aquí (no bucket info en DB)
+  return "";
 }
 
-async function fetchEventMediaMap(eventId) {
+async function fetchEventMediaBindings(eventId) {
   const sb = getSb();
-  const eid = String(eventId || "").trim();
+  const eid = safeTrim(eventId);
   if (!sb || !eid) return {};
 
   const { data, error } = await sb
-    .from("media_items")
-    .select("folder,public_url,path,updated_at")
-    .eq("target", "event")
-    .eq("event_id", eid)
-    .in("folder", MEDIA_FOLDERS_EVENT)
-    .order("updated_at", { ascending: false });
+    .from(VIEW_LATEST)
+    .select("slot,public_url,path,media_id,binding_updated_at,media_updated_at")
+    .eq("scope", "event")
+    .eq("scope_id", eid)
+    .in("slot", EVENT_MEDIA_SLOTS);
 
   if (error) {
-    console.warn("[register] media_items error:", error);
+    console.warn("[register] v_media_bindings_latest error:", error);
     return {};
   }
 
-  // toma el más nuevo por folder (ya viene ordenado desc)
   const map = {};
   (Array.isArray(data) ? data : []).forEach((r) => {
-    const folderRaw = String(r?.folder || "").trim();
-    const folder = MEDIA_ALIAS[folderRaw] || folderRaw;
+    const slot = safeTrim(r?.slot || "");
+    if (!slot) return;
 
-    let url = String(r?.public_url || "").trim();
-    if (!url) {
-      const p = String(r?.path || "").trim();
-      url = resolveBucketPublicUrlFromPath(p);
-    }
+    const url = resolveBindingUrl(r);
+    if (!url) return;
 
-    if (folder && url && !map[folder]) map[folder] = url;
+    if (!map[slot]) map[slot] = url;
   });
 
   return map;
@@ -542,12 +547,34 @@ function renderMetaBox() {
   `;
 }
 
+function setRegisterHeroIfExists(url) {
+  const u = safeTrim(url);
+  if (!u) return;
+
+  // Opcional: si tu register.html tiene algo como #heroBg / #regHero / .hero
+  const heroBg = $("#heroBg") || $("#regHeroBg");
+  if (heroBg) {
+    const bg = normalizeImgPath(u);
+    heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(bg)}')`);
+    heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
+  }
+
+  const imgEl = $("#evPhoto") || $("#regHeroImg");
+  if (imgEl && imgEl.tagName === "IMG") {
+    imgEl.src = normalizeImgPath(u);
+  }
+}
+
 function renderHeader() {
   const titleEl = $("#eventTitle");
   const descEl = $("#eventDesc");
 
   if (titleEl) titleEl.textContent = EVENT?.title || "Evento";
   if (descEl) descEl.textContent = EVENT?.desc || "Completá tus datos para reservar tu cupo.";
+
+  // Si tu register tiene hero, lo actualizamos sin romper
+  const heroUrl = safeTrim(EVENT?.media?.event_img_desktop || EVENT?.media?.event_img_mobile || "");
+  if (heroUrl) setRegisterHeroIfExists(heroUrl);
 
   renderMetaBox();
 
@@ -654,13 +681,12 @@ async function fetchEventAndDates(eventId) {
   if (evErr) throw evErr;
   if (!ev) return { event: null, dates: [] };
 
-  // ✅ media del evento (hero + more)
-  const media = await fetchEventMediaMap(eid);
+  // ✅ media del evento (bindings)
+  const media = await fetchEventMediaBindings(eid);
 
-  // guardamos por si más adelante querés pintar imagen en register
-  const event_img_desktop = String(media.event_img_desktop || "").trim();
-  const event_img_mobile = String(media.event_img_mobile || "").trim();
-  const event_more_img = String(media.event_more_img || "").trim();
+  const event_img_desktop = safeTrim(media.desktop_event || "");
+  const event_img_mobile = safeTrim(media.mobile_event || "");
+  const event_more_img = safeTrim(media.event_more || "");
 
   let ds = null;
   let dErr = null;
