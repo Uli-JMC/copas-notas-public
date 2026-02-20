@@ -12,6 +12,11 @@
    - ✅ Fechas dropdown (1 vs N) + control cupos
    - ✅ Precio: price_amount + price_currency
    - ✅ Fallbacks seguros y logs de diagnóstico
+
+   ✅ FIX 2026-02-20: HERO RESPONSIVE REAL
+   - En móvil usa mobile_event (si existe)
+   - En desktop usa desktop_event (si existe)
+   - Fallbacks seguros
 ============================================================ */
 
 (() => {
@@ -61,6 +66,24 @@
     if (p.startsWith("img/")) return "./assets/" + p + (rest || "");
 
     return "./assets/img/" + p + (rest || "");
+  }
+
+  // ✅ viewport helper (móvil real)
+  function isMobileViewport() {
+    try {
+      return window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+    } catch (_) {
+      return window.innerWidth <= 768;
+    }
+  }
+
+  // ✅ elige hero según viewport (B: slots desktop_event / mobile_event)
+  function pickHeroFromBindings(bindings) {
+    const desk = cleanSpaces(bindings?.desktop_event || "");
+    const mob = cleanSpaces(bindings?.mobile_event || "");
+
+    if (isMobileViewport()) return normalizeImgPath(mob || desk || "./assets/img/hero-1.jpg");
+    return normalizeImgPath(desk || mob || "./assets/img/hero-1.jpg");
   }
 
   function toast(title, msg, timeoutMs = 3800) {
@@ -249,7 +272,8 @@
     // media (bindings)
     const media = await fetchEventMediaFromSupabase(eid);
 
-    const heroUrl = normalizeImgPath(media.desktop_event || media.mobile_event || "./assets/img/hero-1.jpg");
+    // ✅ FIX: hero responsive
+    const heroUrl = pickHeroFromBindings(media);
 
     const moreUrlRaw = cleanSpaces(media.event_more || "");
     const moreUrl = moreUrlRaw ? normalizeImgPath(moreUrlRaw) : "";
@@ -296,6 +320,10 @@
       monthKey: safeStr(evRes.data.month_key || "—").toUpperCase(),
       title: safeStr(evRes.data.title || "Evento"),
       desc: safeStr(evRes.data.description || ""),
+
+      // ✅ guardamos ambos por si querés recalcular en resize/orientation
+      _mediaDesktop: cleanSpaces(media.desktop_event || ""),
+      _mediaMobile: cleanSpaces(media.mobile_event || ""),
 
       img: heroUrl,
 
@@ -599,6 +627,27 @@
     else if (pending && pendingNotice) pendingNotice.removeAttribute("hidden");
   }
 
+  // ✅ aplica hero (por si hay resize/orientation)
+  function applyHeroForViewport() {
+    if (!CURRENT) return;
+
+    const heroBg = $("#heroBg");
+    const heroImgEl = $("#evPhoto");
+
+    const picked = isMobileViewport()
+      ? normalizeImgPath(CURRENT._mediaMobile || CURRENT._mediaDesktop || "./assets/img/hero-1.jpg")
+      : normalizeImgPath(CURRENT._mediaDesktop || CURRENT._mediaMobile || "./assets/img/hero-1.jpg");
+
+    if (heroBg) {
+      heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(picked)}')`);
+      heroBg.style.backgroundImage = `url('${safeCssUrl(picked)}')`;
+    }
+
+    if (heroImgEl) {
+      heroImgEl.src = picked;
+    }
+  }
+
   function renderEvent(ev) {
     CURRENT = ev;
 
@@ -610,16 +659,11 @@
 
     const soldOutTotal = ev.datesOk && (Number(ev.seats) || 0) <= 0;
 
-    const heroBg = $("#heroBg");
-    if (heroBg) {
-      const bg = normalizeImgPath(ev.img || "./assets/img/hero-1.jpg");
-      heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(bg)}')`);
-      heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
-    }
+    // ✅ pinta hero correcto según viewport
+    applyHeroForViewport();
 
     const heroImgEl = $("#evPhoto");
     if (heroImgEl) {
-      heroImgEl.src = ev.img || "./assets/img/hero-1.jpg";
       heroImgEl.alt = ev.title ? `Foto del evento: ${ev.title}` : "Foto del evento";
     }
 
@@ -735,5 +779,13 @@
     renderEvent(ev);
 
     setLoading(false);
+
+    // ✅ PRO: si rota/cambia tamaño, re-aplica hero
+    window.addEventListener("resize", () => {
+      try { applyHeroForViewport(); } catch (_) {}
+    });
+    window.addEventListener("orientationchange", () => {
+      try { applyHeroForViewport(); } catch (_) {}
+    });
   })();
 })();
