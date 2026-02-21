@@ -1,25 +1,35 @@
-/* ============================================================
-   gallery.js ✅ PRO (Maridajes + Cocteles) - 2026 (Supabase)
-   - 1 solo JS para ambas páginas
-   - Lee window.ECN_PAGE.type: "cocteles" | "maridajes" | "all"
-   - Galería: Supabase (public) -> gallery_items (preferido) o promos (fallback)
-   - Filtros: fecha + tipo + búsqueda (debounce)
-   - Grid IG: render limpio y quita skeletons
-
-   REVIEWS ✅ (2026-02-10):
-   - Reseñas en Supabase table: public.event_reviews  ✅ cross-device
-   - Sin login: ownership por token local + hash en DB (NO se expone token)
-   - Editar/Borrar solo tus reseñas (token hash coincide via RPC)
-   - RPCs: create_event_review, update_event_review, delete_event_review
-   - Gating: solo eventos finalizados (última fecha terminó)
-
-   Reactions:
-   - Se mantienen LocalStorage (por ahora) por review.id
-
-============================================================ */
-
 (function () {
   "use strict";
+
+  /* ============================================================
+     gallery.js ✅ PRO (Maridajes + Cocteles) - 2026 (Supabase)
+     - 1 solo JS para ambas páginas
+     - Lee window.ECN_PAGE.type: "cocteles" | "maridajes" | "all"
+     - Galería: Supabase (public) -> gallery_items (preferido) o promos (fallback)
+     - Filtros: fecha + tipo + búsqueda (debounce)
+     - Grid IG: render limpio y quita skeletons
+
+     REVIEWS ✅ (2026-02-10):
+     - Reseñas en Supabase table: public.event_reviews  ✅ cross-device
+     - Sin login: ownership por token local + hash en DB (NO se expone token)
+     - Editar/Borrar solo tus reseñas (token hash coincide via RPC)
+     - RPCs: create_event_review, update_event_review, delete_event_review
+     - Gating: solo eventos finalizados (última fecha terminó)
+
+     Reactions:
+     - Se mantienen LocalStorage (por ahora) por review.id
+
+     ============================================================
+     ✅ PATCH PRO (2026-02-20):
+     1) Filtro por página: ya NO fuerza target='home'
+        - respeta window.ECN_PAGE.type ("cocteles" | "maridajes" | "all")
+        - y respeta item.target si existe (home/cocteles/maridajes/all)
+     2) Imágenes: usa v_media_bindings_latest cuando exista
+        - batch fetch (sin N+1)
+        - scopes: "gallery_item" y "gallery" (compat)
+        - slots: cover/gallery_cover/desktop/mobile/desktop_event/mobile_event (compat)
+        - fallback: image_url o image_path->publicUrl (como antes)
+  ============================================================ */
 
   // ------------------------------------------------------------
   // Helpers
@@ -209,6 +219,45 @@
   }
 
   // ------------------------------------------------------------
+  // ✅ PRO: helper para detectar móvil (para escoger slot)
+  // ------------------------------------------------------------
+  function isMobileViewport() {
+    try {
+      return window.matchMedia && window.matchMedia("(max-width: 820px)").matches;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // ✅ PRO: filtro por página (target) — NO MÁS target='home'
+  // - Si no hay target -> se muestra
+  // - Si target="all" -> se muestra
+  // - Si target="home" -> se muestra SOLO si pageKey es all/gallery (porque home es global)
+  // - Si target="cocteles"/"maridajes" -> se filtra por pageKey
+  // - Si target contiene "coct"/"marid" -> también
+  // ------------------------------------------------------------
+  function targetMatchesPage(targetRaw) {
+    const t = norm(targetRaw || "");
+    if (!t) return true;
+    if (t === "all" || t === "gallery") return true;
+
+    if (t === "home") {
+      // home suele ser global; si estás en cocteles/maridajes lo dejás pasar igual
+      // (si querés restringir, cambiá esto)
+      return true;
+    }
+
+    if (pageKey === "all") return true;
+
+    if (pageKey === "cocteles") return t === "cocteles" || t.includes("coct");
+    if (pageKey === "maridajes") return t === "maridajes" || t.includes("marid");
+
+    // fallback
+    return true;
+  }
+
+  // ------------------------------------------------------------
   // Token local (sin login) + hash para ownership UI
   // - token NO se guarda en DB, solo su hash
   // ------------------------------------------------------------
@@ -222,7 +271,6 @@
       if (existing && existing.length >= 24) return existing;
       let token = "";
       try {
-        // token random fuerte (si hay crypto)
         const bytes = new Uint8Array(24);
         crypto.getRandomValues(bytes);
         token = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -232,13 +280,11 @@
       localStorage.setItem(LS_AUTH.TOKEN, token);
       return token;
     } catch (_) {
-      // sin localStorage: token volatile (igual permite escribir pero ownership no persiste)
       return `${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
     }
   }
 
   async function sha256Hex(str) {
-    // Para comparar con author_hash (sha256 hex) sin exponer token
     try {
       if (!crypto?.subtle) return "";
       const enc = new TextEncoder();
@@ -252,7 +298,7 @@
   }
 
   const AUTHOR_TOKEN = getOrCreateAuthorToken();
-  let AUTHOR_HASH = ""; // se llena async
+  let AUTHOR_HASH = "";
 
   // ------------------------------------------------------------
   // DB config
@@ -356,6 +402,7 @@
       img,
       tags: normalizeTags(row.tags),
       createdAt,
+      target: safeStr(row.target || ""),
     };
   }
 
@@ -366,6 +413,98 @@
     return Array.isArray(data) ? data : [];
   }
 
+  // ------------------------------------------------------------
+  // ✅ PRO: v_media_bindings_latest (batch) para tiles de galería
+  // - scope: "gallery_item" (nuevo) o "gallery" (compat)
+  // - scope_id: gallery_item.id
+  // - slots soportados: cover/gallery_cover/desktop/mobile/desktop_event/mobile_event
+  // ------------------------------------------------------------
+  const BINDINGS = {
+    VIEW: "v_media_bindings_latest",
+    SCOPES: ["gallery_item", "gallery"],
+    SLOTS: ["cover", "gallery_cover", "desktop", "mobile", "desktop_event", "mobile_event"],
+  };
+
+  function resolveBindingUrl(row) {
+    const pub = cleanSpaces(row?.public_url || "");
+    if (pub) return pub;
+    const p = cleanSpaces(row?.path || "");
+    // Nota: si path ya es URL absoluta (a veces) la usamos
+    if (/^https?:\/\//i.test(p)) return p;
+    return ""; // si es storage-path sin public_url, mejor no inventar bucket aquí
+  }
+
+  function chooseBestFromSlots(slotToUrl, wantMobile) {
+    // prioridad (móvil)
+    if (wantMobile) {
+      return (
+        slotToUrl.mobile ||
+        slotToUrl.mobile_event ||
+        slotToUrl.cover ||
+        slotToUrl.gallery_cover ||
+        slotToUrl.desktop ||
+        slotToUrl.desktop_event ||
+        ""
+      );
+    }
+    // prioridad (desktop)
+    return (
+      slotToUrl.desktop ||
+      slotToUrl.desktop_event ||
+      slotToUrl.cover ||
+      slotToUrl.gallery_cover ||
+      slotToUrl.mobile ||
+      slotToUrl.mobile_event ||
+      ""
+    );
+  }
+
+  async function fetchGalleryBindingsMap(ids) {
+    const client = sb();
+    const list = (Array.isArray(ids) ? ids : []).map((x) => String(x || "").trim()).filter(Boolean);
+    if (!client || !list.length) return new Map();
+
+    // Map final: scope_id -> {slot:url}
+    const out = new Map();
+
+    try {
+      // batch por scope (para compat)
+      for (const sc of BINDINGS.SCOPES) {
+        const { data, error } = await client
+          .from(BINDINGS.VIEW)
+          .select("scope,scope_id,slot,public_url,path,binding_updated_at,media_updated_at")
+          .eq("scope", sc)
+          .in("scope_id", list)
+          .in("slot", BINDINGS.SLOTS)
+          .limit(2000);
+
+        if (error) {
+          // si la view no existe o RLS, no rompemos
+          console.warn("[gallery] bindings view error:", error);
+          continue;
+        }
+
+        (Array.isArray(data) ? data : []).forEach((r) => {
+          const scopeId = cleanSpaces(r?.scope_id || "");
+          const slot = cleanSpaces(r?.slot || "");
+          const url = resolveBindingUrl(r);
+          if (!scopeId || !slot || !url) return;
+
+          if (!out.has(scopeId)) out.set(scopeId, {});
+          const obj = out.get(scopeId);
+
+          // v_media_bindings_latest ya debería ser “latest”, pero igual:
+          // si ya existe slot, lo dejamos (no sobreescribimos) para estabilidad
+          if (!obj[slot]) obj[slot] = url;
+        });
+      }
+    } catch (e) {
+      console.warn("[gallery] fetchGalleryBindingsMap fail:", e);
+    }
+
+    return out;
+  }
+
   async function fetchGallery() {
     if (!hasSupabase()) {
       toast("Falta Supabase en esta página (revisá scripts).");
@@ -374,26 +513,47 @@
 
     await ensureSessionOptional();
 
+    // 1) Traemos items (gallery_items -> promos fallback)
+    let base = [];
     try {
       const rows = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_BASE);
-      return rows.map(normalizeGalleryRow).filter((x) => x.img && (!x.target || x.target === "home"));
+      base = rows.map(normalizeGalleryRow);
     } catch (e1) {
       if (!isMissingTable(e1)) {
         if (isRLSError(e1)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
         else console.warn("[gallery] gallery_items base error:", e1);
       }
+
+      try {
+        const rowsP = await fetchUsing(DB.GALLERY_FALLBACK, SELECT_PROMOS_BASE);
+        base = rowsP.map(normalizeGalleryRow);
+      } catch (eP) {
+        if (isMissingTable(eP)) toast("No existe tabla gallery_items ni promos.");
+        else if (isRLSError(eP)) toast("Acceso bloqueado (RLS) leyendo promos.");
+        else toast("No pude cargar la galería.");
+        console.warn("[gallery] promos base error:", eP);
+        return [];
+      }
     }
 
-    try {
-      const rowsP = await fetchUsing(DB.GALLERY_FALLBACK, SELECT_PROMOS_BASE);
-      return rowsP.map(normalizeGalleryRow).filter((x) => x.img && (!x.target || x.target === "home"));
-    } catch (eP) {
-      if (isMissingTable(eP)) toast("No existe tabla gallery_items ni promos.");
-      else if (isRLSError(eP)) toast("Acceso bloqueado (RLS) leyendo promos.");
-      else toast("No pude cargar la galería.");
-      console.warn("[gallery] promos base error:", eP);
-      return [];
-    }
+    // 2) ✅ PRO: filtro por target (según página) — antes forzaba home
+    base = base.filter((x) => x.img && targetMatchesPage(x.target));
+
+    // 3) ✅ PRO: bindings batch (si existe la view)
+    const ids = base.map((x) => x.id).filter(Boolean);
+    const bindMap = await fetchGalleryBindingsMap(ids);
+
+    const wantMobile = isMobileViewport();
+    const merged = base.map((it) => {
+      const slots = bindMap.get(it.id) || null;
+      if (!slots) return it;
+
+      const best = chooseBestFromSlots(slots, wantMobile);
+      if (best) return { ...it, img: best };
+      return it;
+    });
+
+    return merged;
   }
 
   // ------------------------------------------------------------
@@ -808,7 +968,7 @@
   // ------------------------------------------------------------
   // REVIEWS: Supabase fetch
   // ------------------------------------------------------------
-  let REVIEWS_CACHE = []; // lista actual renderizada (para editar/borrar rápido)
+  let REVIEWS_CACHE = [];
 
   function isOwnerReview(row) {
     const h = safeStr(row?.author_hash || "");
@@ -821,7 +981,6 @@
 
     const client = sb();
 
-    // Solo eventos del pageKey
     const allowedIds = (REVIEW_EVENTS || []).map((x) => x.id).filter(Boolean);
     if (!allowedIds.length) return [];
 
@@ -854,9 +1013,6 @@
     }
   }
 
-  // ------------------------------------------------------------
-  // REVIEWS: render list (con acciones Editar/Borrar solo dueño)
-  // ------------------------------------------------------------
   function renderReviews(list) {
     if (!reviewListEl) return;
 
@@ -900,7 +1056,6 @@
       const my = reactionState[r.id] || "none";
       const canEdit = isOwnerReview(r);
 
-      // Nota visual si fue editado
       const edited = r.updatedAt && r.createdAt && r.updatedAt !== r.createdAt ? " · editado" : "";
 
       card.innerHTML = `
@@ -943,9 +1098,6 @@
     itemsWrap.appendChild(frag);
   }
 
-  // ------------------------------------------------------------
-  // REVIEWS: submit via RPC (con gating)
-  // ------------------------------------------------------------
   function updateCountUI() {
     if (!reviewTextTa || !reviewCountEl) return;
     reviewCountEl.textContent = String(String(reviewTextTa.value || "").length);
@@ -1012,7 +1164,6 @@
     try {
       await rpcCreateReview({ eventId, name: name || "Anónimo", text });
 
-      // reset
       reviewTextTa.value = "";
       if (reviewNameInp) reviewNameInp.value = "";
       reviewEventSel.selectedIndex = 0;
@@ -1020,7 +1171,6 @@
 
       toast("Reseña publicada.");
 
-      // recarga de DB para quedar 100% consistente
       const list = await fetchReviewsForAllowedEvents();
       renderReviews(list);
     } catch (err) {
@@ -1029,16 +1179,10 @@
     }
   }
 
-  // ------------------------------------------------------------
-  // REVIEWS: Edit/Borrar (delegación) + Reacciones
-  // ------------------------------------------------------------
   function toggleReaction(reviewId, kind) {
-    // Reacciones siguen local
     const st = loadReactionState();
     const prev = st[reviewId] || "none";
 
-    // Mantenemos counts en memoria solo para UI local (sin DB)
-    // Si querés persistencia real cross-device, luego lo pasamos a DB.
     const list = REVIEWS_CACHE.slice();
     const idx = list.findIndex((r) => r.id === reviewId);
     if (idx < 0) return;
@@ -1122,7 +1266,6 @@
       }
     });
 
-    // UX: foco directo
     ta.focus();
     ta.setSelectionRange(ta.value.length, ta.value.length);
   }
@@ -1145,7 +1288,6 @@
   async function onReviewListClick(e) {
     const t = e.target;
 
-    // acciones Edit/Borrar
     const actionBtn = t && t.closest ? t.closest("[data-action]") : null;
     if (actionBtn) {
       const card = actionBtn.closest(".reviewCard");
@@ -1155,7 +1297,6 @@
       const row = REVIEWS_CACHE.find((x) => x.id === reviewId);
       if (!row) return;
 
-      // seguridad UI extra
       if (!isOwnerReview(row)) {
         toast("Solo podés editar/borrar tus propios comentarios.");
         return;
@@ -1167,7 +1308,6 @@
       return;
     }
 
-    // reacciones
     const btn = t && t.closest ? t.closest(".reactBtn") : null;
     if (!btn) return;
 
@@ -1215,7 +1355,6 @@
 
     ensureReviewStructure();
 
-    // hash para ownership UI (si el browser soporta crypto.subtle)
     AUTHOR_HASH = await sha256Hex(AUTHOR_TOKEN);
 
     try {
@@ -1238,11 +1377,9 @@
     if (formEl) formEl.addEventListener("submit", handleSubmit);
     if (reviewListEl) reviewListEl.addEventListener("click", onReviewListClick);
 
-    // Cargar desde DB para que sea cross-device
     const list = await fetchReviewsForAllowedEvents();
     renderReviews(list);
 
-    // refresh suave cuando se vuelve a la pestaña (para ver comentarios nuevos)
     document.addEventListener("visibilitychange", async () => {
       if (document.visibilityState === "visible") {
         const list2 = await fetchReviewsForAllowedEvents();
