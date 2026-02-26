@@ -1420,7 +1420,7 @@
 
   .hero,
   .slideImage{
-    background-position: left left !important;
+    background-position: right right !important;
   }
 
 }
