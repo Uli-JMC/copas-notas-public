@@ -20,7 +20,6 @@
     EVENTS: "ecn_events",
     REGS: "ecn_regs",
     MEDIA: "ecn_media",
-    // ✅ NUEVO
     PROMOS: "ecn_promos",
   };
 
@@ -33,7 +32,8 @@
       type: "Cata de vino",
       monthKey: "ENERO",
       title: "Cata: Notas & Maridajes",
-      desc: "Explorá aromas y sabores con maridajes guiados. Ideal para principiantes y curiosos.",
+      description:
+        "Explorá aromas y sabores con maridajes guiados. Ideal para principiantes y curiosos.",
       img: "./assets/img/hero-1.jpg",
 
       // ✅ Dirección
@@ -54,7 +54,8 @@
       type: "Coctelería",
       monthKey: "FEBRERO",
       title: "Cocteles Clásicos con Twist",
-      desc: "Aprendé técnica, balance y presentación con recetas clásicas reinterpretadas.",
+      description:
+        "Aprendé técnica, balance y presentación con recetas clásicas reinterpretadas.",
       img: "./assets/img/hero-2.jpg",
 
       location: "San José (por confirmar)",
@@ -69,7 +70,8 @@
       type: "Cata de vino",
       monthKey: "MARZO",
       title: "Ruta de Tintos",
-      desc: "Comparación de perfiles, cuerpo, taninos y maridajes para cada estilo.",
+      description:
+        "Comparación de perfiles, cuerpo, taninos y maridajes para cada estilo.",
       img: "./assets/img/hero-3.jpg",
 
       location: "Heredia (por confirmar)",
@@ -91,7 +93,7 @@
     instagramUrl: "https://instagram.com/entrecopasynotas",
   };
 
-  // ✅ NUEVO: Promos (banner + modal)
+  // ✅ Promos (banner + modal)
   const DEFAULT_PROMOS = [
     {
       id: "club-vino-banner",
@@ -102,7 +104,7 @@
 
       badge: "NUEVO",
       title: "El Club del Vino viene pronto",
-      desc: "Acceso anticipado, experiencias privadas y maridajes exclusivos.",
+      description: "Acceso anticipado, experiencias privadas y maridajes exclusivos.",
 
       ctaLabel: "Unirme a la lista VIP",
       ctaHref:
@@ -126,7 +128,8 @@
 
       badge: "NUEVO",
       title: "🍷 Club del Vino (próximamente)",
-      desc: "Una comunidad para probar, aprender y compartir. Cupos limitados en el lanzamiento.",
+      description:
+        "Una comunidad para probar, aprender y compartir. Cupos limitados en el lanzamiento.",
       note: "Tip: si te unís ahora, te avisamos primero cuando esté la página lista.",
 
       ctaLabel: "Quiero estar adentro",
@@ -216,6 +219,14 @@
     return lg || "Por confirmar";
   }
 
+  // ✅ compat: si aún existe desc en datos viejos, lo toma como fallback
+  function pickDescription(raw) {
+    const d = safeStr(raw?.description ?? "").trim();
+    if (d) return d;
+    const old = safeStr(raw?.desc ?? "").trim();
+    return old;
+  }
+
   // ============================================================
   // Seats
   // ============================================================
@@ -269,12 +280,15 @@
       // ✅ duration = horario (para event.html)
       const duration = pickSchedule(timeRange, ev?.duration);
 
+      // ✅ description (DB-aligned) + compat con desc viejo
+      const description = pickDescription(ev);
+
       return {
         id: safeStr(ev?.id),
         type: safeStr(ev?.type || "Cata de vino"),
         monthKey: normalizeMonth(ev?.monthKey || "ENERO"),
         title: safeStr(ev?.title || "Evento"),
-        desc: safeStr(ev?.desc || ""),
+        description,
         img: safeStr(ev?.img || DEFAULT_MEDIA.defaultHero),
 
         location,
@@ -321,12 +335,15 @@
     // ✅ duration = horario (para event.html)
     const duration = pickSchedule(timeRange, raw.duration);
 
+    // ✅ description (DB-aligned) + compat
+    const description = pickDescription(raw);
+
     const next = {
       id,
       type: safeStr(raw.type || "Cata de vino"),
       monthKey: normalizeMonth(raw.monthKey || "ENERO"),
       title: safeStr(raw.title || "Evento"),
-      desc: safeStr(raw.desc || ""),
+      description,
       img: safeStr(raw.img || DEFAULT_MEDIA.defaultHero),
 
       location,
@@ -391,12 +408,14 @@
     const durationHours = safeStr(raw.durationHours || "Por confirmar");
     const duration = pickSchedule(timeRange, raw.duration);
 
+    const description = pickDescription(raw);
+
     return {
       id: safeStr(raw.id),
       type: safeStr(raw.type || "Experiencia"),
       monthKey: normalizeMonth(raw.monthKey || "—"),
       title: safeStr(raw.title || "Evento"),
-      desc: safeStr(raw.desc || ""),
+      description,
       img: safeStr(raw.img || ""),
 
       location: safeStr(raw.location || "Por confirmar"),
@@ -508,7 +527,7 @@
   };
 
   // ============================================================
-  // ✅ Promos API (RAW)
+  // Promos API (RAW)
   // ============================================================
   function normalizePromoKind(k) {
     const v = safeStr(k).trim().toUpperCase();
@@ -528,6 +547,9 @@
     const createdAt = safeStr(raw.createdAt).trim() || nowIso();
     const updatedAt = nowIso();
 
+    // ✅ description (DB-aligned) + compat con desc viejo
+    const description = safeStr(raw.description ?? "").trim() || safeStr(raw.desc ?? "").trim();
+
     return {
       id,
       active: !!raw.active,
@@ -537,7 +559,7 @@
 
       badge: safeStr(raw.badge || ""),
       title: safeStr(raw.title || "Promo"),
-      desc: safeStr(raw.desc || ""),
+      description,
       note: safeStr(raw.note || ""),
 
       ctaLabel: safeStr(raw.ctaLabel || "Conocer"),
@@ -623,105 +645,4 @@
   // Boot
   // ============================================================
   ECN.ensureDefaults();
-})();
-/* ============================================================
-   ECN Image Performance Helpers (2026-02-25)
-   - Preload & decode images to reduce flicker on swaps
-   - Small in-memory cache (session only)
-   - Safe no-op if url is empty
-============================================================ */
-(function () {
-  const ECN = (window.ECN = window.ECN || {});
-  const _imgCache = ECN._imgCache || (ECN._imgCache = new Map());
-
-  function _normUrl(u) {
-    if (!u) return "";
-    try { return String(u).trim(); } catch (_) { return ""; }
-  }
-
-  ECN.preloadImage = function preloadImage(url, opts) {
-    const u = _normUrl(url);
-    if (!u) return Promise.resolve(null);
-
-    if (_imgCache.has(u)) return _imgCache.get(u);
-
-    const timeoutMs = (opts && Number.isFinite(opts.timeoutMs) && opts.timeoutMs > 0) ? opts.timeoutMs : 6500;
-
-    const p = new Promise((resolve) => {
-      const img = new Image();
-      let done = false;
-
-      const finish = (ok) => {
-        if (done) return;
-        done = true;
-        try {
-          // decode() may exist; don't block if unsupported
-          if (ok && typeof img.decode === "function") {
-            img.decode().then(() => resolve(img)).catch(() => resolve(img));
-          } else {
-            resolve(ok ? img : null);
-          }
-        } catch (_) {
-          resolve(ok ? img : null);
-        }
-      };
-
-      const t = setTimeout(() => finish(false), timeoutMs);
-
-      img.onload = () => { clearTimeout(t); finish(true); };
-      img.onerror = () => { clearTimeout(t); finish(false); };
-
-      // Hint to browser (best-effort)
-      try { img.decoding = "async"; } catch (_) {}
-      img.src = u;
-    });
-
-    _imgCache.set(u, p);
-    return p;
-  };
-
-  // Swap background-image safely after preload (reduces “flash”)
-  ECN.swapBgAfterLoad = function swapBgAfterLoad(el, url, opts) {
-    if (!el) return Promise.resolve(false);
-    const u = _normUrl(url);
-    if (!u) return Promise.resolve(false);
-
-    const cssVar = opts && opts.cssVar ? String(opts.cssVar) : "";
-    const withFade = !(opts && opts.fade === false);
-
-    if (withFade) {
-      // Soft fade without requiring CSS file edits
-      try {
-        el.style.transition = el.style.transition || "opacity 140ms ease";
-      } catch (_) {}
-    }
-
-    return ECN.preloadImage(u, opts).then((img) => {
-      if (!img) return false;
-
-      if (withFade) {
-        try { el.style.opacity = "0.98"; } catch (_) {}
-      }
-
-      // Apply
-      if (cssVar) {
-        try { el.style.setProperty(cssVar, "url('" + u.replace(/'/g, "\\'") + "')"); } catch (_) {}
-        try { el.style.backgroundImage = "url('" + u.replace(/'/g, "\\'") + "')"; } catch (_) {}
-      } else {
-        try { el.style.backgroundImage = "url('" + u.replace(/'/g, "\\'") + "')"; } catch (_) {}
-      }
-
-      // Ensure centered on mobile/desktop (safe default)
-      try {
-        el.style.backgroundPosition = el.style.backgroundPosition || "center";
-        el.style.backgroundSize = el.style.backgroundSize || "cover";
-      } catch (_) {}
-
-      if (withFade) {
-        // restore opacity
-        setTimeout(() => { try { el.style.opacity = ""; } catch (_) {} }, 20);
-      }
-      return true;
-    });
-  };
 })();
