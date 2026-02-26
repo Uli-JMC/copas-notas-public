@@ -1414,28 +1414,19 @@
   opacity: 1;
 }
 
-/* ---------- MOBILE CENTER ---------- */
-
-@media (max-width: 768px){
-  .hero,
-  .slideImage{
-    background-position: center center !important;
-  }
-}
-
+/* ============================================================
+   HERO MOBILE — FOCUS DERECHA (botella + copa)
+============================================================ */
 @media (max-width: 640px){
-  .slide::before{ background-position: 70% center; }
-  .heroBgVideo{ object-position: 70% center; }
-}
 
-@media (max-width: 640px){
   .slide::before{
-    /* antes: 70% center */
-    background-position: 64% 42% !important; /* foco: botella+copa */
+    /* imagen fallback */
+    background-position: 78% 45% !important;
   }
 
   .heroBgVideo{
-    /* antes: 70% center */
-    object-position: 64% 42% !important;     /* foco: botella+copa */
+    /* video */
+    object-position: 78% 45% !important;
   }
+
 }
