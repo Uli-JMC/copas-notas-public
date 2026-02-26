@@ -1431,10 +1431,12 @@
 @media (max-width: 640px){
   .slide::before{
     /* antes: 70% center */
-    background-position: 58% 40% !important; /* foco: botella+copa */
+    background-position: 64% 42% !important; /* foco: botella+copa */
   }
 
   .heroBgVideo{
     /* antes: 70% center */
-    object-position: 58% 40% !important;     /* foco: botella+copa */
+    object-position: 64% 42% !important;     /* foco: botella+copa */
   }
+
+  
