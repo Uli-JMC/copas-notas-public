@@ -1,16 +1,35 @@
-/* ============================================================
-   gallery.js ✅ PRO (Maridajes + Cocteles) - 2026
-   - 1 solo JS para ambas páginas
-   - Lee window.ECN_PAGE.type: "cocteles" | "maridajes"
-   - Filtros: fecha + búsqueda (debounce)
-   - Grid IG: render limpio y quita skeletons
-   - Hover: lo maneja el CSS (oscurecer + tags)
-   - Reviews: form arriba + comments abajo (header "Comentarios" + reacciones)
-   - ✅ Select de eventos: carga desde data.js (ECN.getEventsRaw) SOLO para el form
-============================================================ */
-
 (function () {
   "use strict";
+
+  /* ============================================================
+     gallery.js ✅ PRO (Maridajes + Cocteles) - 2026 (Supabase)
+     - 1 solo JS para ambas páginas
+     - Lee window.ECN_PAGE.type: "cocteles" | "maridajes" | "all"
+     - Galería: Supabase (public) -> gallery_items (preferido) o promos (fallback)
+     - Filtros: fecha + tipo + búsqueda (debounce)
+     - Grid IG: render limpio y quita skeletons
+
+     REVIEWS ✅ (2026-02-10):
+     - Reseñas en Supabase table: public.event_reviews  ✅ cross-device
+     - Sin login: ownership por token local + hash en DB (NO se expone token)
+     - Editar/Borrar solo tus reseñas (token hash coincide via RPC)
+     - RPCs: create_event_review, update_event_review, delete_event_review
+     - Gating: solo eventos finalizados (última fecha terminó)
+
+     Reactions:
+     - Se mantienen LocalStorage (por ahora) por review.id
+
+     ============================================================
+     ✅ PATCH PRO (2026-02-20):
+     1) Filtro por página: ya NO fuerza target='home'
+        - respeta window.ECN_PAGE.type ("cocteles" | "maridajes" | "all")
+        - y respeta item.target si existe (home/cocteles/maridajes/all)
+     2) Imágenes: usa v_media_bindings_latest cuando exista
+        - batch fetch (sin N+1)
+        - scopes: "gallery_item" y "gallery" (compat)
+        - slots: cover/gallery_cover/desktop/mobile/desktop_event/mobile_event (compat)
+        - fallback: image_url o image_path->publicUrl (como antes)
+  ============================================================ */
 
   // ------------------------------------------------------------
   // Helpers
@@ -67,6 +86,23 @@
     return new Date().toISOString();
   }
 
+  function nowMs() {
+    return Date.now();
+  }
+
+  function toMs(v) {
+    const s = String(v || "").trim();
+    if (!s) return NaN;
+    const t = Date.parse(s);
+    return Number.isFinite(t) ? t : NaN;
+  }
+
+  function addHoursMs(startMs, hours) {
+    const h = Number(hours || 0);
+    if (!Number.isFinite(startMs) || !Number.isFinite(h) || h <= 0) return NaN;
+    return startMs + h * 60 * 60 * 1000;
+  }
+
   function uid(prefix = "id") {
     return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
   }
@@ -77,7 +113,36 @@
     return v.length > max ? v.slice(0, max) : v;
   }
 
-  // Toasts opcional (si existe en tu proyecto)
+  function safeStr(x) {
+    return String(x ?? "");
+  }
+
+  function cleanSpaces(s) {
+    return safeStr(s).replace(/\s+/g, " ").trim();
+  }
+
+  function isMissingTable(err) {
+    const m = safeStr(err?.message || "").toLowerCase();
+    return m.includes("does not exist") || (m.includes("relation") && m.includes("does not exist"));
+  }
+
+  function isRLSError(err) {
+    const m = safeStr(err?.message || "").toLowerCase();
+    return (
+      m.includes("rls") ||
+      m.includes("permission") ||
+      m.includes("not allowed") ||
+      m.includes("row level security") ||
+      m.includes("violates row-level security")
+    );
+  }
+
+  function prettyErr(err) {
+    const msg = safeStr(err?.message || err || "");
+    return msg || "Ocurrió un error.";
+  }
+
+  // Toasts (si existe un sistema global, lo usa; si no, fallback simple)
   function toast(msg) {
     try {
       if (window.APP && typeof APP.notify === "function") return APP.notify(msg);
@@ -93,15 +158,13 @@
   }
 
   // ------------------------------------------------------------
-  // Page key desde tu config
+  // Page key desde tu config  ✅ soporta "all"
   // ------------------------------------------------------------
   function getPageKey() {
-    const t =
-      window.ECN_PAGE && window.ECN_PAGE.type
-        ? String(window.ECN_PAGE.type).toLowerCase()
-        : "";
+    const t = window.ECN_PAGE && window.ECN_PAGE.type ? String(window.ECN_PAGE.type).toLowerCase() : "";
     if (t.includes("coct")) return "cocteles";
     if (t.includes("marid")) return "maridajes";
+    if (t.includes("all")) return "all";
     return "gallery";
   }
   const pageKey = getPageKey();
@@ -113,6 +176,7 @@
   if (!gridEl) return;
 
   const selDate = $("#filterDate");
+  const selType = $("#filterType");
   const inpSearch = $("#filterSearch");
 
   // ------------------------------------------------------------
@@ -123,142 +187,584 @@
   const reviewNameInp = $("#reviewName");
   const reviewTextTa = $("#reviewText");
   const reviewCountEl = $("#reviewCount");
-
   const reviewListEl = $("#reviewList");
-  const reviewEmptyEl = $("#reviewEmpty");
 
   // ------------------------------------------------------------
-  // Demo data (galería) — se queda así por ahora (NO usa eventos admin)
+  // Supabase availability (PUBLIC client)
   // ------------------------------------------------------------
-  const DEMO = {
-    cocteles: [
-      { id: "c-1", eventName: "Presentación y garnish", dateISO: "2026-02-02", img: "./assets/img/gallery/cocteles-1.jpg", tags: ["#coctel", "#presentacion", "#autor"] },
-      { id: "c-2", eventName: "Bar vibes", dateISO: "2026-02-02", img: "./assets/img/gallery/cocteles-2.jpg", tags: ["#bar", "#vibes"] },
-      { id: "c-3", eventName: "Cítricos & frescura", dateISO: "2026-02-14", img: "./assets/img/gallery/cocteles-3.jpg", tags: ["#gin", "#citricos", "#fresh"] },
-      { id: "c-4", eventName: "Clásicos con flow", dateISO: "2026-03-01", img: "./assets/img/gallery/cocteles-4.jpg", tags: ["#clasicos", "#mixologia"] },
-      { id: "c-5", eventName: "Colores del trópico", dateISO: "2026-03-02", img: "./assets/img/gallery/cocteles-5.jpg", tags: ["#coctel", "#color", "#tropical"] },
-      { id: "c-6", eventName: "Tónicos y especies", dateISO: "2026-03-02", img: "./assets/img/gallery/cocteles-6.jpg", tags: ["#bar", "#vibes"] },
-      { id: "c-7", eventName: "Amaretto mood", dateISO: "2026-03-08", img: "./assets/img/gallery/cocteles-7.jpg", tags: ["#sweet", "#night"] },
-      { id: "c-8", eventName: "Frescura de verano", dateISO: "2026-03-15", img: "./assets/img/gallery/cocteles-8.jpg", tags: ["#clasicos", "#mixologia"] }
-    ],
-    maridajes: [
-      { id: "m-1", eventName: "Notas & maridajes", dateISO: "2026-01-10", img: "./assets/img/gallery/maridaje-1.jpg", tags: ["#vino", "#maridaje", "#notas"] },
-      { id: "m-2", eventName: "Quesos & blancos", dateISO: "2026-01-18", img: "./assets/img/gallery/maridaje-2.jpg", tags: ["#queso", "#vinoblanco"] },
-      { id: "m-3", eventName: "Pasta night", dateISO: "2026-01-05", img: "./assets/img/gallery/maridaje-3.jpg", tags: ["#pasta", "#tinto", "#pairing"] },
-      { id: "m-4", eventName: "Dulces & espumante", dateISO: "2026-02-21", img: "./assets/img/gallery/maridaje-4.jpg", tags: ["#postre", "#espumante"] },
-      { id: "m-5", eventName: "Notas y tintes", dateISO: "2026-02-22", img: "./assets/img/gallery/maridaje-5.jpg", tags: ["#vino", "#maridaje", "#notas"] },
-      { id: "m-6", eventName: "Fiambres que mezclan", dateISO: "2026-02-26", img: "./assets/img/gallery/maridaje-6.jpg", tags: ["#tabla", "#vino"] },
-      { id: "m-7", eventName: "Italia en la mesa", dateISO: "2026-03-01", img: "./assets/img/gallery/maridaje-7.jpg", tags: ["#pasta", "#tinto", "#pairing"] },
-      { id: "m-8", eventName: "Argentina en un sorbo", dateISO: "2026-03-12", img: "./assets/img/gallery/maridaje-8.jpg", tags: ["#asado", "#malbec"] }
-    ]
+  function sb() {
+    try {
+      if (window.APP && APP.publicSb) return APP.publicSb;
+      if (window.APP && (APP.supabase || APP.sb)) return APP.supabase || APP.sb;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function hasSupabase() {
+    const client = sb();
+    return !!(client && typeof client.from === "function");
+  }
+
+  async function ensureSessionOptional() {
+    try {
+      const client = sb();
+      if (!client?.auth?.getSession) return null;
+      const res = await client.auth.getSession();
+      return res?.data?.session || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // ✅ PRO: helper para detectar móvil (para escoger slot)
+  // ------------------------------------------------------------
+  function isMobileViewport() {
+    try {
+      return window.matchMedia && window.matchMedia("(max-width: 820px)").matches;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ------------------------------------------------------------
+  // ✅ PRO: filtro por página (target) — NO MÁS target='home'
+  // - Si no hay target -> se muestra
+  // - Si target="all" -> se muestra
+  // - Si target="home" -> se muestra SOLO si pageKey es all/gallery (porque home es global)
+  // - Si target="cocteles"/"maridajes" -> se filtra por pageKey
+  // - Si target contiene "coct"/"marid" -> también
+  // ------------------------------------------------------------
+  function targetMatchesPage(targetRaw) {
+    const t = norm(targetRaw || "");
+    if (!t) return true;
+    if (t === "all" || t === "gallery") return true;
+
+    if (t === "home") {
+      // home suele ser global; si estás en cocteles/maridajes lo dejás pasar igual
+      // (si querés restringir, cambiá esto)
+      return true;
+    }
+
+    if (pageKey === "all") return true;
+
+    if (pageKey === "cocteles") return t === "cocteles" || t.includes("coct");
+    if (pageKey === "maridajes") return t === "maridajes" || t.includes("marid");
+
+    // fallback
+    return true;
+  }
+
+  // ------------------------------------------------------------
+  // Token local (sin login) + hash para ownership UI
+  // - token NO se guarda en DB, solo su hash
+  // ------------------------------------------------------------
+  const LS_AUTH = {
+    TOKEN: "ecn_author_token_v1",
+  };
+
+  function getOrCreateAuthorToken() {
+    try {
+      const existing = localStorage.getItem(LS_AUTH.TOKEN);
+      if (existing && existing.length >= 24) return existing;
+      let token = "";
+      try {
+        const bytes = new Uint8Array(24);
+        crypto.getRandomValues(bytes);
+        token = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+      } catch (_) {
+        token = `${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+      }
+      localStorage.setItem(LS_AUTH.TOKEN, token);
+      return token;
+    } catch (_) {
+      return `${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+    }
+  }
+
+  async function sha256Hex(str) {
+    try {
+      if (!crypto?.subtle) return "";
+      const enc = new TextEncoder();
+      const data = enc.encode(String(str));
+      const hash = await crypto.subtle.digest("SHA-256", data);
+      const bytes = Array.from(new Uint8Array(hash));
+      return bytes.map((b) => b.toString(16).padStart(2, "0")).join("");
+    } catch (_) {
+      return "";
+    }
+  }
+
+  const AUTHOR_TOKEN = getOrCreateAuthorToken();
+  let AUTHOR_HASH = "";
+
+  // ------------------------------------------------------------
+  // DB config
+  // ------------------------------------------------------------
+  const DB = {
+    GALLERY_PRIMARY: "gallery_items",
+    GALLERY_FALLBACK: "promos",
+    EVENTS: "events",
+    EVENT_DATES: "event_dates",
+    REVIEWS: "event_reviews",
+    STORAGE_BUCKET: "gallery",
   };
 
   // ------------------------------------------------------------
-  // Source: ECN.getGalleryItems(type) si existe, si no DEMO
+  // SELECTS
   // ------------------------------------------------------------
-  function getItems() {
+  const SELECT_GALLERY_BASE = `
+    id,
+    type,
+    name,
+    tags,
+    image_url,
+    image_path,
+    created_at,
+    target
+  `;
+
+  const SELECT_PROMOS_BASE = `
+    id,
+    type,
+    title,
+    name,
+    tags,
+    image_url,
+    image_path,
+    created_at,
+    target
+  `;
+
+  const SELECT_REVIEWS_BASE = `
+    id,
+    event_id,
+    author_hash,
+    author_name,
+    body,
+    created_at,
+    updated_at
+  `;
+
+  function publicUrlFromPath(path) {
+    const p = safeStr(path).trim();
+    if (!p) return "";
     try {
-      if (window.ECN && typeof ECN.getGalleryItems === "function") {
-        const items = ECN.getGalleryItems(pageKey);
-        if (Array.isArray(items)) return items;
-      }
-    } catch (_) {}
-    return (DEMO[pageKey] || []).slice();
+      const client = sb();
+      const res = client.storage.from(DB.STORAGE_BUCKET).getPublicUrl(p);
+      return res?.data?.publicUrl || "";
+    } catch (_) {
+      return "";
+    }
   }
 
-  let allItems = getItems();
-
-
-  // ---- IMG warmup (less flicker)
-  try{
-    const IMG = (window.ECN && ECN.img) ? ECN.img : null;
-    if (IMG && Array.isArray(allItems) && allItems.length){
-      allItems.slice(0, 8).forEach((it) => {
-        const u = it && it.img ? String(it.img).trim() : "";
-        if (!u) return;
-        IMG.preconnect(u);
-        IMG.preload(u, { timeout: 1800 });
-      });
+  function normalizeTags(x) {
+    if (Array.isArray(x)) return x.map((t) => safeStr(t)).filter(Boolean).slice(0, 12);
+    if (typeof x === "string" && x.trim()) {
+      return x
+        .split(/[,;]+/g)
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .slice(0, 12);
     }
-  }catch(_){}
+    return [];
+  }
+
+  function pickDateISO(row) {
+    const c = safeStr(row?.created_at || "");
+    return c || "";
+  }
+
+  function normalizeGalleryRow(r) {
+    const row = r || {};
+    const t = String(row.type || "").toLowerCase();
+
+    const type = t.includes("coct")
+      ? "cocteles"
+      : t.includes("marid")
+      ? "maridajes"
+      : "all";
+
+    const title = cleanSpaces(row.name || row.title || "Evento") || "Evento";
+    const createdAt = safeStr(row.created_at || "");
+    const dateISO = pickDateISO(row);
+
+    const img = safeStr(row.image_url || "") || publicUrlFromPath(row.image_path) || "";
+
+    return {
+      id: safeStr(row.id || ""),
+      type,
+      eventName: title,
+      dateISO,
+      dateLabel: dateISO ? fmtShortDate(dateISO) : "",
+      img,
+      tags: normalizeTags(row.tags),
+      createdAt,
+      target: safeStr(row.target || ""),
+    };
+  }
+
+  async function fetchUsing(table, selectStr) {
+    const client = sb();
+    const { data, error } = await client.from(table).select(selectStr).order("created_at", { ascending: false }).limit(1000);
+    if (error) throw error;
+    return Array.isArray(data) ? data : [];
+  }
 
   // ------------------------------------------------------------
-  // ✅ Events para el SELECT (desde data.js)
-  // - NO toca la galería
+  // ✅ PRO: v_media_bindings_latest (batch) para tiles de galería
+  // - scope: "gallery_item" (nuevo) o "gallery" (compat)
+  // - scope_id: gallery_item.id
+  // - slots soportados: cover/gallery_cover/desktop/mobile/desktop_event/mobile_event
   // ------------------------------------------------------------
-  function getEventsForSelect() {
+  const BINDINGS = {
+    VIEW: "v_media_bindings_latest",
+    SCOPES: ["gallery_item", "gallery"],
+    SLOTS: ["cover", "gallery_cover", "desktop", "mobile", "desktop_event", "mobile_event"],
+  };
+
+  function resolveBindingUrl(row) {
+    const pub = cleanSpaces(row?.public_url || "");
+    if (pub) return pub;
+    const p = cleanSpaces(row?.path || "");
+    // Nota: si path ya es URL absoluta (a veces) la usamos
+    if (/^https?:\/\//i.test(p)) return p;
+    return ""; // si es storage-path sin public_url, mejor no inventar bucket aquí
+  }
+
+  function chooseBestFromSlots(slotToUrl, wantMobile) {
+    // prioridad (móvil)
+    if (wantMobile) {
+      return (
+        slotToUrl.mobile ||
+        slotToUrl.mobile_event ||
+        slotToUrl.cover ||
+        slotToUrl.gallery_cover ||
+        slotToUrl.desktop ||
+        slotToUrl.desktop_event ||
+        ""
+      );
+    }
+    // prioridad (desktop)
+    return (
+      slotToUrl.desktop ||
+      slotToUrl.desktop_event ||
+      slotToUrl.cover ||
+      slotToUrl.gallery_cover ||
+      slotToUrl.mobile ||
+      slotToUrl.mobile_event ||
+      ""
+    );
+  }
+
+  async function fetchGalleryBindingsMap(ids) {
+    const client = sb();
+    const list = (Array.isArray(ids) ? ids : []).map((x) => String(x || "").trim()).filter(Boolean);
+    if (!client || !list.length) return new Map();
+
+    // Map final: scope_id -> {slot:url}
+    const out = new Map();
+
     try {
-      if (!window.ECN || typeof ECN.getEventsRaw !== "function") return [];
-      const raw = ECN.getEventsRaw();
-      if (!Array.isArray(raw)) return [];
+      // batch por scope (para compat)
+      for (const sc of BINDINGS.SCOPES) {
+        const { data, error } = await client
+          .from(BINDINGS.VIEW)
+          .select("scope,scope_id,slot,public_url,path,binding_updated_at,media_updated_at")
+          .eq("scope", sc)
+          .in("scope_id", list)
+          .in("slot", BINDINGS.SLOTS)
+          .limit(2000);
 
-      const wantCoct = pageKey === "cocteles";
+        if (error) {
+          // si la view no existe o RLS, no rompemos
+          console.warn("[gallery] bindings view error:", error);
+          continue;
+        }
 
-      return raw
-        .filter((ev) => {
-          const t = norm(ev?.type || "");
-          if (wantCoct) return t.includes("coct"); // "coctelería"
-          return t.includes("vino") || t.includes("cata"); // maridajes (vino/cata)
-        })
+        (Array.isArray(data) ? data : []).forEach((r) => {
+          const scopeId = cleanSpaces(r?.scope_id || "");
+          const slot = cleanSpaces(r?.slot || "");
+          const url = resolveBindingUrl(r);
+          if (!scopeId || !slot || !url) return;
+
+          if (!out.has(scopeId)) out.set(scopeId, {});
+          const obj = out.get(scopeId);
+
+          // v_media_bindings_latest ya debería ser “latest”, pero igual:
+          // si ya existe slot, lo dejamos (no sobreescribimos) para estabilidad
+          if (!obj[slot]) obj[slot] = url;
+        });
+      }
+    } catch (e) {
+      console.warn("[gallery] fetchGalleryBindingsMap fail:", e);
+    }
+
+    return out;
+  }
+
+  async function fetchGallery() {
+    if (!hasSupabase()) {
+      toast("Falta Supabase en esta página (revisá scripts).");
+      return [];
+    }
+
+    await ensureSessionOptional();
+
+    // 1) Traemos items (gallery_items -> promos fallback)
+    let base = [];
+    try {
+      const rows = await fetchUsing(DB.GALLERY_PRIMARY, SELECT_GALLERY_BASE);
+      base = rows.map(normalizeGalleryRow);
+    } catch (e1) {
+      if (!isMissingTable(e1)) {
+        if (isRLSError(e1)) toast("Acceso bloqueado (RLS) leyendo gallery_items.");
+        else console.warn("[gallery] gallery_items base error:", e1);
+      }
+
+      try {
+        const rowsP = await fetchUsing(DB.GALLERY_FALLBACK, SELECT_PROMOS_BASE);
+        base = rowsP.map(normalizeGalleryRow);
+      } catch (eP) {
+        if (isMissingTable(eP)) toast("No existe tabla gallery_items ni promos.");
+        else if (isRLSError(eP)) toast("Acceso bloqueado (RLS) leyendo promos.");
+        else toast("No pude cargar la galería.");
+        console.warn("[gallery] promos base error:", eP);
+        return [];
+      }
+    }
+
+    // 2) ✅ PRO: filtro por target (según página) — antes forzaba home
+    base = base.filter((x) => x.img && targetMatchesPage(x.target));
+
+    // 3) ✅ PRO: bindings batch (si existe la view)
+    const ids = base.map((x) => x.id).filter(Boolean);
+    const bindMap = await fetchGalleryBindingsMap(ids);
+
+    const wantMobile = isMobileViewport();
+    const merged = base.map((it) => {
+      const slots = bindMap.get(it.id) || null;
+      if (!slots) return it;
+
+      const best = chooseBestFromSlots(slots, wantMobile);
+      if (best) return { ...it, img: best };
+      return it;
+    });
+
+    return merged;
+  }
+
+  // ------------------------------------------------------------
+  // ✅ Reseñas: gating por evento FINALIZADO (última fecha terminó)
+  // ------------------------------------------------------------
+  let REVIEW_EVENTS = [];
+  let REVIEW_ELIGIBLE = new Map(); // eventId -> { eligible, reason, endedAtMs, nextEndMs }
+  let EVENT_TITLE_BY_ID = new Map();
+
+  function eventTypeMatches(pageKeyForMatch, typeText) {
+    const t = norm(typeText || "");
+
+    if (pageKeyForMatch === "all") {
+      return t.includes("coct") || t.includes("vino") || t.includes("cata") || t.includes("marid");
+    }
+    if (pageKeyForMatch === "cocteles") return t.includes("coct");
+    return t.includes("vino") || t.includes("cata") || t.includes("marid");
+  }
+
+  async function fetchEventDatesByEvent() {
+    const client = sb();
+
+    try {
+      const { data, error } = await client
+        .from(DB.EVENT_DATES)
+        .select("id,event_id,label,start_at,ends_at,created_at")
+        .order("start_at", { ascending: true })
+        .limit(800);
+
+      if (error) throw error;
+
+      const byEvent = new Map();
+      (Array.isArray(data) ? data : []).forEach((d) => {
+        const eventId = safeStr(d?.event_id || "");
+        const id = safeStr(d?.id || "");
+        if (!eventId || !id) return;
+
+        const label = cleanSpaces(d?.label || "") || "";
+        const startAt = safeStr(d?.start_at || "");
+        const endsAt = safeStr(d?.ends_at || "");
+        const createdAt = safeStr(d?.created_at || "");
+
+        if (!byEvent.has(eventId)) byEvent.set(eventId, []);
+        byEvent.get(eventId).push({ id, eventId, label, startAt, endsAt, createdAt });
+      });
+
+      byEvent.forEach((arr) => {
+        arr.sort((a, b) => {
+          const ta = Number.isFinite(toMs(a.startAt)) ? toMs(a.startAt) : toMs(a.createdAt);
+          const tb = Number.isFinite(toMs(b.startAt)) ? toMs(b.startAt) : toMs(b.createdAt);
+          if (ta !== tb) return ta - tb;
+          return String(a.label).localeCompare(String(b.label), "es");
+        });
+      });
+
+      return byEvent;
+    } catch (e) {
+      console.warn("[reviews] event_dates fetch fail:", e);
+      return new Map();
+    }
+  }
+
+  function computeEligibilityForEvent(dates, durationHours) {
+    const now = nowMs();
+
+    const parsed = (Array.isArray(dates) ? dates : []).map((d) => {
+      const startMs = toMs(d.startAt) || toMs(d.createdAt);
+      const endDirect = toMs(d.endsAt);
+      const endMs = Number.isFinite(endDirect) ? endDirect : addHoursMs(startMs, durationHours);
+      return { ...d, startMs, endMs };
+    });
+
+    if (!parsed.length) {
+      return { eligible: false, reason: "Aún no hay fechas para este evento.", endedAtMs: NaN, nextEndMs: NaN };
+    }
+
+    const ends = parsed.map((x) => x.endMs).filter((x) => Number.isFinite(x));
+    const canJudgeFinal = ends.length === parsed.length;
+
+    const future = parsed
+      .filter((x) => Number.isFinite(x.endMs) && x.endMs >= now)
+      .sort((a, b) => a.endMs - b.endMs);
+
+    if (future.length) {
+      return { eligible: false, reason: "Las reseñas se habilitan cuando el evento finaliza.", endedAtMs: NaN, nextEndMs: future[0].endMs };
+    }
+
+    if (!canJudgeFinal) {
+      return {
+        eligible: false,
+        reason: "Este evento no tiene una fecha/hora válida de finalización. Configurá start_at/ends_at o duration_hours.",
+        endedAtMs: NaN,
+        nextEndMs: NaN,
+      };
+    }
+
+    const maxEnd = Math.max(...ends);
+    if (Number.isFinite(maxEnd) && maxEnd < now) {
+      return { eligible: true, reason: "", endedAtMs: maxEnd, nextEndMs: NaN };
+    }
+
+    return { eligible: false, reason: "Las reseñas se habilitan cuando el evento finaliza.", endedAtMs: NaN, nextEndMs: NaN };
+  }
+
+  async function fetchEventsForSelect() {
+    if (!hasSupabase()) return [];
+    await ensureSessionOptional();
+
+    const client = sb();
+    const datesByEvent = await fetchEventDatesByEvent();
+
+    try {
+      const { data, error } = await client
+        .from(DB.EVENTS)
+        .select("id,title,type,duration_hours,created_at")
+        .order("created_at", { ascending: false })
+        .limit(250);
+
+      if (error) throw error;
+
+      const list = (Array.isArray(data) ? data : [])
         .map((ev) => {
-          const title = String(ev?.title || "Evento").trim();
-          const monthKey = String(ev?.monthKey || "").trim().toUpperCase();
-          // label de fechas viene así: "18-19 enero", "09 febrero"
-          const dates = Array.isArray(ev?.dates) ? ev.dates : [];
-          const dateLabels = dates
-            .map((d) => String(d?.label || "").trim())
-            .filter(Boolean);
+          const id = safeStr(ev?.id || "");
+          const title = cleanSpaces(ev?.title || "Evento") || "Evento";
+          const type = safeStr(ev?.type || "");
+          const durationHours = Number(ev?.duration_hours || 0);
 
-          // el select necesita "evento" y opcionalmente la(s) fechas
+          const ok = !!(id && title && eventTypeMatches(pageKey, type));
+
+          const dates = datesByEvent.get(id) || [];
+          const labels = dates.map((d) => d?.label).filter(Boolean).slice(0, 3);
+
+          const eligibility = computeEligibilityForEvent(dates, durationHours);
+          REVIEW_ELIGIBLE.set(id, eligibility);
+
           return {
-            id: String(ev?.id || ""),
+            id,
             title,
-            monthKey,
-            dates: dateLabels,
+            ok,
+            dates: labels,
+            eligible: !!eligibility.eligible,
+            reason: eligibility.reason || "",
+            nextEndMs: eligibility.nextEndMs,
           };
         })
-        .filter((x) => x.id && x.title);
-    } catch (_) {
+        .filter((x) => x.ok);
+
+      REVIEW_EVENTS = list;
+      EVENT_TITLE_BY_ID = new Map(list.map((x) => [x.id, x.title]));
+      return list;
+    } catch (e) {
+      if (isRLSError(e)) toast("Acceso bloqueado (RLS) leyendo eventos.");
+      else console.warn("[reviews] fetchEventsForSelect fail:", e);
+      REVIEW_EVENTS = [];
+      REVIEW_ELIGIBLE = new Map();
+      EVENT_TITLE_BY_ID = new Map();
       return [];
     }
   }
 
-  function mountReviewEventSelect() {
+  async function mountReviewEventSelect() {
     if (!reviewEventSel) return;
 
-    const events = getEventsForSelect();
-
     const placeholder = `<option value="" disabled selected>Seleccioná un evento</option>`;
+    const events = await fetchEventsForSelect();
 
-    // Si no hay eventos aún, dejamos solo placeholder + deshabilitamos
     if (!events.length) {
-      reviewEventSel.innerHTML =
-        placeholder + `<option value="" disabled>(Aún no hay eventos creados)</option>`;
+      reviewEventSel.innerHTML = placeholder + `<option value="" disabled>(Aún no hay eventos disponibles)</option>`;
       reviewEventSel.disabled = true;
       return;
     }
 
-    reviewEventSel.disabled = false;
+    const anyEligible = events.some((e) => e.eligible);
 
-    // Render options:
-    // value = eventId
-    // label = "Título · (fechas…)" si hay
     const options = events
       .map((ev) => {
         const dates = ev.dates && ev.dates.length ? ` · ${ev.dates.join(" / ")}` : "";
         const label = `${ev.title}${dates}`;
-        return `<option value="${esc(ev.id)}" data-title="${esc(ev.title)}">${esc(label)}</option>`;
+
+        const disabled = ev.eligible ? "" : "disabled";
+        let hint = "";
+        if (!ev.eligible) {
+          if (Number.isFinite(ev.nextEndMs)) {
+            hint = ` (Disponible después de ${fmtShortDate(new Date(ev.nextEndMs).toISOString())})`;
+          } else {
+            hint = " (Disponible al finalizar)";
+          }
+        }
+
+        return `<option value="${esc(ev.id)}" data-title="${esc(ev.title)}" data-eligible="${ev.eligible ? "1" : "0"}" ${disabled}>${esc(label + hint)}</option>`;
       })
       .join("");
 
     reviewEventSel.innerHTML = placeholder + options;
+    reviewEventSel.disabled = !anyEligible;
+
+    if (!anyEligible) toast("Las reseñas se habilitan cuando el evento finaliza.");
+  }
+
+  function isSelectedEventEligible(eventId) {
+    const id = String(eventId || "");
+    const st = REVIEW_ELIGIBLE.get(id);
+    if (!st) return { eligible: false, reason: "No pude validar el evento. Recargá la página." };
+    if (st.eligible) return { eligible: true, reason: "" };
+    return { eligible: false, reason: st.reason || "Las reseñas se habilitan cuando el evento finaliza." };
   }
 
   // ------------------------------------------------------------
-  // LocalStorage keys (reviews/reactions)
+  // LocalStorage keys (reactions only)
   // ------------------------------------------------------------
   const LS = {
-    REVIEWS: `ecn_reviews_${pageKey}`,
     REACTIONS: `ecn_reactions_${pageKey}`,
   };
 
@@ -279,6 +785,15 @@
     } catch (_) {}
   }
 
+  function loadReactionState() {
+    const st = loadJSON(LS.REACTIONS, {});
+    return st && typeof st === "object" ? st : {};
+  }
+
+  function saveReactionState(st) {
+    saveJSON(LS.REACTIONS, st);
+  }
+
   // ------------------------------------------------------------
   // GALERÍA: render grid
   // ------------------------------------------------------------
@@ -289,39 +804,37 @@
   function renderGallery(items) {
     clearSkeletons();
 
+    if (!items || !items.length) {
+      gridEl.innerHTML = `<div style="opacity:.8; padding:16px;">Aún no hay contenido en la galería.</div>`;
+      return;
+    }
+
     const frag = document.createDocumentFragment();
 
     items.forEach((it) => {
       const tags = Array.isArray(it.tags) ? it.tags : [];
       const title = it.eventName ? String(it.eventName) : "Evento";
-      const dateLabel = it.dateISO ? fmtShortDate(it.dateISO) : "";
+      const dateLabel = it.dateLabel ? String(it.dateLabel) : (it.dateISO ? fmtShortDate(it.dateISO) : "");
 
       const tile = document.createElement("article");
       tile.className = "gItem";
       tile.tabIndex = 0;
 
       tile.innerHTML = `
-        <img class="gMedia" src="${esc(it.img)}" alt="${esc(title)}" loading="lazy" decoding="async" fetchpriority="low" />
+        <img class="gMedia" src="${esc(it.img)}" alt="${esc(title)}" loading="lazy" />
         <div class="gOverlay" aria-hidden="true">
           <p class="gTitle">${esc(title)}${dateLabel ? ` · ${esc(dateLabel)}` : ""}</p>
           <div class="gTags">
-            ${tags.slice(0, 8).map(t => `<span class="gTag">${esc(t)}</span>`).join("")}
+            ${tags.slice(0, 8).map((t) => `<span class="gTag">${esc(t)}</span>`).join("")}
           </div>
         </div>
       `;
 
-      tile.addEventListener(
-        "touchstart",
-        (e) => {
-          const already = tile.classList.contains("isActive");
-          $$(".gItem.isActive", gridEl).forEach((x) => x.classList.remove("isActive"));
-          if (!already) {
-            tile.classList.add("isActive");
-            e.preventDefault();
-          }
-        },
-        { passive: false }
-      );
+      tile.addEventListener("click", () => {
+        const already = tile.classList.contains("isActive");
+        $$(".gItem.isActive", gridEl).forEach((x) => x.classList.remove("isActive"));
+        if (!already) tile.classList.add("isActive");
+      });
 
       frag.appendChild(tile);
     });
@@ -329,61 +842,115 @@
     gridEl.appendChild(frag);
   }
 
+  document.addEventListener("click", (e) => {
+    if (!gridEl) return;
+    const inside = e.target && e.target.closest ? e.target.closest(".gItem") : null;
+    if (!inside) $$(".gItem.isActive", gridEl).forEach((x) => x.classList.remove("isActive"));
+  });
+
   // ------------------------------------------------------------
   // GALERÍA: filtros
   // ------------------------------------------------------------
-  function mountDateFilter() {
+  let allItems = [];
+
+  function getTypeFromUI() {
+    const v = selType ? String(selType.value || "") : "";
+    if (!v) return pageKey;
+    if (v === "all") return "all";
+    if (v.includes("coct")) return "cocteles";
+    if (v.includes("marid")) return "maridajes";
+    return "all";
+  }
+
+  function mountTypeFilter() {
+    if (!selType) return;
+    if (selType.options && selType.options.length >= 3) return;
+
+    selType.innerHTML = `
+      <option value="all">Todo</option>
+      <option value="cocteles">Cocteles</option>
+      <option value="maridajes">Maridajes</option>
+    `;
+
+    selType.value = pageKey === "cocteles" ? "cocteles" : pageKey === "maridajes" ? "maridajes" : "all";
+  }
+
+  function mountDateFilter(itemsForDate) {
     if (!selDate) return;
 
-    const dates = uniq(allItems.map((x) => x.dateISO).filter(Boolean)).sort();
+    const dates = uniq((itemsForDate || []).map((x) => x.dateISO).filter(Boolean)).sort();
     const base = `<option value="">Todas</option>`;
-    const opts = dates
-      .map((d) => `<option value="${esc(d)}">${esc(fmtShortDate(d))}</option>`)
-      .join("");
+    const opts = dates.map((d) => `<option value="${esc(d)}">${esc(fmtShortDate(d))}</option>`).join("");
     selDate.innerHTML = base + opts;
   }
 
   function applyGalleryFilters() {
     const fDate = selDate ? String(selDate.value || "") : "";
     const q = inpSearch ? norm(inpSearch.value || "") : "";
+    const typeWanted = getTypeFromUI();
 
     const filtered = allItems.filter((x) => {
-      const okDate = !fDate || String(x.dateISO || "") === fDate;
-      if (!q) return okDate;
+      const okType =
+        typeWanted === "all"
+          ? (x.type === "cocteles" || x.type === "maridajes")
+          : x.type === typeWanted;
 
-      const hay = norm(
-        (x.eventName || "") + " " + (Array.isArray(x.tags) ? x.tags.join(" ") : "")
-      );
+      const okDate = !fDate || String(x.dateISO || "") === fDate;
+
+      if (!q) return okType && okDate;
+
+      const hay = norm((x.eventName || "") + " " + (Array.isArray(x.tags) ? x.tags.join(" ") : ""));
       const okSearch = hay.includes(q);
 
-      return okDate && okSearch;
+      return okType && okDate && okSearch;
     });
 
     renderGallery(filtered);
   }
 
+  function onTypeChange() {
+    if (!selDate) {
+      applyGalleryFilters();
+      return;
+    }
+    const typeWanted = getTypeFromUI();
+    const pool =
+      typeWanted === "all"
+        ? allItems.filter((x) => x.type === "cocteles" || x.type === "maridajes")
+        : allItems.filter((x) => x.type === typeWanted);
+
+    const current = String(selDate.value || "");
+    mountDateFilter(pool);
+    if (current && !pool.some((x) => String(x.dateISO || "") === current)) {
+      selDate.value = "";
+    }
+    applyGalleryFilters();
+  }
+
   // ------------------------------------------------------------
-  // REVIEWS: estructura header y contenedor interno
+  // REVIEWS: UI structure
   // ------------------------------------------------------------
   function ensureReviewStructure() {
     if (!reviewListEl) return;
-    if ($(".reviewHeader", reviewListEl)) return;
 
-    const emptyNode = reviewEmptyEl ? reviewEmptyEl.cloneNode(true) : null;
+    if ($("#reviewItems", reviewListEl) && $("#reviewMeta")) return;
+
+    const prevEmpty = $("#reviewEmpty") ? $("#reviewEmpty").cloneNode(true) : null;
 
     reviewListEl.innerHTML = `
       <div class="reviewHeader">
-        <h3 class="reviewHeader__title">Comentarios</h3>
-        <div class="reviewHeader__meta" id="reviewMeta">0</div>
+        <div class="reviewHeader__title">Comentarios</div>
+        <div class="reviewHeader__meta" id="reviewMeta">0 comentarios</div>
       </div>
       <div class="reviewDivider"></div>
       <div class="reviewItems" id="reviewItems"></div>
     `;
 
     const wrap = $("#reviewItems", reviewListEl);
-    if (emptyNode) {
-      emptyNode.id = "reviewEmpty";
-      wrap.appendChild(emptyNode);
+    if (prevEmpty) {
+      prevEmpty.id = "reviewEmpty";
+      prevEmpty.classList.add("reviewEmpty");
+      wrap.appendChild(prevEmpty);
     } else {
       const d = document.createElement("div");
       d.id = "reviewEmpty";
@@ -399,29 +966,53 @@
   }
 
   // ------------------------------------------------------------
-  // REVIEWS: data model local-first
+  // REVIEWS: Supabase fetch
   // ------------------------------------------------------------
-  function loadReviews() {
-    const arr = loadJSON(LS.REVIEWS, []);
-    return Array.isArray(arr) ? arr : [];
+  let REVIEWS_CACHE = [];
+
+  function isOwnerReview(row) {
+    const h = safeStr(row?.author_hash || "");
+    return !!(AUTHOR_HASH && h && h === AUTHOR_HASH);
   }
 
-  function saveReviews(list) {
-    saveJSON(LS.REVIEWS, list);
+  async function fetchReviewsForAllowedEvents() {
+    if (!hasSupabase()) return [];
+    await ensureSessionOptional();
+
+    const client = sb();
+
+    const allowedIds = (REVIEW_EVENTS || []).map((x) => x.id).filter(Boolean);
+    if (!allowedIds.length) return [];
+
+    try {
+      const { data, error } = await client
+        .from(DB.REVIEWS)
+        .select(SELECT_REVIEWS_BASE)
+        .in("event_id", allowedIds)
+        .order("created_at", { ascending: false })
+        .limit(250);
+
+      if (error) throw error;
+
+      const rows = Array.isArray(data) ? data : [];
+      return rows.map((r) => ({
+        id: safeStr(r.id || ""),
+        eventId: safeStr(r.event_id || ""),
+        eventLabel: EVENT_TITLE_BY_ID.get(safeStr(r.event_id || "")) || "Evento",
+        name: cleanSpaces(r.author_name || "") || "Anónimo",
+        text: safeStr(r.body || ""),
+        createdAt: safeStr(r.created_at || ""),
+        updatedAt: safeStr(r.updated_at || ""),
+        author_hash: safeStr(r.author_hash || ""),
+      }));
+    } catch (e) {
+      if (isMissingTable(e)) toast("No existe la tabla event_reviews. Ejecutá el SQL primero.");
+      else if (isRLSError(e)) toast("Acceso bloqueado (RLS) leyendo event_reviews.");
+      else console.warn("[reviews] fetchReviewsForAllowedEvents fail:", e);
+      return [];
+    }
   }
 
-  function loadReactionState() {
-    const st = loadJSON(LS.REACTIONS, {});
-    return st && typeof st === "object" ? st : {};
-  }
-
-  function saveReactionState(st) {
-    saveJSON(LS.REACTIONS, st);
-  }
-
-  // ------------------------------------------------------------
-  // REVIEWS: render list
-  // ------------------------------------------------------------
   function renderReviews(list) {
     if (!reviewListEl) return;
 
@@ -430,11 +1021,15 @@
     const itemsWrap = $("#reviewItems", reviewListEl);
     const empty = $("#reviewEmpty", reviewListEl);
 
+    if (!itemsWrap) return;
+
     $$(".reviewCard", itemsWrap).forEach((n) => n.remove());
 
     const sorted = (Array.isArray(list) ? list.slice() : []).sort(
       (a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))
     );
+
+    REVIEWS_CACHE = sorted;
 
     if (!sorted.length) {
       if (empty) empty.style.display = "";
@@ -446,8 +1041,8 @@
     setReviewMeta(sorted.length);
 
     const reactionState = loadReactionState();
-
     const frag = document.createDocumentFragment();
+
     for (const r of sorted) {
       const card = document.createElement("div");
       card.className = "reviewCard";
@@ -459,16 +1054,25 @@
 
       const rc = r.reactions || { heart: 0, up: 0, down: 0 };
       const my = reactionState[r.id] || "none";
+      const canEdit = isOwnerReview(r);
+
+      const edited = r.updatedAt && r.createdAt && r.updatedAt !== r.createdAt ? " · editado" : "";
 
       card.innerHTML = `
         <div class="reviewTop">
           <div class="reviewWho">
             <div class="reviewName">${esc(who)}</div>
-            <div class="reviewMeta">${esc(meta)}</div>
+            <div class="reviewMeta">${esc(meta)}${esc(edited)}</div>
           </div>
+
+          ${canEdit ? `
+          <div class="reviewActions" style="display:flex; gap:8px; align-items:center;">
+            <button class="btn ghost" type="button" data-action="edit" style="padding:8px 10px; border-radius:12px;">Editar</button>
+            <button class="btn ghost" type="button" data-action="delete" style="padding:8px 10px; border-radius:12px;">Borrar</button>
+          </div>` : ""}
         </div>
 
-        <p class="reviewText">${esc(text)}</p>
+        <p class="reviewText" data-role="text">${esc(text)}</p>
 
         <div class="reactions" aria-label="Reacciones">
           <button class="reactBtn" type="button" data-react="heart" aria-pressed="${my === "heart" ? "true" : "false"}" aria-label="Me encanta">
@@ -494,15 +1098,46 @@
     itemsWrap.appendChild(frag);
   }
 
-  // ------------------------------------------------------------
-  // REVIEWS: submit
-  // ------------------------------------------------------------
   function updateCountUI() {
     if (!reviewTextTa || !reviewCountEl) return;
     reviewCountEl.textContent = String(String(reviewTextTa.value || "").length);
   }
 
-  function handleSubmit(e) {
+  async function rpcCreateReview({ eventId, name, text }) {
+    const client = sb();
+    const { data, error } = await client.rpc("create_event_review", {
+      p_event_id: eventId,
+      p_author_token: AUTHOR_TOKEN,
+      p_author_name: name || null,
+      p_body: text,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function rpcUpdateReview({ reviewId, text, name }) {
+    const client = sb();
+    const { data, error } = await client.rpc("update_event_review", {
+      p_review_id: reviewId,
+      p_author_token: AUTHOR_TOKEN,
+      p_body: text,
+      p_author_name: name || null,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function rpcDeleteReview({ reviewId }) {
+    const client = sb();
+    const { data, error } = await client.rpc("delete_event_review", {
+      p_review_id: reviewId,
+      p_author_token: AUTHOR_TOKEN,
+    });
+    if (error) throw error;
+    return data;
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!reviewEventSel || !reviewTextTa) return;
 
@@ -512,9 +1147,11 @@
       return;
     }
 
-    const selected = reviewEventSel.selectedOptions && reviewEventSel.selectedOptions[0];
-    const eventTitle = selected ? String(selected.getAttribute("data-title") || "Evento") : "Evento";
-    const eventLabel = eventTitle;
+    const gate = isSelectedEventEligible(eventId);
+    if (!gate.eligible) {
+      toast(gate.reason || "Las reseñas se habilitan cuando el evento finaliza.");
+      return;
+    }
 
     const name = clampStr(reviewNameInp ? reviewNameInp.value : "", 40);
     const text = clampStr(reviewTextTa.value, 420);
@@ -524,41 +1161,33 @@
       return;
     }
 
-    const reviews = loadReviews();
-    const newReview = {
-      id: uid("rev"),
-      eventId,
-      eventLabel,
-      name: name || "Anónimo",
-      text,
-      createdAt: nowISO(),
-      reactions: { heart: 0, up: 0, down: 0 },
-    };
+    try {
+      await rpcCreateReview({ eventId, name: name || "Anónimo", text });
 
-    reviews.unshift(newReview);
-    saveReviews(reviews);
+      reviewTextTa.value = "";
+      if (reviewNameInp) reviewNameInp.value = "";
+      reviewEventSel.selectedIndex = 0;
+      updateCountUI();
 
-    reviewTextTa.value = "";
-    if (reviewNameInp) reviewNameInp.value = "";
-    reviewEventSel.selectedIndex = 0;
-    updateCountUI();
+      toast("Reseña publicada.");
 
-    toast("Reseña publicada.");
-    renderReviews(reviews);
+      const list = await fetchReviewsForAllowedEvents();
+      renderReviews(list);
+    } catch (err) {
+      console.warn("[reviews] create fail:", err);
+      toast(prettyErr(err));
+    }
   }
 
-  // ------------------------------------------------------------
-  // REVIEWS: reacciones (delegación)
-  // ------------------------------------------------------------
   function toggleReaction(reviewId, kind) {
-    const reviews = loadReviews();
-    const idx = reviews.findIndex((r) => r.id === reviewId);
-    if (idx < 0) return;
-
     const st = loadReactionState();
     const prev = st[reviewId] || "none";
 
-    const rx = reviews[idx].reactions || { heart: 0, up: 0, down: 0 };
+    const list = REVIEWS_CACHE.slice();
+    const idx = list.findIndex((r) => r.id === reviewId);
+    if (idx < 0) return;
+
+    const rx = list[idx].reactions || { heart: 0, up: 0, down: 0 };
     rx.heart = Number(rx.heart || 0);
     rx.up = Number(rx.up || 0);
     rx.down = Number(rx.down || 0);
@@ -580,15 +1209,106 @@
       st[reviewId] = kind;
     }
 
-    reviews[idx].reactions = rx;
-
+    list[idx].reactions = rx;
     saveReactionState(st);
-    saveReviews(reviews);
-    renderReviews(reviews);
+    renderReviews(list);
   }
 
-  function onReviewListClick(e) {
-    const btn = e.target && e.target.closest ? e.target.closest(".reactBtn") : null;
+  function enterEditMode(card, row) {
+    const p = $(`[data-role="text"]`, card);
+    if (!p) return;
+
+    const current = safeStr(row.text || "");
+    const ta = document.createElement("textarea");
+    ta.className = "textarea";
+    ta.value = current;
+    ta.maxLength = 420;
+    ta.style.marginTop = "10px";
+
+    const actions = document.createElement("div");
+    actions.style.cssText = "display:flex; gap:10px; margin-top:10px; align-items:center; flex-wrap:wrap;";
+
+    const btnSave = document.createElement("button");
+    btnSave.type = "button";
+    btnSave.className = "btn primary";
+    btnSave.textContent = "Guardar";
+
+    const btnCancel = document.createElement("button");
+    btnCancel.type = "button";
+    btnCancel.className = "btn ghost";
+    btnCancel.textContent = "Cancelar";
+
+    p.replaceWith(ta);
+    ta.insertAdjacentElement("afterend", actions);
+    actions.appendChild(btnSave);
+    actions.appendChild(btnCancel);
+
+    btnCancel.addEventListener("click", async () => {
+      const list = await fetchReviewsForAllowedEvents();
+      renderReviews(list);
+    });
+
+    btnSave.addEventListener("click", async () => {
+      const next = clampStr(ta.value, 420);
+      if (!next || next.length < 2) {
+        toast("Escribí un comentario válido (mínimo 2 caracteres).");
+        return;
+      }
+
+      try {
+        await rpcUpdateReview({ reviewId: row.id, text: next, name: row.name });
+        toast("Comentario actualizado.");
+        const list = await fetchReviewsForAllowedEvents();
+        renderReviews(list);
+      } catch (err) {
+        console.warn("[reviews] update fail:", err);
+        toast(prettyErr(err));
+      }
+    });
+
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }
+
+  async function handleDelete(card, row) {
+    const ok = confirm("¿Querés borrar tu comentario? Esta acción no se puede deshacer.");
+    if (!ok) return;
+
+    try {
+      await rpcDeleteReview({ reviewId: row.id });
+      toast("Comentario borrado.");
+      const list = await fetchReviewsForAllowedEvents();
+      renderReviews(list);
+    } catch (err) {
+      console.warn("[reviews] delete fail:", err);
+      toast(prettyErr(err));
+    }
+  }
+
+  async function onReviewListClick(e) {
+    const t = e.target;
+
+    const actionBtn = t && t.closest ? t.closest("[data-action]") : null;
+    if (actionBtn) {
+      const card = actionBtn.closest(".reviewCard");
+      if (!card) return;
+
+      const reviewId = String(card.dataset.reviewId || "");
+      const row = REVIEWS_CACHE.find((x) => x.id === reviewId);
+      if (!row) return;
+
+      if (!isOwnerReview(row)) {
+        toast("Solo podés editar/borrar tus propios comentarios.");
+        return;
+      }
+
+      const action = String(actionBtn.getAttribute("data-action") || "");
+      if (action === "edit") enterEditMode(card, row);
+      if (action === "delete") await handleDelete(card, row);
+      return;
+    }
+
+    const btn = t && t.closest ? t.closest(".reactBtn") : null;
     if (!btn) return;
 
     const card = btn.closest(".reviewCard");
@@ -604,21 +1324,50 @@
   // ------------------------------------------------------------
   // INIT
   // ------------------------------------------------------------
-  function initGallery() {
-    mountDateFilter();
-    renderGallery(allItems);
+  async function initGallery() {
+    try {
+      allItems = await fetchGallery();
 
-    if (selDate) selDate.addEventListener("change", applyGalleryFilters);
-    if (inpSearch) inpSearch.addEventListener("input", debounce(applyGalleryFilters, 130));
+      mountTypeFilter();
+
+      const typeWanted = getTypeFromUI();
+      const pool =
+        typeWanted === "all"
+          ? allItems.filter((x) => x.type === "cocteles" || x.type === "maridajes")
+          : allItems.filter((x) => x.type === typeWanted);
+
+      mountDateFilter(pool);
+
+      applyGalleryFilters();
+
+      if (selDate) selDate.addEventListener("change", applyGalleryFilters);
+      if (selType) selType.addEventListener("change", onTypeChange);
+      if (inpSearch) inpSearch.addEventListener("input", debounce(applyGalleryFilters, 130));
+    } catch (e) {
+      console.warn("[gallery] initGallery fail:", e);
+      clearSkeletons();
+      gridEl.innerHTML = `<div style="opacity:.8; padding:16px;">${esc(prettyErr(e))}</div>`;
+    }
   }
 
-  function initReviews() {
+  async function initReviews() {
     if (!reviewListEl) return;
 
     ensureReviewStructure();
 
-    // ✅ cargar eventos desde data.js para el select
-    mountReviewEventSelect();
+    AUTHOR_HASH = await sha256Hex(AUTHOR_TOKEN);
+
+    try {
+      await mountReviewEventSelect();
+    } catch (e) {
+      console.warn("[gallery] mountReviewEventSelect fail:", e);
+      if (reviewEventSel) {
+        reviewEventSel.innerHTML =
+          `<option value="" disabled selected>Seleccioná un evento</option>` +
+          `<option value="" disabled>(No pude cargar eventos)</option>`;
+        reviewEventSel.disabled = true;
+      }
+    }
 
     if (reviewTextTa) {
       updateCountUI();
@@ -626,26 +1375,22 @@
     }
 
     if (formEl) formEl.addEventListener("submit", handleSubmit);
-    reviewListEl.addEventListener("click", onReviewListClick);
+    if (reviewListEl) reviewListEl.addEventListener("click", onReviewListClick);
 
-    renderReviews(loadReviews());
+    const list = await fetchReviewsForAllowedEvents();
+    renderReviews(list);
 
-    // refrescar si admin cambia eventos o si otra pestaña cambia reseñas
-    window.addEventListener("storage", (ev) => {
-      if (!ev || !ev.key) return;
-
-      // si admin cambia eventos
-      if (window.ECN && ECN.LS && ev.key === ECN.LS.EVENTS) {
-        mountReviewEventSelect();
-      }
-
-      // reseñas / reacciones
-      if (ev.key === LS.REVIEWS || ev.key === LS.REACTIONS) {
-        renderReviews(loadReviews());
+    document.addEventListener("visibilitychange", async () => {
+      if (document.visibilityState === "visible") {
+        const list2 = await fetchReviewsForAllowedEvents();
+        renderReviews(list2);
       }
     });
   }
 
-  initGallery();
-  initReviews();
+  // Boot
+  (async function boot() {
+    await initGallery();
+    await initReviews();
+  })();
 })();
