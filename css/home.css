@@ -1420,12 +1420,12 @@
 
   .slide::before{
     /* imagen fallback */
-    background-position: 42% 45% !important;
+    background-position: 30% 45% !important;
   }
 
   .heroBgVideo{
     /* video */
-    object-position: 42% 45% !important;
+    object-position: 30% 45% !important;
   }
 
 }
