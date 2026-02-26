@@ -20,7 +20,6 @@
     EVENTS: "ecn_events",
     REGS: "ecn_regs",
     MEDIA: "ecn_media",
-    // ✅ NUEVO
     PROMOS: "ecn_promos",
   };
 
@@ -33,7 +32,8 @@
       type: "Cata de vino",
       monthKey: "ENERO",
       title: "Cata: Notas & Maridajes",
-      desc: "Explorá aromas y sabores con maridajes guiados. Ideal para principiantes y curiosos.",
+      description:
+        "Explorá aromas y sabores con maridajes guiados. Ideal para principiantes y curiosos.",
       img: "./assets/img/hero-1.jpg",
 
       // ✅ Dirección
@@ -54,7 +54,8 @@
       type: "Coctelería",
       monthKey: "FEBRERO",
       title: "Cocteles Clásicos con Twist",
-      desc: "Aprendé técnica, balance y presentación con recetas clásicas reinterpretadas.",
+      description:
+        "Aprendé técnica, balance y presentación con recetas clásicas reinterpretadas.",
       img: "./assets/img/hero-2.jpg",
 
       location: "San José (por confirmar)",
@@ -69,7 +70,8 @@
       type: "Cata de vino",
       monthKey: "MARZO",
       title: "Ruta de Tintos",
-      desc: "Comparación de perfiles, cuerpo, taninos y maridajes para cada estilo.",
+      description:
+        "Comparación de perfiles, cuerpo, taninos y maridajes para cada estilo.",
       img: "./assets/img/hero-3.jpg",
 
       location: "Heredia (por confirmar)",
@@ -91,7 +93,7 @@
     instagramUrl: "https://instagram.com/entrecopasynotas",
   };
 
-  // ✅ NUEVO: Promos (banner + modal)
+  // ✅ Promos (banner + modal)
   const DEFAULT_PROMOS = [
     {
       id: "club-vino-banner",
@@ -102,7 +104,7 @@
 
       badge: "NUEVO",
       title: "El Club del Vino viene pronto",
-      desc: "Acceso anticipado, experiencias privadas y maridajes exclusivos.",
+      description: "Acceso anticipado, experiencias privadas y maridajes exclusivos.",
 
       ctaLabel: "Unirme a la lista VIP",
       ctaHref:
@@ -126,7 +128,8 @@
 
       badge: "NUEVO",
       title: "🍷 Club del Vino (próximamente)",
-      desc: "Una comunidad para probar, aprender y compartir. Cupos limitados en el lanzamiento.",
+      description:
+        "Una comunidad para probar, aprender y compartir. Cupos limitados en el lanzamiento.",
       note: "Tip: si te unís ahora, te avisamos primero cuando esté la página lista.",
 
       ctaLabel: "Quiero estar adentro",
@@ -216,6 +219,14 @@
     return lg || "Por confirmar";
   }
 
+  // ✅ compat: si aún existe desc en datos viejos, lo toma como fallback
+  function pickDescription(raw) {
+    const d = safeStr(raw?.description ?? "").trim();
+    if (d) return d;
+    const old = safeStr(raw?.desc ?? "").trim();
+    return old;
+  }
+
   // ============================================================
   // Seats
   // ============================================================
@@ -269,12 +280,15 @@
       // ✅ duration = horario (para event.html)
       const duration = pickSchedule(timeRange, ev?.duration);
 
+      // ✅ description (DB-aligned) + compat con desc viejo
+      const description = pickDescription(ev);
+
       return {
         id: safeStr(ev?.id),
         type: safeStr(ev?.type || "Cata de vino"),
         monthKey: normalizeMonth(ev?.monthKey || "ENERO"),
         title: safeStr(ev?.title || "Evento"),
-        desc: safeStr(ev?.desc || ""),
+        description,
         img: safeStr(ev?.img || DEFAULT_MEDIA.defaultHero),
 
         location,
@@ -321,12 +335,15 @@
     // ✅ duration = horario (para event.html)
     const duration = pickSchedule(timeRange, raw.duration);
 
+    // ✅ description (DB-aligned) + compat
+    const description = pickDescription(raw);
+
     const next = {
       id,
       type: safeStr(raw.type || "Cata de vino"),
       monthKey: normalizeMonth(raw.monthKey || "ENERO"),
       title: safeStr(raw.title || "Evento"),
-      desc: safeStr(raw.desc || ""),
+      description,
       img: safeStr(raw.img || DEFAULT_MEDIA.defaultHero),
 
       location,
@@ -391,12 +408,14 @@
     const durationHours = safeStr(raw.durationHours || "Por confirmar");
     const duration = pickSchedule(timeRange, raw.duration);
 
+    const description = pickDescription(raw);
+
     return {
       id: safeStr(raw.id),
       type: safeStr(raw.type || "Experiencia"),
       monthKey: normalizeMonth(raw.monthKey || "—"),
       title: safeStr(raw.title || "Evento"),
-      desc: safeStr(raw.desc || ""),
+      description,
       img: safeStr(raw.img || ""),
 
       location: safeStr(raw.location || "Por confirmar"),
@@ -508,7 +527,7 @@
   };
 
   // ============================================================
-  // ✅ Promos API (RAW)
+  // Promos API (RAW)
   // ============================================================
   function normalizePromoKind(k) {
     const v = safeStr(k).trim().toUpperCase();
@@ -528,6 +547,9 @@
     const createdAt = safeStr(raw.createdAt).trim() || nowIso();
     const updatedAt = nowIso();
 
+    // ✅ description (DB-aligned) + compat con desc viejo
+    const description = safeStr(raw.description ?? "").trim() || safeStr(raw.desc ?? "").trim();
+
     return {
       id,
       active: !!raw.active,
@@ -537,7 +559,7 @@
 
       badge: safeStr(raw.badge || ""),
       title: safeStr(raw.title || "Promo"),
-      desc: safeStr(raw.desc || ""),
+      description,
       note: safeStr(raw.note || ""),
 
       ctaLabel: safeStr(raw.ctaLabel || "Conocer"),
@@ -624,40 +646,3 @@
   // ============================================================
   ECN.ensureDefaults();
 })();
-
-
-// ============================================================
-// Image preloader (ECN) — evita "flash" cuando cambia el background
-// Uso: await ECN.preloadImage(url)
-// - Carga/decodifica la imagen antes de aplicarla al DOM.
-// - Si falla, resuelve igual con la misma url (no rompe nada).
-// ============================================================
-(function () {
-  try {
-    window.ECN = window.ECN || {};
-    if (typeof window.ECN.preloadImage === "function") return;
-
-    window.ECN.preloadImage = function preloadImage(url) {
-      return new Promise((resolve) => {
-        try {
-          if (!url) return resolve(url);
-          const img = new Image();
-          // Permite cachear/decodificar antes de aplicar background
-          img.decoding = "async";
-          img.loading = "eager";
-          img.onload = () => resolve(url);
-          img.onerror = () => resolve(url);
-          img.src = url;
-
-          // decode() es opcional (no soportado en todos)
-          if (img.decode) {
-            img.decode().then(() => resolve(url)).catch(() => {});
-          }
-        } catch {
-          resolve(url);
-        }
-      });
-    };
-  } catch (_) {}
-})();
-

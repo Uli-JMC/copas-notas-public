@@ -1395,3 +1395,32 @@
     justify-content:center;
   }
 }
+
+/* ---------- HERO IMAGE LOAD ---------- */
+
+.hero,
+.slideImage{
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: opacity 220ms ease;
+}
+
+.img-loading{
+  opacity: 0;
+}
+
+.img-loaded{
+  opacity: 1;
+}
+
+/* ---------- MOBILE CENTER ---------- */
+
+@media (max-width: 768px){
+
+  .hero,
+  .slideImage{
+    background-position: center center !important;
+  }
+
+}
