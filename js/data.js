@@ -20,7 +20,6 @@
     EVENTS: "ecn_events",
     REGS: "ecn_regs",
     MEDIA: "ecn_media",
-    // ✅ NUEVO
     PROMOS: "ecn_promos",
   };
 
@@ -33,7 +32,8 @@
       type: "Cata de vino",
       monthKey: "ENERO",
       title: "Cata: Notas & Maridajes",
-      desc: "Explorá aromas y sabores con maridajes guiados. Ideal para principiantes y curiosos.",
+      description:
+        "Explorá aromas y sabores con maridajes guiados. Ideal para principiantes y curiosos.",
       img: "./assets/img/hero-1.jpg",
 
       // ✅ Dirección
@@ -54,7 +54,8 @@
       type: "Coctelería",
       monthKey: "FEBRERO",
       title: "Cocteles Clásicos con Twist",
-      desc: "Aprendé técnica, balance y presentación con recetas clásicas reinterpretadas.",
+      description:
+        "Aprendé técnica, balance y presentación con recetas clásicas reinterpretadas.",
       img: "./assets/img/hero-2.jpg",
 
       location: "San José (por confirmar)",
@@ -69,7 +70,8 @@
       type: "Cata de vino",
       monthKey: "MARZO",
       title: "Ruta de Tintos",
-      desc: "Comparación de perfiles, cuerpo, taninos y maridajes para cada estilo.",
+      description:
+        "Comparación de perfiles, cuerpo, taninos y maridajes para cada estilo.",
       img: "./assets/img/hero-3.jpg",
 
       location: "Heredia (por confirmar)",
@@ -91,7 +93,7 @@
     instagramUrl: "https://instagram.com/entrecopasynotas",
   };
 
-  // ✅ NUEVO: Promos (banner + modal)
+  // ✅ Promos (banner + modal)
   const DEFAULT_PROMOS = [
     {
       id: "club-vino-banner",
@@ -102,7 +104,7 @@
 
       badge: "NUEVO",
       title: "El Club del Vino viene pronto",
-      desc: "Acceso anticipado, experiencias privadas y maridajes exclusivos.",
+      description: "Acceso anticipado, experiencias privadas y maridajes exclusivos.",
 
       ctaLabel: "Unirme a la lista VIP",
       ctaHref:
@@ -126,7 +128,8 @@
 
       badge: "NUEVO",
       title: "🍷 Club del Vino (próximamente)",
-      desc: "Una comunidad para probar, aprender y compartir. Cupos limitados en el lanzamiento.",
+      description:
+        "Una comunidad para probar, aprender y compartir. Cupos limitados en el lanzamiento.",
       note: "Tip: si te unís ahora, te avisamos primero cuando esté la página lista.",
 
       ctaLabel: "Quiero estar adentro",
@@ -216,6 +219,14 @@
     return lg || "Por confirmar";
   }
 
+  // ✅ compat: si aún existe desc en datos viejos, lo toma como fallback
+  function pickDescription(raw) {
+    const d = safeStr(raw?.description ?? "").trim();
+    if (d) return d;
+    const old = safeStr(raw?.desc ?? "").trim();
+    return old;
+  }
+
   // ============================================================
   // Seats
   // ============================================================
@@ -269,12 +280,15 @@
       // ✅ duration = horario (para event.html)
       const duration = pickSchedule(timeRange, ev?.duration);
 
+      // ✅ description (DB-aligned) + compat con desc viejo
+      const description = pickDescription(ev);
+
       return {
         id: safeStr(ev?.id),
         type: safeStr(ev?.type || "Cata de vino"),
         monthKey: normalizeMonth(ev?.monthKey || "ENERO"),
         title: safeStr(ev?.title || "Evento"),
-        desc: safeStr(ev?.desc || ""),
+        description,
         img: safeStr(ev?.img || DEFAULT_MEDIA.defaultHero),
 
         location,
@@ -321,12 +335,15 @@
     // ✅ duration = horario (para event.html)
     const duration = pickSchedule(timeRange, raw.duration);
 
+    // ✅ description (DB-aligned) + compat
+    const description = pickDescription(raw);
+
     const next = {
       id,
       type: safeStr(raw.type || "Cata de vino"),
       monthKey: normalizeMonth(raw.monthKey || "ENERO"),
       title: safeStr(raw.title || "Evento"),
-      desc: safeStr(raw.desc || ""),
+      description,
       img: safeStr(raw.img || DEFAULT_MEDIA.defaultHero),
 
       location,
@@ -391,12 +408,14 @@
     const durationHours = safeStr(raw.durationHours || "Por confirmar");
     const duration = pickSchedule(timeRange, raw.duration);
 
+    const description = pickDescription(raw);
+
     return {
       id: safeStr(raw.id),
       type: safeStr(raw.type || "Experiencia"),
       monthKey: normalizeMonth(raw.monthKey || "—"),
       title: safeStr(raw.title || "Evento"),
-      desc: safeStr(raw.desc || ""),
+      description,
       img: safeStr(raw.img || ""),
 
       location: safeStr(raw.location || "Por confirmar"),
@@ -508,7 +527,7 @@
   };
 
   // ============================================================
-  // ✅ Promos API (RAW)
+  // Promos API (RAW)
   // ============================================================
   function normalizePromoKind(k) {
     const v = safeStr(k).trim().toUpperCase();
@@ -528,6 +547,9 @@
     const createdAt = safeStr(raw.createdAt).trim() || nowIso();
     const updatedAt = nowIso();
 
+    // ✅ description (DB-aligned) + compat con desc viejo
+    const description = safeStr(raw.description ?? "").trim() || safeStr(raw.desc ?? "").trim();
+
     return {
       id,
       active: !!raw.active,
@@ -537,7 +559,7 @@
 
       badge: safeStr(raw.badge || ""),
       title: safeStr(raw.title || "Promo"),
-      desc: safeStr(raw.desc || ""),
+      description,
       note: safeStr(raw.note || ""),
 
       ctaLabel: safeStr(raw.ctaLabel || "Conocer"),
@@ -620,174 +642,7 @@
   };
 
   // ============================================================
-  
-// ============================================================
-// ECN ULTRAFAST IMAGES (2026-02-26)
-// Objetivo: evitar "flash" (placeholder -> imagen final) y acelerar cargas
-// - Cache de preloads (in-memory)
-// - decode() cuando esté disponible
-// - preconnect/dns-prefetch al origin de Supabase Storage (según URL)
-// - Helpers para aplicar background-image SOLO cuando la imagen esté lista
-// ============================================================
-(function attachUltraFastImages(){
-  const W = window;
-  W.ECN = W.ECN || {};
-  const ECN = W.ECN;
-
-  if (ECN.images && ECN.images.VERSION) return; // no duplicar
-
-  const VERSION = "2026-02-26.img.1";
-  const cache = new Map(); // url -> Promise<HTMLImageElement>
-  const warmedOrigins = new Set();
-
-  function safeUrl(u){
-    if (!u || typeof u !== "string") return "";
-    return u.trim();
-  }
-
-  function originOf(u){
-    try { return new URL(u, location.href).origin; } catch(_) { return ""; }
-  }
-
-  function warmOrigin(u){
-    const origin = originOf(u);
-    if (!origin || warmedOrigins.has(origin)) return;
-    warmedOrigins.add(origin);
-
-    // preconnect + dns-prefetch
-    const head = document.head || document.getElementsByTagName("head")[0];
-    if (!head) return;
-
-    const mk = (rel) => {
-      const l = document.createElement("link");
-      l.rel = rel;
-      l.href = origin;
-      l.crossOrigin = "anonymous";
-      head.appendChild(l);
-    };
-
-    try { mk("dns-prefetch"); } catch(_) {}
-    try { mk("preconnect"); } catch(_) {}
-  }
-
-  function addPreloadImage(u){
-    const url = safeUrl(u);
-    if (!url) return;
-    const head = document.head || document.getElementsByTagName("head")[0];
-    if (!head) return;
-
-    // evitar duplicados
-    const exists = head.querySelector('link[rel="preload"][as="image"][href="' + CSS.escape(url) + '"]');
-    if (exists) return;
-
-    const l = document.createElement("link");
-    l.rel = "preload";
-    l.as = "image";
-    l.href = url;
-    l.crossOrigin = "anonymous";
-    // fetchpriority solo en navegadores modernos (no rompe)
-    try { l.fetchPriority = "high"; } catch(_) {}
-    head.appendChild(l);
-  }
-
-  function preload(url, opts){
-    const u = safeUrl(url);
-    if (!u) return Promise.reject(new Error("preload: empty url"));
-
-    if (cache.has(u)) return cache.get(u);
-
-    warmOrigin(u);
-
-    const timeoutMs = Math.max(0, Number(opts && opts.timeoutMs) || 12000);
-
-    const p = new Promise((resolve, reject) => {
-      const img = new Image();
-      // CORS: para decode()/caching es mejor setearlo (no afecta Storage público)
-      img.crossOrigin = "anonymous";
-
-      let done = false;
-      const finishOk = async () => {
-        if (done) return;
-        done = true;
-        try { if (img.decode) await img.decode(); } catch(_) {}
-        resolve(img);
-      };
-      const finishErr = (err) => {
-        if (done) return;
-        done = true;
-        reject(err || new Error("preload failed"));
-      };
-
-      img.onload = finishOk;
-      img.onerror = () => finishErr(new Error("img.onerror"));
-      img.src = u;
-
-      if (timeoutMs > 0){
-        setTimeout(() => finishErr(new Error("preload timeout")), timeoutMs);
-      }
-    });
-
-    cache.set(u, p);
-    return p;
-  }
-
-  function applyBgWhenReady(el, cssVarName, url, options){
-    const node = el;
-    if (!node) return Promise.resolve(false);
-
-    const u = safeUrl(url);
-    if (!u){
-      try { node.style.removeProperty(cssVarName); } catch(_) {}
-      return Promise.resolve(false);
-    }
-
-    const loadingClass = (options && options.loadingClass) || "img-loading";
-    const loadedClass  = (options && options.loadedClass)  || "img-loaded";
-
-    node.classList.add(loadingClass);
-    node.classList.remove(loadedClass);
-
-    // Si pidieron prioridad (hero 1er slide)
-    if (options && options.preloadHint) addPreloadImage(u);
-
-    return preload(u, options).then(() => {
-      try { node.style.setProperty(cssVarName, 'url("' + u.replace(/"/g, '\"') + '")'); } catch(_) {}
-      node.classList.add(loadedClass);
-      node.classList.remove(loadingClass);
-      return true;
-    }).catch(() => {
-      // si falla, dejamos el estado sin "loaded"
-      node.classList.remove(loadedClass);
-      node.classList.remove(loadingClass);
-      return false;
-    });
-  }
-
-  function warmup(urls){
-    if (!Array.isArray(urls)) return;
-    const list = urls.map(safeUrl).filter(Boolean);
-    if (!list.length) return;
-    // Warmup suave para no bloquear
-    const run = () => {
-      list.forEach((u) => { try { preload(u, { timeoutMs: 12000 }); } catch(_){} });
-    };
-    if ("requestIdleCallback" in window){
-      try { window.requestIdleCallback(run, { timeout: 1200 }); return; } catch(_) {}
-    }
-    setTimeout(run, 80);
-  }
-
-  ECN.images = {
-    VERSION,
-    preload,
-    warmup,
-    applyBgWhenReady,
-    warmOrigin,
-    addPreloadImage
-  };
-})();
-
-// Boot
+  // Boot
   // ============================================================
   ECN.ensureDefaults();
 })();

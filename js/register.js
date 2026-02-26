@@ -1,5 +1,16 @@
 "use strict";
 
+/* ============================================================
+   register.js ✅ PRO (Supabase) — 2026-02-20 (ALINEADO A IMPLEMENTACIÓN B)
+   ✅ ALINEADO A TU DB ACTUAL:
+   - events.desc -> events.description (mantiene EVENT.desc para compat)
+   - ❌ events.img eliminado (ya no existe)
+   - ✅ Imagen del evento ahora viene de v_media_bindings_latest:
+       scope='event' + scope_id=eventId
+       slots: desktop_event | mobile_event | event_more
+   - ✅ No rompe tu modal éxito, validación, RPC, etc.
+============================================================ */
+
 // ============================================================
 // Helpers
 // ============================================================
@@ -29,14 +40,13 @@ function toast(title, msg, timeoutMs = 3800) {
   `;
   toastsEl.appendChild(el);
 
-  const closeBtn = el.querySelector(".close");
   const kill = () => {
     el.style.opacity = "0";
     el.style.transform = "translateY(-6px)";
     setTimeout(() => el.remove(), 180);
   };
 
-  closeBtn?.addEventListener("click", kill, { once: true });
+  el.querySelector(".close")?.addEventListener("click", kill, { once: true });
   setTimeout(kill, timeoutMs);
 }
 
@@ -45,9 +55,12 @@ function getParam(name) {
   return url.searchParams.get(name);
 }
 
+function safeTrim(v) {
+  return String(v || "").trim();
+}
+
 function normalizePhone(raw) {
   const only = String(raw || "").replace(/\D/g, "");
-  // CR: 8 dígitos o 506 + 8 dígitos
   if (only.length === 8) return "506" + only;
   if (only.length === 11 && only.startsWith("506")) return only;
   return null;
@@ -57,278 +70,457 @@ function validEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(String(email || "").trim());
 }
 
+function setHiddenDateId(value) {
+  const el = $("#dateId");
+  if (el) el.value = String(value || "");
+}
+
+function safeCssUrl(url) {
+  return String(url ?? "").replaceAll("'", "%27").replaceAll('"', "%22").replaceAll(")", "%29").trim();
+}
+
+function isAbsUrl(u) {
+  return /^https?:\/\//i.test(String(u || "").trim());
+}
+
+function normalizeImgPath(input) {
+  const fallback = "./assets/img/hero-1.jpg";
+  const raw = safeTrim(input);
+  if (!raw) return fallback;
+
+  if (isAbsUrl(raw)) return raw;
+  if (raw.includes("supabase.co/storage/v1/object/public/")) return raw;
+
+  const [pathPart, rest] = raw.split(/(?=[?#])/);
+  let p = pathPart.replaceAll("\\", "/");
+
+  if (p.startsWith("./")) p = p.slice(2);
+  if (p.startsWith("/")) return p + (rest || "");
+  if (p.startsWith("assets/img/")) return "./" + p + (rest || "");
+  if (p.startsWith("img/")) return "./assets/" + p + (rest || "");
+
+  return "./assets/img/" + p + (rest || "");
+}
+
+// ============================================================
+// Supabase guard
+// ============================================================
+function getSb() {
+  if (!window.APP || !APP.supabase) return null;
+  return APP.supabase;
+}
+
+// ============================================================
+// ✅ UI helpers: estados visuales de campos (invalid/valid)
+// ============================================================
 function setFieldError(fieldId, msg) {
-  const field = document.getElementById(fieldId)?.closest(".field");
+  const input = document.getElementById(fieldId);
+  const field = input?.closest(".field");
   if (!field) return;
+
+  field.classList.remove("valid");
   field.classList.add("invalid");
+
   const err = field.querySelector(`[data-err-for="${fieldId}"]`);
   if (err) err.textContent = msg || "Revisá este campo.";
 }
 
-function clearFieldError(fieldId) {
-  const field = document.getElementById(fieldId)?.closest(".field");
+function setFieldValid(fieldId) {
+  const input = document.getElementById(fieldId);
+  const field = input?.closest(".field");
   if (!field) return;
+
   field.classList.remove("invalid");
+  field.classList.add("valid");
+
   const err = field.querySelector(`[data-err-for="${fieldId}"]`);
   if (err) err.textContent = "";
 }
 
-function safeTrim(v) {
-  return String(v || "").trim();
-}
+function clearFieldState(fieldId) {
+  const input = document.getElementById(fieldId);
+  const field = input?.closest(".field");
+  if (!field) return;
 
-function sumSeatsFromDates(ev) {
-  return (ev?.dates || []).reduce((a, d) => a + (Number(d?.seats) || 0), 0);
-}
+  field.classList.remove("invalid");
+  field.classList.remove("valid");
 
-// ✅ Cupos DISPONIBLES (no totales): suma solo fechas con seats > 0
-function sumAvailableSeats(ev) {
-  return (ev?.dates || []).reduce((a, d) => {
-    const s = Number(d?.seats) || 0;
-    return a + (s > 0 ? s : 0);
-  }, 0);
+  const err = field.querySelector(`[data-err-for="${fieldId}"]`);
+  if (err) err.textContent = "";
 }
 
 // ============================================================
-// ECN helpers (regs + seats) - Local-first
+// ✅ Inyecta estilos PRO de validación (sin tocar register.css)
 // ============================================================
-function getRegsLocal() {
-  try {
-    if (window.ECN && typeof ECN.getRegistrations === "function") {
-      const list = ECN.getRegistrations();
-      return Array.isArray(list) ? list : [];
+function ensureValidationStylesOnce() {
+  if (document.getElementById("ecnValidationStyles")) return;
+
+  const style = document.createElement("style");
+  style.id = "ecnValidationStyles";
+  style.textContent = `
+    .field.invalid input,
+    .field.invalid select,
+    .field.invalid textarea{
+      border-color: rgba(211,51,51,.85) !important;
+      box-shadow: 0 0 0 3px rgba(211,51,51,.10) !important;
     }
-  } catch (_) {}
 
-  try {
-    const key = window.ECN?.LS?.REGS || "ecn_regs";
-    const raw = localStorage.getItem(key);
-    const arr = raw ? JSON.parse(raw) : [];
-    return Array.isArray(arr) ? arr : [];
-  } catch (_) {
-    return [];
-  }
+    .field.valid input,
+    .field.valid select,
+    .field.valid textarea{
+      border-color: rgba(26,127,55,.85) !important;
+      box-shadow: 0 0 0 3px rgba(26,127,55,.10) !important;
+    }
+
+    .field .err{
+      color: rgba(211,51,51,.95);
+    }
+  `;
+  document.head.appendChild(style);
 }
 
-function regExists(email, eventId, eventDate) {
-  const e = String(email || "").trim().toLowerCase();
-  const id = String(eventId || "");
-  const d = String(eventDate || "");
-  if (!e || !id || !d) return false;
+// ============================================================
+// ✅ MODAL ÉXITO (Lottie JSON) — SIN TIMER
+// ============================================================
+const SUCCESS = {
+  overlayId: "ecnSuccessOverlay",
+  lottieJsonUrl: "./assets/img/lottie/champagne_13399330.json",
+  lottieLib: "https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js",
+};
 
-  const regs = getRegsLocal();
-  return regs.some((r) => {
-    const re = String(r?.email || "").trim().toLowerCase();
-    const rid = String(r?.event_id || r?.eventId || "");
-    const rd = String(r?.event_date || r?.eventDate || "");
-    return re === e && rid === id && rd === d;
+function ensureSuccessModalStylesOnce() {
+  if (document.getElementById("ecnSuccessModalStyles")) return;
+
+  const style = document.createElement("style");
+  style.id = "ecnSuccessModalStyles";
+  style.textContent = `
+    .ecnModalOverlay{
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 18px;
+      background: rgba(0,0,0,.55);
+      z-index: 9999;
+    }
+    .ecnModalOverlay[aria-hidden="false"]{ display: grid; }
+
+    .ecnModal{
+      width: min(520px, 100%);
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.96);
+      box-shadow: 0 28px 90px rgba(0,0,0,.35);
+      overflow: hidden;
+      transform: translateY(6px);
+      opacity: 0;
+      transition: transform .18s ease, opacity .18s ease;
+    }
+    .ecnModalOverlay[aria-hidden="false"] .ecnModal{
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .ecnModalTop{
+      padding: 14px 16px 0;
+      display:flex;
+      justify-content:flex-end;
+    }
+    .ecnCloseX{
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 1px solid rgba(18,18,18,.12);
+      background: rgba(18,18,18,.04);
+      cursor:pointer;
+      display:grid;
+      place-items:center;
+      font-size: 16px;
+      transition: background .15s ease, border-color .15s ease, transform .10s ease;
+    }
+    .ecnCloseX:hover{
+      background: rgba(18,18,18,.06);
+      border-color: rgba(18,18,18,.18);
+    }
+    .ecnCloseX:active{ transform: translateY(1px); }
+
+    .ecnModalBody{
+      padding: 0 18px 18px;
+      text-align: center;
+    }
+
+    .ecnAnim{
+      width: 96px;
+      height: 96px;
+      margin: 4px auto 10px;
+    }
+
+    .ecnTitle{
+      margin: 0;
+      font-weight: 900;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      font-size: 14px;
+      color: rgba(18,18,18,.92);
+    }
+
+    .ecnMsg{
+      margin: 10px auto 0;
+      color: rgba(18,18,18,.68);
+      line-height: 1.7;
+      font-size: 14px;
+      max-width: 46ch;
+    }
+
+    .ecnActions{
+      margin-top: 14px;
+      display:flex;
+      gap: 10px;
+      justify-content:center;
+      flex-wrap: wrap;
+    }
+
+    .ecnBtn{
+      min-height: 44px;
+      padding: 11px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(18,18,18,.14);
+      background: rgba(18,18,18,.04);
+      cursor:pointer;
+      font-weight: 900;
+      letter-spacing: .10em;
+      text-transform: uppercase;
+      font-size: 12px;
+      color: rgba(18,18,18,.88);
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .ecnBtn:hover{
+      background: rgba(18,18,18,.06);
+      border-color: rgba(18,18,18,.20);
+    }
+    .ecnBtn--primary{
+      background: #000;
+      border-color: #000;
+      color:#fff;
+    }
+    .ecnBtn--primary:hover{ filter: brightness(1.06); }
+
+    @media (max-width: 420px){
+      .ecnModalBody{ padding: 0 14px 16px; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+async function ensureLottieLoaded() {
+  if (window.lottie && typeof window.lottie.loadAnimation === "function") return;
+
+  await new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = SUCCESS.lottieLib;
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("No se pudo cargar Lottie."));
+    document.head.appendChild(s);
   });
 }
 
-function decrementSeatLocal(eventId, dateLabel) {
-  // 1) Hook oficial si existe
-  try {
-    if (window.ECN && typeof ECN.decrementSeat === "function") {
-      return !!ECN.decrementSeat(eventId, dateLabel);
+function ensureSuccessModalDOM() {
+  ensureSuccessModalStylesOnce();
+
+  let overlay = document.getElementById(SUCCESS.overlayId);
+  if (overlay) return overlay;
+
+  overlay = document.createElement("div");
+  overlay.id = SUCCESS.overlayId;
+  overlay.className = "ecnModalOverlay";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-hidden", "true");
+
+  overlay.innerHTML = `
+    <div class="ecnModal" role="document">
+      <div class="ecnModalTop">
+        <button class="ecnCloseX" type="button" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="ecnModalBody">
+        <div class="ecnAnim" id="ecnSuccessAnim" aria-hidden="true"></div>
+        <h3 class="ecnTitle">Tu reserva ha sido realizada con éxito</h3>
+        <p class="ecnMsg">
+          Pronto te llegará un correo con los detalles.
+        </p>
+        <div class="ecnActions">
+          <button class="ecnBtn" type="button" data-act="close">Cerrar</button>
+          <button class="ecnBtn ecnBtn--primary" type="button" data-act="go">Confirmación</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelector(".ecnCloseX")?.addEventListener("click", () => hideSuccessModal());
+  overlay.querySelector('[data-act="close"]')?.addEventListener("click", () => hideSuccessModal());
+
+  overlay.querySelector('[data-act="go"]')?.addEventListener("click", () => {
+    const evId = window.__ECN_LAST_EVENT_ID ? String(window.__ECN_LAST_EVENT_ID) : "";
+    const dtId = window.__ECN_LAST_DATE_ID ? String(window.__ECN_LAST_DATE_ID) : "";
+
+    if (evId && dtId) {
+      window.location.href =
+        `./confirm.html?event=${encodeURIComponent(evId)}&date_id=${encodeURIComponent(dtId)}&reg=ok`;
+      return;
     }
-  } catch (_) {}
+    if (evId) {
+      window.location.href = `./event.html?event=${encodeURIComponent(evId)}`;
+      return;
+    }
+    window.location.href = "./home.html#proximos";
+  });
 
-  // 2) Fallback: actualizar localStorage de EVENTS (si tu data.js lo usa)
+  overlay.querySelector('[data-act="close"]')?.addEventListener("click", () => hideSuccessModal());
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) hideSuccessModal();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const o = document.getElementById(SUCCESS.overlayId);
+      if (o && o.getAttribute("aria-hidden") === "false") hideSuccessModal();
+    }
+  });
+
+  return overlay;
+}
+
+let __successAnimInstance = null;
+
+async function showSuccessModal() {
+  const overlay = ensureSuccessModalDOM();
+  overlay.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+
   try {
-    const key = window.ECN?.LS?.EVENTS || "ecn_events";
-    const raw = localStorage.getItem(key);
-    const list = raw ? JSON.parse(raw) : [];
-    if (!Array.isArray(list)) return false;
-
-    const i = list.findIndex((x) => String(x?.id || "") === String(eventId || ""));
-    if (i < 0) return false;
-
-    const ev = list[i];
-    if (!Array.isArray(ev?.dates)) return false;
-
-    const j = ev.dates.findIndex((d) => String(d?.label || "") === String(dateLabel || ""));
-    if (j < 0) return false;
-
-    const cur = Math.max(0, Number(ev.dates[j].seats) || 0);
-    if (cur <= 0) return false;
-
-    ev.dates[j].seats = cur - 1;
-    list[i] = ev;
-    localStorage.setItem(key, JSON.stringify(list));
-    return true;
-  } catch (_) {
-    return false;
+    await ensureLottieLoaded();
+    const holder = document.getElementById("ecnSuccessAnim");
+    if (holder && !__successAnimInstance) {
+      __successAnimInstance = window.lottie.loadAnimation({
+        container: holder,
+        renderer: "svg",
+        loop: true,
+        autoplay: true,
+        path: SUCCESS.lottieJsonUrl,
+      });
+    }
+    __successAnimInstance?.goToAndPlay?.(0, true);
+  } catch (e) {
+    console.warn("[modal] lottie fail:", e);
   }
 }
 
-// ============================================================
-// Data mapping (✅ soporta RAW y FLATTENED)
-// RAW:  {dates:[{label,seats}]}
-// FLAT: {dates:[string], _dates:[{label,seats}]}
-// ============================================================
-function toUiEvent(ev) {
-  const raw = ev || {};
-
-  const srcDates =
-    Array.isArray(raw._dates)
-      ? raw._dates
-      : Array.isArray(raw.dates) && raw.dates.length && typeof raw.dates[0] === "object"
-        ? raw.dates
-        : [];
-
-  const dates = srcDates
-    .map((d) => ({
-      label: safeTrim(d?.label),
-      seats: Math.max(0, Number(d?.seats) || 0),
-    }))
-    .filter((d) => d.label);
-
-  // Si NO hay objetos, pero dates viene como string[]
-  if (!dates.length && Array.isArray(raw.dates) && raw.dates.length && typeof raw.dates[0] !== "object") {
-    raw.dates.forEach((label) => {
-      const t = safeTrim(label);
-      if (t) dates.push({ label: t, seats: 0 });
-    });
-  }
-
-  const totalSeats =
-    window.ECN && typeof ECN.totalSeats === "function"
-      ? ECN.totalSeats(raw)
-      : dates.reduce((a, d) => a + (Number(d.seats) || 0), 0);
-
-  // ✅ NUEVO: campos oficiales (según tu data.js actualizado)
-  const location = safeTrim(raw.location);
-  const timeRange = safeTrim(raw.timeRange);
-  const durationHours = safeTrim(raw.durationHours);
-
-  // ✅ Compat (por si algo viejo los usaba)
-  const legacyDuration =
-    safeTrim(raw.duration) ||
-    safeTrim(raw.duracion) ||
-    safeTrim(raw.durationText) ||
-    safeTrim(raw.duracionText) ||
-    "";
-
-  const legacyHours =
-    safeTrim(raw.hours) ||
-    safeTrim(raw.horarios) ||
-    safeTrim(raw.schedule) ||
-    safeTrim(raw.horario) ||
-    safeTrim(raw.time) ||
-    "";
-
-  const legacyAddress =
-    safeTrim(raw.address) ||
-    safeTrim(raw.direccion) ||
-    safeTrim(raw.ubicacion) ||
-    "";
-
-  return {
-    id: raw.id,
-    type: raw.type,
-    monthKey: raw.monthKey,
-    title: raw.title,
-    desc: raw.desc,
-    dates,
-    seats: totalSeats,
-
-    // ✅ Canon
-    location: location || legacyAddress || "",
-    timeRange: timeRange || legacyHours || "",
-    durationHours: durationHours || legacyDuration || "",
-  };
-}
-
-function pickEvent() {
-  const eventId = getParam("event");
-  const dateFromUrl = getParam("date");
-
-  if (!window.ECN) {
-    return { ev: null, dateFromUrl };
-  }
-
-  let ev = null;
-
-  if (eventId) {
-    // ✅ preferí el RAW para tener dates[{label,seats}]
-    const raw =
-      typeof ECN.getEventById === "function" ? ECN.getEventById(eventId)
-      : typeof ECN.getEventRawById === "function" ? ECN.getEventRawById(eventId)
-      : null;
-
-    ev = raw ? toUiEvent(raw) : null;
-  }
-
-  if (!ev) {
-    const up =
-      typeof ECN.getUpcomingEvents === "function" ? ECN.getUpcomingEvents()
-      : typeof ECN.getEventsRaw === "function" ? ECN.getEventsRaw()
-      : typeof ECN.getEvents === "function" ? ECN.getEvents()
-      : [];
-
-    if (up && up.length) ev = toUiEvent(up[0]);
-  }
-
-  return { ev, dateFromUrl };
+function hideSuccessModal() {
+  const overlay = document.getElementById(SUCCESS.overlayId);
+  if (!overlay) return;
+  overlay.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
 }
 
 // ============================================================
-// UI helpers (meta dinámico)
+// ✅ Media helpers (v_media_bindings_latest) — IMPLEMENTACIÓN B
 // ============================================================
-function getSelectedDateSeats(ev, selectedLabel) {
-  if (!selectedLabel) return null;
-  const d = (ev?.dates || []).find((x) => x.label === selectedLabel);
-  return d ? Number(d.seats) || 0 : null;
+const VIEW_LATEST = "v_media_bindings_latest";
+const EVENT_MEDIA_SLOTS = ["desktop_event", "mobile_event", "event_more"];
+
+function resolveBindingUrl(row) {
+  const pub = safeTrim(row?.public_url || "");
+  if (pub) return pub;
+
+  const p = safeTrim(row?.path || "");
+  if (isAbsUrl(p)) return p;
+
+  // path relativo de storage NO lo convertimos aquí (no bucket info en DB)
+  return "";
 }
 
-// ✅ Badge superior: cupos disponibles (por fecha si hay selección, si no total disponible)
-function renderAvailableSeatsBadge(ev, selectedDateLabel = "") {
+async function fetchEventMediaBindings(eventId) {
+  const sb = getSb();
+  const eid = safeTrim(eventId);
+  if (!sb || !eid) return {};
+
+  const { data, error } = await sb
+    .from(VIEW_LATEST)
+    .select("slot,public_url,path,media_id,binding_updated_at,media_updated_at")
+    .eq("scope", "event")
+    .eq("scope_id", eid)
+    .in("slot", EVENT_MEDIA_SLOTS);
+
+  if (error) {
+    console.warn("[register] v_media_bindings_latest error:", error);
+    return {};
+  }
+
+  const map = {};
+  (Array.isArray(data) ? data : []).forEach((r) => {
+    const slot = safeTrim(r?.slot || "");
+    if (!slot) return;
+
+    const url = resolveBindingUrl(r);
+    if (!url) return;
+
+    if (!map[slot]) map[slot] = url;
+  });
+
+  return map;
+}
+
+// ============================================================
+// State
+// ============================================================
+let EVENT_ID = "";
+let EVENT = null;
+let DATES = [];
+let SELECTED_DATE_ID = "";
+let SELECTED_DATE_LABEL = "";
+let IS_SUBMITTING = false;
+
+// ============================================================
+// UI: counters + badges
+// ============================================================
+function setAvailableBadge(text) {
   const badge = $("#availableSeats");
-  if (!badge) return;
-
-  const selected = String(selectedDateLabel || "").trim();
-  const seatsForSelected = selected ? getSelectedDateSeats(ev, selected) : null;
-
-  // Si hay fecha seleccionada, mostramos cupos de esa fecha
-  if (selected && seatsForSelected !== null) {
-    badge.textContent = `CUPOS DISP.: ${Math.max(0, seatsForSelected)}`;
-    return;
-  }
-
-  // Si no, mostramos cupos disponibles totales (solo >0)
-  const availableTotal = sumAvailableSeats(ev);
-  badge.textContent = `CUPOS DISP.: ${Math.max(0, availableTotal)}`;
+  if (badge) badge.textContent = text;
 }
 
-// ✅ MetaBox: ESTRUCTURA EXACTA para desktop:
-// Header: Tipo
-// Body en 2 columnas (con 4 filas en orden):
-// 1) Fechas disponibles  2) Ubicación
-// 3) Duración (hrs)      4) Hora (rango)
-// NOTA: tus IDs pedían "Dirección/Duración/Horarios"; ahora se alinea con data.js
-function renderEventHeader(ev, selectedDateLabel = "") {
-  const titleEl = $("#eventTitle");
-  const descEl = $("#eventDesc");
-  const metaBox = $("#metaBox");
+function sumAvailableSeatsFromDates(dates) {
+  return (dates || []).reduce((a, d) => a + Math.max(0, Number(d?.seats_available) || 0), 0);
+}
 
-  if (titleEl) titleEl.textContent = ev?.title || "Evento";
-  if (descEl) descEl.textContent = ev?.desc || "Completá tus datos para reservar tu cupo.";
+function getDateById(dateId) {
+  const id = String(dateId || "");
+  return (DATES || []).find((d) => String(d.id) === id) || null;
+}
+
+function getDateByLabel(label) {
+  const l = safeTrim(label);
+  if (!l) return null;
+  return (DATES || []).find((d) => safeTrim(d.label) === l) || null;
+}
+
+function renderMetaBox() {
+  const metaBox = $("#metaBox");
   if (!metaBox) return;
 
-  // Consistencia interna (no rompe nada)
-  const totalNow = sumSeatsFromDates(ev);
-  ev.seats = totalNow;
-
-  const datesText = (ev?.dates || []).map((d) => d.label).join(" • ");
-
-  const locationText = safeTrim(ev?.location) || "Por confirmar";
-  const durationText = safeTrim(ev?.durationHours) || "Por confirmar";
-  const timeRangeText = safeTrim(ev?.timeRange) || "Por confirmar";
+  const datesText = (DATES || []).map((d) => d.label).filter(Boolean).join(" • ");
+  const type = safeTrim(EVENT?.type) || "—";
+  const location = safeTrim(EVENT?.location) || "Por confirmar";
+  const duration = safeTrim(EVENT?.duration_hours) || "Por confirmar";
+  const timeRange = safeTrim(EVENT?.time_range) || "Por confirmar";
 
   metaBox.innerHTML = `
     <div class="mHead">
       <div class="mLabel">Tipo</div>
-      <div class="mValue">${escapeHtml(ev?.type || "—")}</div>
+      <div class="mValue">${escapeHtml(type)}</div>
     </div>
 
     <div class="mBody">
@@ -339,33 +531,70 @@ function renderEventHeader(ev, selectedDateLabel = "") {
 
       <div class="mRow">
         <div class="mLabel">Ubicación</div>
-        <div class="mValue">${escapeHtml(locationText)}</div>
+        <div class="mValue">${escapeHtml(location)}</div>
       </div>
 
       <div class="mRow">
         <div class="mLabel">Duración</div>
-        <div class="mValue">${escapeHtml(durationText)}</div>
+        <div class="mValue">${escapeHtml(duration)}</div>
       </div>
 
       <div class="mRow">
         <div class="mLabel">Hora</div>
-        <div class="mValue">${escapeHtml(timeRangeText)}</div>
+        <div class="mValue">${escapeHtml(timeRange)}</div>
       </div>
     </div>
   `;
-
-  // ✅ Badge superior
-  renderAvailableSeatsBadge(ev, selectedDateLabel);
 }
 
-function renderDates(ev, preselect) {
+function setRegisterHeroIfExists(url) {
+  const u = safeTrim(url);
+  if (!u) return;
+
+  // Opcional: si tu register.html tiene algo como #heroBg / #regHero / .hero
+  const heroBg = $("#heroBg") || $("#regHeroBg");
+  if (heroBg) {
+    const bg = normalizeImgPath(u);
+    heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(bg)}')`);
+    heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
+  }
+
+  const imgEl = $("#evPhoto") || $("#regHeroImg");
+  if (imgEl && imgEl.tagName === "IMG") {
+    imgEl.src = normalizeImgPath(u);
+  }
+}
+
+function renderHeader() {
+  const titleEl = $("#eventTitle");
+  const descEl = $("#eventDesc");
+
+  if (titleEl) titleEl.textContent = EVENT?.title || "Evento";
+  if (descEl) descEl.textContent = EVENT?.desc || "Completá tus datos para reservar tu cupo.";
+
+  // Si tu register tiene hero, lo actualizamos sin romper
+  const heroUrl = safeTrim(EVENT?.media?.event_img_desktop || EVENT?.media?.event_img_mobile || "");
+  if (heroUrl) setRegisterHeroIfExists(heroUrl);
+
+  renderMetaBox();
+
+  if (SELECTED_DATE_ID) {
+    const d = getDateById(SELECTED_DATE_ID);
+    const s = d ? Math.max(0, Number(d.seats_available) || 0) : 0;
+    setAvailableBadge(`CUPOS DISP.: ${s}`);
+  } else {
+    const total = sumAvailableSeatsFromDates(DATES);
+    setAvailableBadge(`CUPOS DISP.: ${Math.max(0, total)}`);
+  }
+}
+
+function renderDatesSelect(preselectDateId = "", preselectLabel = "") {
   const select = $("#eventDate");
   if (!select) return;
 
   select.innerHTML = "";
 
-  const dates = ev?.dates || [];
-  if (!dates.length) {
+  if (!Array.isArray(DATES) || !DATES.length) {
     const opt = document.createElement("option");
     opt.value = "";
     opt.textContent = "Sin fechas disponibles";
@@ -378,340 +607,475 @@ function renderDates(ev, preselect) {
   ph.textContent = "Seleccioná una fecha";
   select.appendChild(ph);
 
-  dates.forEach((d) => {
+  DATES.forEach((d) => {
     const opt = document.createElement("option");
-    opt.value = d.label;
-
-    // ✅ Solo fecha (NO cupos)
-    opt.textContent = `${d.label}`;
-
-    // Si está agotada, se deshabilita (pero sin mostrar cupos)
-    if ((Number(d.seats) || 0) <= 0) opt.disabled = true;
-
+    opt.value = String(d.id);
+    opt.textContent = String(d.label || "Por definir");
+    if ((Number(d.seats_available) || 0) <= 0) opt.disabled = true;
     select.appendChild(opt);
   });
 
-  if (preselect) {
-    const match = dates.find((x) => x.label === preselect);
-    if (match && (Number(match.seats) || 0) > 0) {
-      select.value = preselect;
+  if (preselectDateId) {
+    const match = DATES.find((x) => String(x.id) === String(preselectDateId));
+    if (match && (Number(match.seats_available) || 0) > 0) {
+      select.value = String(preselectDateId);
+      SELECTED_DATE_ID = String(preselectDateId);
+      SELECTED_DATE_LABEL = String(match.label || "");
+      setHiddenDateId(SELECTED_DATE_ID);
+      return;
+    }
+  }
+
+  if (preselectLabel) {
+    const match = getDateByLabel(preselectLabel);
+    if (match && (Number(match.seats_available) || 0) > 0) {
+      select.value = String(match.id);
+      SELECTED_DATE_ID = String(match.id);
+      SELECTED_DATE_LABEL = String(match.label || "");
+      setHiddenDateId(SELECTED_DATE_ID);
     }
   }
 }
 
-function syncSubmitAvailability(ev) {
+function syncSubmitAvailability() {
   const submitBtn = $("#submitBtn");
-  const dateSel = $("#eventDate");
-  if (!submitBtn || !dateSel) return;
+  const select = $("#eventDate");
+  if (!submitBtn || !select) return;
 
-  const selected = dateSel.value || "";
-  const soldOutTotal = (sumAvailableSeats(ev) || 0) <= 0; // ✅ disponible real
+  if (IS_SUBMITTING) return;
 
-  if (soldOutTotal) {
+  const totalAvail = sumAvailableSeatsFromDates(DATES);
+  if (totalAvail <= 0) {
     submitBtn.disabled = true;
     return;
   }
 
-  if (!selected) {
+  const picked = select.value || "";
+  if (!picked) {
     submitBtn.disabled = true;
     return;
   }
 
-  const seatsForDate = getSelectedDateSeats(ev, selected);
-  if (seatsForDate !== null && seatsForDate <= 0) {
-    submitBtn.disabled = true;
-    return;
+  const d = getDateById(picked);
+  const seats = d ? (Number(d.seats_available) || 0) : 0;
+  submitBtn.disabled = seats <= 0;
+}
+
+// ============================================================
+// Data loaders (Supabase)
+// ============================================================
+async function fetchEventAndDates(eventId) {
+  const sb = getSb();
+  if (!sb) throw new Error("APP.supabase no existe. Revisá el orden de scripts.");
+
+  const eid = String(eventId ?? "").trim();
+  if (!eid) return { event: null, dates: [] };
+
+  // ✅ FIX: quitamos img (ya no existe)
+  const { data: ev, error: evErr } = await sb
+    .from("events")
+    .select("id, title, description, type, month_key, location, time_range, duration_hours")
+    .eq("id", eid)
+    .maybeSingle();
+
+  if (evErr) throw evErr;
+  if (!ev) return { event: null, dates: [] };
+
+  // ✅ media del evento (bindings)
+  const media = await fetchEventMediaBindings(eid);
+
+  const event_img_desktop = safeTrim(media.desktop_event || "");
+  const event_img_mobile = safeTrim(media.mobile_event || "");
+  const event_more_img = safeTrim(media.event_more || "");
+
+  let ds = null;
+  let dErr = null;
+
+  const tryCreatedAt = await sb
+    .from("event_dates")
+    .select("id, event_id, label, seats_total, seats_available, created_at")
+    .eq("event_id", eid)
+    .order("created_at", { ascending: true });
+
+  if (tryCreatedAt.error) {
+    const fallback = await sb
+      .from("event_dates")
+      .select("id, event_id, label, seats_total, seats_available")
+      .eq("event_id", eid)
+      .order("label", { ascending: true });
+
+    ds = fallback.data;
+    dErr = fallback.error;
+  } else {
+    ds = tryCreatedAt.data;
+    dErr = null;
   }
 
-  submitBtn.disabled = false;
+  if (dErr) throw dErr;
+
+  const dates = Array.isArray(ds)
+    ? ds.map((x) => ({
+        id: x.id,
+        label: safeTrim(x.label),
+        seats_total: Math.max(0, Number(x.seats_total) || 0),
+        seats_available: Math.max(0, Number(x.seats_available) || 0),
+      }))
+    : [];
+
+  // ✅ mantener compat: el resto del archivo usa EVENT.desc
+  const event = {
+    ...ev,
+    desc: String(ev.description || ""),
+    media: {
+      event_img_desktop,
+      event_img_mobile,
+      event_more_img,
+    },
+  };
+
+  return { event, dates };
 }
 
 // ============================================================
 // Validation
 // ============================================================
-function validateForm(ev) {
+function validateFieldById(fieldId) {
+  const el = document.getElementById(fieldId);
+  if (!el) return true;
+
+  const v = (el.value || "").trim();
+
+  if (fieldId === "firstName") {
+    if (!v) return setFieldError(fieldId, "Ingresá tu nombre."), false;
+    return setFieldValid(fieldId), true;
+  }
+
+  if (fieldId === "lastName") {
+    if (!v) return setFieldError(fieldId, "Ingresá tus apellidos."), false;
+    return setFieldValid(fieldId), true;
+  }
+
+  if (fieldId === "email") {
+    if (!v || !validEmail(v)) return setFieldError(fieldId, "Ingresá un correo válido."), false;
+    return setFieldValid(fieldId), true;
+  }
+
+  if (fieldId === "phone") {
+    const normalized = normalizePhone(v);
+    if (!v || !normalized) return setFieldError(fieldId, "Ingresá un teléfono válido (8 dígitos o 506 + 8)."), false;
+    return setFieldValid(fieldId), true;
+  }
+
+  if (fieldId === "eventDate") {
+    const eventDateId = el.value || "";
+    if (!eventDateId) return setFieldError(fieldId, "Seleccioná una fecha del evento."), false;
+
+    const d = getDateById(eventDateId);
+    if (!d) return setFieldError(fieldId, "Fecha inválida. Elegí otra."), false;
+    if ((Number(d.seats_available) || 0) <= 0) return setFieldError(fieldId, "Esa fecha está agotada. Elegí otra."), false;
+
+    return setFieldValid(fieldId), true;
+  }
+
+  if (fieldId === "allergies") {
+    const raw = el.value || "";
+    if (raw && !raw.trim()) return setFieldError(fieldId, "Si lo completás, escribí un detalle."), false;
+    if (raw && raw.length > 120) return setFieldError(fieldId, "Máximo 120 caracteres."), false;
+
+    if (!raw) {
+      clearFieldState(fieldId);
+      return true;
+    }
+    return setFieldValid(fieldId), true;
+  }
+
+  return true;
+}
+
+function validateForm() {
   let ok = true;
+
+  ["firstName", "lastName", "email", "phone", "eventDate", "allergies"].forEach(clearFieldState);
+
+  ok = validateFieldById("firstName") && ok;
+  ok = validateFieldById("lastName") && ok;
+  ok = validateFieldById("email") && ok;
+  ok = validateFieldById("phone") && ok;
+  ok = validateFieldById("eventDate") && ok;
+  ok = validateFieldById("allergies") && ok;
+
+  const normalizedPhone = normalizePhone(($("#phone")?.value || "").trim());
+  return { ok, normalizedPhone };
+}
+
+// ============================================================
+// Submit (RPC seguro)
+// ============================================================
+async function submitRegistration() {
+  const sb = getSb();
+  if (!sb) throw new Error("APP.supabase no existe.");
+
+  const { ok, normalizedPhone } = validateForm();
+  if (!ok) {
+    toast("Revisá el formulario", "Hay campos pendientes o inválidos.");
+    return;
+  }
+
+  const dateId = $("#eventDate")?.value || "";
+  const d = getDateById(dateId);
+  if (!d || (Number(d.seats_available) || 0) <= 0) {
+    toast("Agotado", "Esa fecha ya no tiene cupos.");
+    syncSubmitAvailability();
+    renderHeader();
+    return;
+  }
+
+  setHiddenDateId(dateId);
 
   const firstName = ($("#firstName")?.value || "").trim();
   const lastName = ($("#lastName")?.value || "").trim();
-  const birthDate = $("#birthDate")?.value || "";
-  const email = ($("#email")?.value || "").trim();
-  const phone = ($("#phone")?.value || "").trim();
-  const eventDate = $("#eventDate")?.value || "";
+  const fullName = `${firstName} ${lastName}`.replace(/\s+/g, " ").trim();
 
-  ["firstName", "lastName", "birthDate", "email", "phone", "eventDate", "allergies"].forEach(clearFieldError);
+  const allergiesText = ($("#allergies")?.value || "").trim();
+  const allergiesSafe = allergiesText ? allergiesText.slice(0, 120) : null;
 
-  if (!firstName) {
-    ok = false;
-    setFieldError("firstName", "Ingresá tu nombre.");
+  const payload = {
+    p_event_id: String(EVENT_ID),
+    p_event_date_id: String(dateId),
+    p_name: fullName,
+    p_email: ($("#email")?.value || "").trim().toLowerCase(),
+    p_phone: normalizedPhone,
+    p_marketing_opt_in: !!$("#marketingOptIn")?.checked,
+    p_allergies: allergiesSafe,
+  };
+
+  const submitBtn = $("#submitBtn");
+  const oldLabel = submitBtn ? submitBtn.textContent : "";
+
+  if (submitBtn) {
+    IS_SUBMITTING = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Enviando…";
   }
-  if (!lastName) {
-    ok = false;
-    setFieldError("lastName", "Ingresá tus apellidos.");
-  }
 
-  if (!birthDate) {
-    ok = false;
-    setFieldError("birthDate", "Seleccioná tu fecha de nacimiento.");
-  } else {
-    const d = new Date(birthDate);
-    const now = new Date();
-    if (isNaN(d.getTime()) || d > now) {
-      ok = false;
-      setFieldError("birthDate", "La fecha no es válida.");
+  try {
+    const { data, error } = await sb.rpc("register_for_event", payload);
+    if (error) throw error;
+
+    const row = Array.isArray(data) ? data[0] : null;
+
+    if (row?.reservation_number) {
+      sessionStorage.setItem("ecn_last_reservation_number", String(row.reservation_number));
     }
-  }
-
-  if (!email || !validEmail(email)) {
-    ok = false;
-    setFieldError("email", "Ingresá un correo válido.");
-  }
-
-  const normalized = normalizePhone(phone);
-  if (!phone || !normalized) {
-    ok = false;
-    setFieldError("phone", "Ingresá un teléfono válido (8 dígitos o 506 + 8).");
-  }
-
-  if (!eventDate) {
-    ok = false;
-    setFieldError("eventDate", "Seleccioná una fecha del evento.");
-  } else {
-    const seatsForDate = getSelectedDateSeats(ev, eventDate);
-    if (seatsForDate !== null && seatsForDate <= 0) {
-      ok = false;
-      setFieldError("eventDate", "Esa fecha está agotada. Elegí otra.");
+    if (row?.registration_id) {
+      sessionStorage.setItem("ecn_last_registration_id", String(row.registration_id));
     }
-  }
 
-  const allergies = $("#allergies")?.value || "";
-  if (allergies && !allergies.trim()) {
-    ok = false;
-    setFieldError("allergies", "Si lo completás, escribí un detalle.");
-  }
-  if (allergies && allergies.length > 120) {
-    ok = false;
-    setFieldError("allergies", "Máximo 120 caracteres.");
-  }
+    const emailLower = String(payload.p_email || "").toLowerCase();
+    if (emailLower) sessionStorage.setItem("ecn_last_email", emailLower);
 
-  return { ok, normalizedPhone: normalized };
+    let regId = "";
+    let rn = "";
+
+    if (Array.isArray(data) && data[0] && typeof data[0] === "object") {
+      regId = data[0].registration_id ? String(data[0].registration_id) : "";
+      rn = data[0].reservation_number ? String(data[0].reservation_number) : "";
+    } else if (typeof data === "string") {
+      regId = data;
+    } else if (data && typeof data === "object") {
+      regId = data.registration_id ? String(data.registration_id) : data.id ? String(data.id) : "";
+      rn = data.reservation_number ? String(data.reservation_number) : "";
+    }
+
+    if (regId) sessionStorage.setItem("ecn_last_registration_id", regId);
+    if (rn) sessionStorage.setItem("ecn_last_reservation_number", rn);
+
+    if (submitBtn) {
+      submitBtn.textContent = "Enviado ✓";
+      submitBtn.classList.add("isSuccess");
+    }
+
+    window.__ECN_LAST_EVENT_ID = String(EVENT_ID);
+    window.__ECN_LAST_DATE_ID = String(dateId);
+
+    const fresh = await fetchEventAndDates(EVENT_ID);
+    EVENT = fresh.event;
+    DATES = fresh.dates;
+
+    SELECTED_DATE_ID = "";
+    SELECTED_DATE_LABEL = "";
+    setHiddenDateId("");
+
+    $("#regForm")?.reset();
+    const countEl = $("#count");
+    if (countEl) countEl.textContent = "0";
+
+    renderDatesSelect("");
+    renderHeader();
+    syncSubmitAvailability();
+
+    await showSuccessModal();
+  } catch (err) {
+    console.error(err);
+
+    const rawMsg = String(err?.message || err?.details || "");
+    const msg = rawMsg.toLowerCase();
+
+    if (msg.includes("does not exist") && msg.includes("register_for_event")) {
+      toast(
+        "RPC no alineado",
+        "La función register_for_event no coincide con la firma esperada (7 parámetros incluyendo p_allergies)."
+      );
+    } else if (
+      msg.includes("permission") ||
+      msg.includes("rls") ||
+      msg.includes("not allowed") ||
+      msg.includes("42501")
+    ) {
+      toast("Permisos", "La base de datos bloqueó la inscripción. Revisemos RLS o SECURITY DEFINER.");
+    } else if (msg.includes("no seats") || msg.includes("agotado") || msg.includes("sold out") || msg.includes("sold")) {
+      toast("Agotado", "Esa fecha ya no tiene cupos disponibles. Elegí otra.");
+    } else if (
+      msg.includes("duplicate registration") ||
+      msg.includes("registrations_unique_eventdate_email") ||
+      msg.includes("duplicate key value") ||
+      msg.includes("unique constraint") ||
+      msg.includes("already exists") ||
+      msg.includes("already registered")
+    ) {
+      toast("Ya estás inscrito", "Ese correo ya está inscrito para esta fecha.");
+      setFieldError("email", "Este correo ya está inscrito para la fecha seleccionada.");
+    } else if (msg.includes("invalid date") || msg.includes("fecha no existe") || msg.includes("invalid") || msg.includes("fecha")) {
+      toast("Fecha inválida", "La fecha seleccionada no pertenece a este evento.");
+      setFieldError("eventDate", "Fecha inválida. Elegí otra.");
+    } else {
+      toast("Error", "No se pudo completar la inscripción. Intentá nuevamente.");
+    }
+
+    IS_SUBMITTING = false;
+
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = oldLabel || "Inscribirme";
+      submitBtn.classList.remove("isSuccess");
+    }
+
+    try {
+      const fresh = await fetchEventAndDates(EVENT_ID);
+      EVENT = fresh.event;
+      DATES = fresh.dates;
+      renderHeader();
+      syncSubmitAvailability();
+    } catch (_) {}
+  }
 }
 
 // ============================================================
 // Init
 // ============================================================
-document.addEventListener("DOMContentLoaded", () => {
-  const picked = pickEvent();
-  const ev = picked.ev;
-  const dateFromUrl = picked.dateFromUrl;
+document.addEventListener("DOMContentLoaded", async () => {
+  ensureValidationStylesOnce();
 
-  if (!ev) {
-    toast("Sin datos", "No encontramos el evento. Volviendo a Home…");
+  const sb = getSb();
+  if (!sb) {
+    toast("Error", "Supabase no está cargado. Revisá scripts.");
+    return;
+  }
+
+  EVENT_ID = String(getParam("event") || "").trim();
+  const dateIdFromUrl = String(getParam("date_id") || "").trim();
+  const dateLabelFromUrl = String(getParam("date_label") || "").trim();
+
+  if (!EVENT_ID) {
+    toast("Falta evento", "Volviendo a Home…");
     setTimeout(() => (window.location.href = "./home.html#proximos"), 900);
     return;
   }
 
-  // Buttons: volver + ver más
   const backBtn = $("#backBtn");
-  const moreBtn = $("#moreBtn");
-  if (backBtn) backBtn.href = `./event.html?event=${encodeURIComponent(ev.id)}`;
-  if (moreBtn) moreBtn.href = `./event.html?event=${encodeURIComponent(ev.id)}`;
+  if (backBtn) backBtn.href = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
 
-  // Render header + dates
-  renderDates(ev, dateFromUrl);
-  const initialSelected = $("#eventDate")?.value || "";
-  renderEventHeader(ev, initialSelected);
-
-  // Sold out total (disponible real)
-  if ((sumAvailableSeats(ev) || 0) <= 0) {
-    toast("Evento agotado", "Este evento no tiene cupos disponibles.");
-  }
-
-  // Counter allergies
   const allergiesEl = $("#allergies");
   const countEl = $("#count");
   const syncCount = () => {
     if (!countEl || !allergiesEl) return;
     countEl.textContent = String(allergiesEl.value.length);
   };
-  if (allergiesEl) allergiesEl.addEventListener("input", syncCount);
+  allergiesEl?.addEventListener("input", syncCount);
   syncCount();
 
-  // Live validation clear on input
-  ["firstName", "lastName", "birthDate", "email", "phone", "eventDate", "allergies"].forEach((id) => {
+  const liveIds = ["firstName", "lastName", "email", "phone", "eventDate", "allergies"];
+  liveIds.forEach((id) => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener("input", () => clearFieldError(id));
-    el.addEventListener("change", () => clearFieldError(id));
+
+    const run = () => {
+      if (IS_SUBMITTING) return;
+      validateFieldById(id);
+    };
+
+    el.addEventListener("input", run);
+    el.addEventListener("change", run);
+    el.addEventListener("blur", run);
   });
 
-  // Gate submit until date picked + cupos + meta live
-  const dateSel = $("#eventDate");
-  if (dateSel) {
-    dateSel.addEventListener("change", () => {
-      const selected = dateSel.value || "";
+  try {
+    const { event, dates } = await fetchEventAndDates(EVENT_ID);
 
-      // Update header + badge
-      renderEventHeader(ev, selected);
+    if (!event) {
+      toast("No encontrado", "Ese evento no existe. Volviendo a Home…");
+      setTimeout(() => (window.location.href = "./home.html#proximos"), 900);
+      return;
+    }
 
-      // Gate
-      syncSubmitAvailability(ev);
+    EVENT = event;
+    DATES = dates;
 
-      // Toast si está agotada
-      if (selected) {
-        const seatsForDate = getSelectedDateSeats(ev, selected);
-        if (seatsForDate !== null && seatsForDate <= 0) {
-          toast("Agotado", "Esa fecha está agotada. Elegí otra.");
-          setFieldError("eventDate", "Esa fecha está agotada. Elegí otra.");
-        }
-      }
-    });
+    renderDatesSelect(dateIdFromUrl, dateLabelFromUrl);
+    renderHeader();
+    syncSubmitAvailability();
+
+    if (sumAvailableSeatsFromDates(DATES) <= 0) {
+      toast("Evento agotado", "Este evento no tiene cupos disponibles.");
+    }
+  } catch (err) {
+    console.error(err);
+    toast("Error", "No se pudo cargar el evento. Probá recargar.");
+    return;
   }
-  syncSubmitAvailability(ev);
 
-  // Submit
+  const dateSel = $("#eventDate");
+  dateSel?.addEventListener("change", () => {
+    if (IS_SUBMITTING) return;
+
+    const picked = dateSel.value || "";
+    SELECTED_DATE_ID = picked;
+
+    const d = getDateById(picked);
+    SELECTED_DATE_LABEL = d ? String(d.label || "") : "";
+
+    setHiddenDateId(SELECTED_DATE_ID);
+
+    renderHeader();
+    syncSubmitAvailability();
+
+    if (picked && d && (Number(d.seats_available) || 0) <= 0) {
+      toast("Agotado", "Esa fecha está agotada. Elegí otra.");
+      setFieldError("eventDate", "Esa fecha está agotada. Elegí otra.");
+    } else {
+      validateFieldById("eventDate");
+    }
+  });
+
   const form = $("#regForm");
-  if (!form) return;
-
-  form.addEventListener("submit", async (e) => {
+  form?.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    if ((sumAvailableSeats(ev) || 0) <= 0) {
+    if (sumAvailableSeatsFromDates(DATES) <= 0) {
       toast("Agotado", "No hay cupos para este evento.");
       return;
     }
 
-    const { ok, normalizedPhone } = validateForm(ev);
-    if (!ok) {
-      toast("Revisá el formulario", "Hay campos pendientes o inválidos.");
-      return;
-    }
-
-    const selectedDate = $("#eventDate")?.value || "";
-    const dateSeats = getSelectedDateSeats(ev, selectedDate);
-
-    if (dateSeats !== null && dateSeats <= 0) {
-      toast("Agotado", "Esa fecha ya no tiene cupos.");
-      syncSubmitAvailability(ev);
-      renderEventHeader(ev, selectedDate);
-      return;
-    }
-
-    const emailLower = ($("#email")?.value || "").trim().toLowerCase();
-
-    // ✅ anti-duplicado (mismo email + evento + fecha)
-    if (regExists(emailLower, ev.id, selectedDate)) {
-      toast("Ya estás inscrito", "Encontramos un registro con ese correo para este evento y fecha.");
-      setFieldError("email", "Este correo ya está inscrito en esta fecha.");
-      return;
-    }
-
-    // Payload (luego se inserta en Supabase)
-    const payload = {
-      event_id: ev.id,
-      event_title: ev.title,
-      event_date: selectedDate,
-
-      // ✅ NUEVO: persistimos los nuevos campos en el registro (para admin + CSV)
-      event_location: safeTrim(ev.location) || "Por confirmar",
-      event_time_range: safeTrim(ev.timeRange) || "Por confirmar",
-      event_duration_hours: safeTrim(ev.durationHours) || "Por confirmar",
-
-      first_name: ($("#firstName")?.value || "").trim(),
-      last_name: ($("#lastName")?.value || "").trim(),
-      birth_date: $("#birthDate")?.value || "",
-      email: emailLower,
-      phone: normalizedPhone,
-      allergies: ($("#allergies")?.value || "").trim(),
-      marketing_opt_in: !!$("#marketingOptIn")?.checked,
-      created_at: new Date().toISOString(),
-    };
-
-    // UI submit
-    const submitBtn = $("#submitBtn");
-    const oldLabel = submitBtn ? submitBtn.textContent : "";
-
-    if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.textContent = "Enviando…";
-    }
-
-    try {
-      // Simula request (luego se reemplaza por supabase.insert)
-      await new Promise((r) => setTimeout(r, 650));
-
-      // ✅ Descontar cupo local ANTES de guardar registro (evita sobrecupo)
-      const seatOk = decrementSeatLocal(ev.id, selectedDate);
-      if (!seatOk) {
-        toast("Agotado", "Esa fecha se quedó sin cupos justo ahora. Elegí otra.");
-
-        // refresca UI
-        const refreshedPick = pickEvent();
-        if (refreshedPick?.ev && refreshedPick.ev.id === ev.id) {
-          ev.dates = refreshedPick.ev.dates;
-          ev.seats = refreshedPick.ev.seats;
-          renderDates(ev, selectedDate);
-          renderEventHeader(ev, selectedDate);
-        }
-
-        syncSubmitAvailability(ev);
-
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = oldLabel || "Inscribirme";
-        }
-        return;
-      }
-
-      // ✅ Guarda en registros (localStorage) para el admin
-      if (window.ECN && typeof ECN.saveRegistration === "function") {
-        ECN.saveRegistration(payload);
-      } else {
-        const key = window.ECN?.LS?.REGS || "ecn_regs";
-        const regs = getRegsLocal();
-        regs.unshift(payload);
-        localStorage.setItem(key, JSON.stringify(regs));
-      }
-
-      // Compat
-      localStorage.setItem("last_registration", JSON.stringify(payload));
-
-      toast("Inscripción completada", "Te llegará por correo la confirmación.");
-
-      form.reset();
-      if (countEl) countEl.textContent = "0";
-
-      // Re-render fechas + header (refleja cupos nuevos)
-      const refreshed = pickEvent().ev;
-      if (refreshed && refreshed.id === ev.id) {
-        ev.dates = refreshed.dates;
-        ev.seats = refreshed.seats;
-
-        // importante: mantener meta en pantalla (location/time/duration)
-        ev.location = refreshed.location || ev.location;
-        ev.timeRange = refreshed.timeRange || ev.timeRange;
-        ev.durationHours = refreshed.durationHours || ev.durationHours;
-
-        renderDates(ev, "");
-        renderEventHeader(ev, "");
-      } else {
-        renderEventHeader(ev, "");
-      }
-
-      syncSubmitAvailability(ev);
-
-      // Redirección suave a “ver más”
-      setTimeout(() => {
-        window.location.href = `./event.html?event=${encodeURIComponent(ev.id)}`;
-      }, 1100);
-    } catch (err) {
-      console.error(err);
-      toast("Error", "No se pudo enviar. Probá de nuevo.");
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = oldLabel || "Inscribirme";
-      }
-      return;
-    }
+    await submitRegistration();
   });
 });
