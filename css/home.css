@@ -1417,10 +1417,13 @@
 /* ---------- MOBILE CENTER ---------- */
 
 @media (max-width: 768px){
-
   .hero,
   .slideImage{
     background-position: center center !important;
   }
+}
 
+@media (max-width: 640px){
+  .slide::before{ background-position: 70% center; }
+  .heroBgVideo{ object-position: 70% center; }
 }
