@@ -1413,20 +1413,19 @@
 .img-loaded{
   opacity: 1;
 }
-
 /* ============================================================
-   HERO MOBILE — FOCUS DERECHA (botella + copa)
+   HERO MOBILE — FOCUS IZQUIERDA (botella + copa)
 ============================================================ */
 @media (max-width: 640px){
 
   .slide::before{
     /* imagen fallback */
-    background-position: 78% 45% !important;
+    background-position: 42% 45% !important;
   }
 
   .heroBgVideo{
     /* video */
-    object-position: 78% 45% !important;
+    object-position: 42% 45% !important;
   }
 
 }
