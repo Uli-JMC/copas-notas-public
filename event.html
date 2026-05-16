@@ -70,35 +70,18 @@
         <h1 class="title" id="evTitle">Evento</h1>
         <p class="desc" id="evDesc">Descripción del evento.</p>
 
-        <!-- ✅ NUEVO (MÓVIL): botón "Ver más info" + despliegue de imagen (desde BD)
-             - En desktop puede quedar oculto por CSS
-             - El JS va a:
-               1) ocultar todo si no existe imagen en BD
-               2) togglear aria-expanded y [hidden] del bloque
-        -->
+        <!-- Botón “Ver más info”: abre modal full screen con la imagen event_more -->
         <div class="moreInfo" id="moreInfo" hidden>
           <button
             class="btn moreBtn"
             id="btnMoreInfo"
             type="button"
+            aria-haspopup="dialog"
             aria-expanded="false"
-            aria-controls="morePanel"
+            aria-controls="eventMoreModal"
           >
             Ver más info
           </button>
-
-          <div class="morePanel" id="morePanel" hidden>
-            <div class="moreMedia" aria-label="Imagen adicional del evento">
-              <img
-                id="evMoreImg"
-                class="moreImg"
-                src="./assets/img/hero-1.jpg"
-                alt="Información adicional del evento"
-                loading="lazy"
-                decoding="async"
-              />
-            </div>
-          </div>
         </div>
 
         <div class="grid">
@@ -168,6 +151,21 @@
       </div>
     </div>
   </section>
+
+  <!-- Modal full screen “Ver más info” -->
+  <div class="eventMoreModal" id="eventMoreModal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-label="Más información del evento">
+    <button class="eventMoreBackdrop" type="button" data-close-more="true" aria-label="Cerrar"></button>
+    <div class="eventMoreDialog" role="document">
+      <button class="eventMoreClose" id="eventMoreClose" type="button" aria-label="Cerrar información">×</button>
+      <div class="eventMoreHeader">
+        <p class="eventMoreKicker">Información del evento</p>
+        <h2 class="eventMoreTitle" id="eventMoreTitle">Ver más info</h2>
+      </div>
+      <div class="eventMoreMedia">
+        <img id="evMoreImg" class="eventMoreImg" src="" alt="Información adicional del evento" loading="lazy" decoding="async" />
+      </div>
+    </div>
+  </div>
 
   <!-- Footer -->
   <footer class="footer">

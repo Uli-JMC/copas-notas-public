@@ -404,50 +404,68 @@
     const desc = $("#evDesc");
     if (!desc) return;
 
-    const wrap = document.createElement("div");
-    wrap.className = "moreInfo";
-    wrap.id = "moreInfo";
-    wrap.setAttribute("hidden", "");
+    // Usar el bloque que ya viene en event.html. Si por alguna razón no existe, lo creamos.
+    let wrap = $("#moreInfo");
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.className = "moreInfo";
+      wrap.id = "moreInfo";
+      wrap.setAttribute("hidden", "");
+      wrap.innerHTML = `
+        <button class="btn moreBtn" type="button" id="btnMoreInfo" aria-haspopup="dialog" aria-expanded="false" aria-controls="eventMoreModal">
+          Ver más info
+        </button>
+      `;
+      desc.insertAdjacentElement("afterend", wrap);
+    }
 
-    wrap.innerHTML = `
-      <button class="btn moreBtn" type="button" id="moreBtn" aria-expanded="false" aria-controls="morePanel">
-        Ver más info
-      </button>
+    const btn = $("#btnMoreInfo") || $("#moreBtn");
+    const modal = $("#eventMoreModal");
+    const closeBtn = $("#eventMoreClose");
 
-      <div class="morePanel" id="morePanel" hidden>
-        <div class="moreMedia">
-          <img id="moreImg" class="moreImg" alt="Más información del evento" loading="lazy" decoding="async" />
-        </div>
-      </div>
-    `;
+    const openModal = () => {
+      if (!modal || !btn) return;
+      modal.hidden = false;
+      modal.setAttribute("aria-hidden", "false");
+      document.documentElement.classList.add("isMoreModalOpen");
+      document.body.classList.add("isMoreModalOpen");
+      btn.setAttribute("aria-expanded", "true");
+      setTimeout(() => closeBtn?.focus(), 0);
+    };
 
-    desc.insertAdjacentElement("afterend", wrap);
+    const closeModal = () => {
+      if (!modal || !btn) return;
+      modal.hidden = true;
+      modal.setAttribute("aria-hidden", "true");
+      document.documentElement.classList.remove("isMoreModalOpen");
+      document.body.classList.remove("isMoreModalOpen");
+      btn.setAttribute("aria-expanded", "false");
+      btn.focus?.();
+    };
 
-    const btn = $("#moreBtn");
-    const panel = $("#morePanel");
+    btn?.addEventListener("click", openModal);
+    closeBtn?.addEventListener("click", closeModal);
+    modal?.querySelectorAll("[data-close-more]").forEach((el) => el.addEventListener("click", closeModal));
 
-    btn?.addEventListener("click", () => {
-      const isOpen = btn.getAttribute("aria-expanded") === "true";
-      const next = !isOpen;
-
-      btn.setAttribute("aria-expanded", next ? "true" : "false");
-      if (panel) {
-        if (next) panel.removeAttribute("hidden");
-        else panel.setAttribute("hidden", "");
-      }
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal && !modal.hidden) closeModal();
     });
   }
 
   function setMoreInfoMedia(ev) {
     const wrap = $("#moreInfo");
-    const img = $("#moreImg");
-    const btn = $("#moreBtn");
-    const panel = $("#morePanel");
-    if (!wrap || !img || !btn || !panel) return;
+    const img = $("#evMoreImg");
+    const btn = $("#btnMoreInfo") || $("#moreBtn");
+    const modal = $("#eventMoreModal");
+    const modalTitle = $("#eventMoreTitle");
+    if (!wrap || !img || !btn || !modal) return;
 
     const raw = cleanSpaces(ev?.moreImg || "");
     if (!raw) {
       wrap.setAttribute("hidden", "");
+      modal.hidden = true;
+      modal.setAttribute("aria-hidden", "true");
+      btn.setAttribute("aria-expanded", "false");
       return;
     }
 
@@ -458,9 +476,12 @@
       ? `Más info: ${ev.title}`
       : "Más información del evento";
 
+    if (modalTitle) modalTitle.textContent = ev?.title ? `Más info · ${ev.title}` : "Más info";
+
     wrap.removeAttribute("hidden");
     btn.setAttribute("aria-expanded", "false");
-    panel.setAttribute("hidden", "");
+    modal.hidden = true;
+    modal.setAttribute("aria-hidden", "true");
   }
 
   // ----------------------------
