@@ -1429,3 +1429,142 @@
   }
 
 }
+/* ============================================================
+   ECN PUBLIC HERO / SLIDER FIT FIX — 2026-05-16
+   Objetivo:
+   - Evitar que el slider se vea incompleto/cortado en desktop.
+   - Mantener la estructura y JS existentes.
+   - Contener el panel derecho dentro del viewport.
+   - Reducir desplazamientos heredados que causaban overflow horizontal.
+============================================================ */
+html,
+body{
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.hero{
+  width: 100%;
+  min-height: calc(100svh - 72px);
+  min-height: calc(100dvh - 72px);
+  max-height: none;
+  overflow: hidden;
+}
+
+.heroInner,
+.slides,
+.slide{
+  min-height: inherit;
+}
+
+.slide{
+  width: 100%;
+  min-width: 100%;
+  padding: clamp(56px, 8vh, 90px) max(var(--gutter), 24px);
+  align-items: center;
+}
+
+.heroCard,
+.heroInnerPanel,
+.heroRow{
+  min-width: 0;
+}
+
+.heroRow{
+  width: 100%;
+  grid-template-columns: minmax(0, 1.12fr) minmax(310px, 420px);
+  gap: clamp(22px, 3.4vw, 48px);
+  align-items: center;
+}
+
+/* El shift anterior empujaba el contenido y podía cortar el panel en pantallas medianas. */
+.heroLeft,
+.heroRight{
+  transform: none !important;
+}
+
+.heroLeft{
+  max-width: 760px;
+}
+
+.heroRight{
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.heroInfoPanel{
+  width: min(360px, 100%);
+  max-width: 100%;
+  flex: 0 1 360px;
+}
+
+.heroTitle--wix{
+  font-size: clamp(42px, 5.25vw, 82px);
+  line-height: .94;
+  max-width: 11.8ch;
+  text-wrap: balance;
+}
+
+.heroDesc--wix{
+  max-width: 60ch;
+}
+
+.heroControls{
+  bottom: clamp(14px, 2.4vh, 26px);
+}
+
+/* Desktop/intermedio: evitar corte del panel derecho y bajar escala del título. */
+@media (max-width: 1180px){
+  .heroRow{
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    gap: 24px;
+  }
+
+  .heroTitle--wix{
+    font-size: clamp(38px, 5vw, 66px);
+  }
+
+  .heroInfoPanel{
+    width: min(340px, 100%);
+  }
+}
+
+@media (max-width: 980px){
+  .hero{
+    min-height: calc(100svh - 64px);
+    min-height: calc(100dvh - 64px);
+  }
+
+  .heroRow{
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .heroRight{
+    justify-content: flex-start;
+  }
+
+  .heroInfoPanel{
+    width: min(440px, 100%);
+  }
+
+  .heroTitle--wix{
+    max-width: 14ch;
+  }
+}
+
+@media (max-width: 640px){
+  .hero{
+    min-height: calc(100svh - 64px);
+    min-height: calc(100dvh - 64px);
+  }
+
+  .slide{
+    padding-left: max(var(--gutter), 20px);
+    padding-right: max(var(--gutter), 20px);
+  }
+
+  .heroTitle--wix{
+    max-width: 12.5ch;
+  }
+}
