@@ -836,6 +836,13 @@ async function submitRegistration() {
   const lastName = ($("#lastName")?.value || "").trim();
   const fullName = `${firstName} ${lastName}`.replace(/\s+/g, " ").trim();
 
+  // Guarda el nombre para que confirm.html pueda abrir WhatsApp
+  // con un mensaje personalizado de comprobante de pago.
+  if (fullName) {
+    sessionStorage.setItem("ecn_last_name", fullName);
+    sessionStorage.setItem("ecn_last_registration_name", fullName);
+  }
+
   const allergiesText = ($("#allergies")?.value || "").trim();
   const allergiesSafe = allergiesText ? allergiesText.slice(0, 120) : null;
 

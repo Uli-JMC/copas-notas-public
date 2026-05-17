@@ -65,6 +65,16 @@ function getSb() {
   return window.APP && APP.supabase ? APP.supabase : null;
 }
 
+const ECN_WHATSAPP_NUMBER = "50688323801";
+
+function getStoredRegistrantName() {
+  return (
+    safeTrim(sessionStorage.getItem("ecn_last_name")) ||
+    safeTrim(sessionStorage.getItem("ecn_last_registration_name")) ||
+    ""
+  );
+}
+
 // -------------------------------
 // Money formatting (es-CR)
 // -------------------------------
@@ -299,14 +309,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     renderMetaBox(ev, d?.label || "Fecha confirmada", reservationNumber, timeRangeText);
 
-    // ✅ WhatsApp dinámico
+    // ✅ WhatsApp dinámico para enviar comprobante de pago
     const btnWA = $("#btnWA");
     if (btnWA) {
+      const registrantName = getStoredRegistrantName() || "Nombre no indicado";
+      const reservationText = reservationNumber || "No disponible";
+      const eventTitle = safeTrim(ev.title) || "evento";
+
       const txt =
-        `Hola 👋 me inscribí a "${ev.title || "un evento"}" (${d?.label || "fecha confirmada"}). ` +
-        (reservationNumber ? `Mi reserva es #${reservationNumber}. ` : "") +
-        `¿Me confirman detalles?`;
-      btnWA.href = `https://wa.me/50688323801?text=${encodeURIComponent(txt)}`;
+        `Hola, le estoy enviando el comprobante de pago para el evento: "${eventTitle}". ` +
+        `Mi nombre es "${registrantName}". ` +
+        `Reservación: "${reservationText}".`;
+
+      btnWA.href = `https://wa.me/${ECN_WHATSAPP_NUMBER}?text=${encodeURIComponent(txt)}`;
+      btnWA.setAttribute("aria-label", "Enviar comprobante de pago por WhatsApp");
+      btnWA.setAttribute("title", "Enviar comprobante de pago por WhatsApp");
     }
   } catch (err) {
     console.error(err);
