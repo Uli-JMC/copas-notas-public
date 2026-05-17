@@ -68,9 +68,16 @@ function getSb() {
 const ECN_WHATSAPP_NUMBER = "50688323801";
 
 function getStoredRegistrantName() {
+  // Orden robusto:
+  // 1) querystring: confirm.html?...&name=Nombre
+  // 2) sessionStorage: misma pestaña
+  // 3) localStorage: funciona si confirm abre en otra pestaña/flujo
   return (
+    safeTrim(getParam("name")) ||
     safeTrim(sessionStorage.getItem("ecn_last_name")) ||
     safeTrim(sessionStorage.getItem("ecn_last_registration_name")) ||
+    safeTrim(localStorage.getItem("ecn_last_name")) ||
+    safeTrim(localStorage.getItem("ecn_last_registration_name")) ||
     ""
   );
 }
@@ -146,11 +153,17 @@ function setUiInfoState(title, desc) {
 
 /* ✅ Reserva #: usa registrations.reservation_number */
 async function getReservationNumber(sb, eventId, dateId) {
-  // 1) sessionStorage
-  const ss = safeTrim(sessionStorage.getItem("ecn_last_reservation_number"));
+  // 1) querystring: confirm.html?...&rn=EC-...
+  const fromUrl = safeTrim(getParam("rn"));
+  if (fromUrl) return fromUrl;
+
+  // 2) sessionStorage / localStorage
+  const ss =
+    safeTrim(sessionStorage.getItem("ecn_last_reservation_number")) ||
+    safeTrim(localStorage.getItem("ecn_last_reservation_number"));
   if (ss) return ss;
 
-  // 2) buscar último registro de esa fecha/evento
+  // 3) buscar último registro de esa fecha/evento
   const { data, error } = await sb
     .from("registrations")
     .select("id, reservation_number, created_at")

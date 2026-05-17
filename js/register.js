@@ -55,6 +55,25 @@ function getParam(name) {
   return url.searchParams.get(name);
 }
 
+function setStorageBoth(key, value) {
+  const v = String(value ?? "").trim();
+  if (!v) return;
+  try { sessionStorage.setItem(key, v); } catch (_) {}
+  try { localStorage.setItem(key, v); } catch (_) {}
+}
+
+function getStorageAny(key) {
+  try {
+    const ss = String(sessionStorage.getItem(key) || "").trim();
+    if (ss) return ss;
+  } catch (_) {}
+  try {
+    const ls = String(localStorage.getItem(key) || "").trim();
+    if (ls) return ls;
+  } catch (_) {}
+  return "";
+}
+
 function safeTrim(v) {
   return String(v || "").trim();
 }
@@ -367,8 +386,14 @@ function ensureSuccessModalDOM() {
     const dtId = window.__ECN_LAST_DATE_ID ? String(window.__ECN_LAST_DATE_ID) : "";
 
     if (evId && dtId) {
+      const name = getStorageAny("ecn_last_registration_name") || getStorageAny("ecn_last_name") || window.__ECN_LAST_REGISTRANT_NAME || "";
+      const rn = getStorageAny("ecn_last_reservation_number") || window.__ECN_LAST_RESERVATION_NUMBER || "";
+      const extra =
+        `${name ? `&name=${encodeURIComponent(name)}` : ""}` +
+        `${rn ? `&rn=${encodeURIComponent(rn)}` : ""}`;
+
       window.location.href =
-        `./confirm.html?event=${encodeURIComponent(evId)}&date_id=${encodeURIComponent(dtId)}&reg=ok`;
+        `./confirm.html?event=${encodeURIComponent(evId)}&date_id=${encodeURIComponent(dtId)}&reg=ok${extra}`;
       return;
     }
     if (evId) {
@@ -836,11 +861,13 @@ async function submitRegistration() {
   const lastName = ($("#lastName")?.value || "").trim();
   const fullName = `${firstName} ${lastName}`.replace(/\s+/g, " ").trim();
 
-  // Guarda el nombre para que confirm.html pueda abrir WhatsApp
-  // con un mensaje personalizado de comprobante de pago.
+  // Guarda el nombre para confirm.html y WhatsApp.
+  // sessionStorage puede perderse si la confirmación abre en otro contexto;
+  // por eso también guardamos localStorage y lo enviamos por querystring.
   if (fullName) {
-    sessionStorage.setItem("ecn_last_name", fullName);
-    sessionStorage.setItem("ecn_last_registration_name", fullName);
+    setStorageBoth("ecn_last_name", fullName);
+    setStorageBoth("ecn_last_registration_name", fullName);
+    window.__ECN_LAST_REGISTRANT_NAME = fullName;
   }
 
   const allergiesText = ($("#allergies")?.value || "").trim();
@@ -872,14 +899,15 @@ async function submitRegistration() {
     const row = Array.isArray(data) ? data[0] : null;
 
     if (row?.reservation_number) {
-      sessionStorage.setItem("ecn_last_reservation_number", String(row.reservation_number));
+      setStorageBoth("ecn_last_reservation_number", String(row.reservation_number));
+      window.__ECN_LAST_RESERVATION_NUMBER = String(row.reservation_number);
     }
     if (row?.registration_id) {
-      sessionStorage.setItem("ecn_last_registration_id", String(row.registration_id));
+      setStorageBoth("ecn_last_registration_id", String(row.registration_id));
     }
 
     const emailLower = String(payload.p_email || "").toLowerCase();
-    if (emailLower) sessionStorage.setItem("ecn_last_email", emailLower);
+    if (emailLower) setStorageBoth("ecn_last_email", emailLower);
 
     let regId = "";
     let rn = "";
@@ -894,8 +922,11 @@ async function submitRegistration() {
       rn = data.reservation_number ? String(data.reservation_number) : "";
     }
 
-    if (regId) sessionStorage.setItem("ecn_last_registration_id", regId);
-    if (rn) sessionStorage.setItem("ecn_last_reservation_number", rn);
+    if (regId) setStorageBoth("ecn_last_registration_id", regId);
+    if (rn) {
+      setStorageBoth("ecn_last_reservation_number", rn);
+      window.__ECN_LAST_RESERVATION_NUMBER = rn;
+    }
 
     if (submitBtn) {
       submitBtn.textContent = "Enviado ✓";
