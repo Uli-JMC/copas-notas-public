@@ -369,7 +369,7 @@ function ensureSuccessModalDOM() {
           Pronto te llegará un correo con los detalles.
         </p>
         <div class="ecnActions">
-          <button class="ecnBtn" type="button" data-act="close">Cerrar</button>
+          <button class="ecnBtn" type="button" data-act="close">Volver al evento</button>
           <button class="ecnBtn ecnBtn--primary" type="button" data-act="go">Confirmación</button>
         </div>
       </div>
@@ -378,8 +378,11 @@ function ensureSuccessModalDOM() {
 
   document.body.appendChild(overlay);
 
-  overlay.querySelector(".ecnCloseX")?.addEventListener("click", () => hideSuccessModal());
-  overlay.querySelector('[data-act="close"]')?.addEventListener("click", () => hideSuccessModal());
+  overlay.querySelector(".ecnCloseX")?.addEventListener("click", () => hideSuccessModal({ resetForm: true }));
+  overlay.querySelector('[data-act="close"]')?.addEventListener("click", () => {
+    const evId = window.__ECN_LAST_EVENT_ID ? String(window.__ECN_LAST_EVENT_ID) : String(EVENT_ID || "");
+    window.location.href = evId ? `./event.html?event=${encodeURIComponent(evId)}` : "./home.html#proximos";
+  });
 
   overlay.querySelector('[data-act="go"]')?.addEventListener("click", () => {
     const evId = window.__ECN_LAST_EVENT_ID ? String(window.__ECN_LAST_EVENT_ID) : "";
@@ -403,16 +406,14 @@ function ensureSuccessModalDOM() {
     window.location.href = "./home.html#proximos";
   });
 
-  overlay.querySelector('[data-act="close"]')?.addEventListener("click", () => hideSuccessModal());
-
   overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) hideSuccessModal();
+    if (e.target === overlay) hideSuccessModal({ resetForm: true });
   });
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       const o = document.getElementById(SUCCESS.overlayId);
-      if (o && o.getAttribute("aria-hidden") === "false") hideSuccessModal();
+      if (o && o.getAttribute("aria-hidden") === "false") hideSuccessModal({ resetForm: true });
     }
   });
 
@@ -444,11 +445,26 @@ async function showSuccessModal() {
   }
 }
 
-function hideSuccessModal() {
+function resetFormAfterModalClose() {
+  IS_SUBMITTING = false;
+
+  const submitBtn = $("#submitBtn");
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.classList.remove("isSuccess");
+    submitBtn.textContent = "Inscribirme";
+  }
+
+  syncSubmitAvailability();
+}
+
+function hideSuccessModal(opts = {}) {
   const overlay = document.getElementById(SUCCESS.overlayId);
   if (!overlay) return;
   overlay.setAttribute("aria-hidden", "true");
   document.body.style.overflow = "";
+
+  if (opts.resetForm) resetFormAfterModalClose();
 }
 
 // ============================================================
@@ -576,17 +592,25 @@ function setRegisterHeroIfExists(url) {
   const u = safeTrim(url);
   if (!u) return;
 
-  // Opcional: si tu register.html tiene algo como #heroBg / #regHero / .hero
+  const bg = normalizeImgPath(u);
+
+  // Register no tiene un hero separado; la imagen vive en la cabecera de la card.
+  // Usamos variable CSS para evitar flashes de imágenes viejas o duplicadas.
+  const cardTop = document.querySelector(".cardTop");
+  if (cardTop) {
+    cardTop.style.setProperty("--reg-bg", `url('${safeCssUrl(bg)}')`);
+    cardTop.classList.add("hasDynamicHero");
+  }
+
   const heroBg = $("#heroBg") || $("#regHeroBg");
   if (heroBg) {
-    const bg = normalizeImgPath(u);
     heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(bg)}')`);
     heroBg.style.backgroundImage = `url('${safeCssUrl(bg)}')`;
   }
 
   const imgEl = $("#evPhoto") || $("#regHeroImg");
   if (imgEl && imgEl.tagName === "IMG") {
-    imgEl.src = normalizeImgPath(u);
+    imgEl.src = bg;
   }
 }
 
@@ -597,8 +621,11 @@ function renderHeader() {
   if (titleEl) titleEl.textContent = EVENT?.title || "Evento";
   if (descEl) descEl.textContent = EVENT?.desc || "Completá tus datos para reservar tu cupo.";
 
-  // Si tu register tiene hero, lo actualizamos sin romper
-  const heroUrl = safeTrim(EVENT?.media?.event_img_desktop || EVENT?.media?.event_img_mobile || "");
+  // Usa la misma imagen publicitaria del evento/slide; en móvil prioriza mobile_event.
+  const isMobile = window.matchMedia && window.matchMedia("(max-width: 760px)").matches;
+  const heroUrl = isMobile
+    ? safeTrim(EVENT?.media?.event_img_mobile || EVENT?.media?.event_img_desktop || "")
+    : safeTrim(EVENT?.media?.event_img_desktop || EVENT?.media?.event_img_mobile || "");
   if (heroUrl) setRegisterHeroIfExists(heroUrl);
 
   renderMetaBox();
@@ -855,6 +882,16 @@ async function submitRegistration() {
     return;
   }
 
+  // Validación de cupos justo antes de enviar para evitar mostrar datos viejos.
+  await refreshEventDatesForRegister({ keepSelection: true });
+  const freshDate = getDateById(dateId);
+  if (!freshDate || (Number(freshDate.seats_available) || 0) <= 0) {
+    toast("Agotado", "Esa fecha ya no tiene cupos disponibles. Elegí otra.");
+    syncSubmitAvailability();
+    renderHeader();
+    return;
+  }
+
   setHiddenDateId(dateId);
 
   const firstName = ($("#firstName")?.value || "").trim();
@@ -1008,6 +1045,65 @@ async function submitRegistration() {
   }
 }
 
+async function refreshEventDatesForRegister({ keepSelection = true } = {}) {
+  if (!EVENT_ID) return;
+  try {
+    const fresh = await fetchEventAndDates(EVENT_ID);
+    EVENT = fresh.event || EVENT;
+    DATES = fresh.dates || [];
+
+    const current = keepSelection ? ($("#eventDate")?.value || SELECTED_DATE_ID || "") : "";
+    renderDatesSelect(current);
+    if (current) {
+      const d = getDateById(current);
+      SELECTED_DATE_ID = d ? String(d.id || "") : "";
+      SELECTED_DATE_LABEL = d ? String(d.label || "") : "";
+      setHiddenDateId(SELECTED_DATE_ID);
+    }
+
+    renderHeader();
+    syncSubmitAvailability();
+  } catch (err) {
+    console.warn("[register] refresh dates failed:", err);
+  }
+}
+
+function startRegisterLiveSeatRefresh(eventId) {
+  let last = 0;
+  const tick = (force = false) => {
+    const now = Date.now();
+    if (!force && now - last < 10000) return;
+    last = now;
+    refreshEventDatesForRegister({ keepSelection: true });
+  };
+
+  window.addEventListener("focus", () => tick(false));
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) tick(false);
+  });
+
+  setInterval(() => {
+    if (!document.hidden && !IS_SUBMITTING) tick(false);
+  }, 25000);
+
+  try {
+    const sb = getSb();
+    if (!sb?.channel) return;
+    const channel = sb
+      .channel(`register-dates-public-${eventId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "event_dates", filter: `event_id=eq.${eventId}` },
+        () => tick(true)
+      )
+      .subscribe();
+
+    window.addEventListener("beforeunload", () => {
+      try { sb.removeChannel(channel); } catch (_) {}
+    });
+  } catch (_) {}
+}
+
 // ============================================================
 // Init
 // ============================================================
@@ -1072,6 +1168,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderDatesSelect(dateIdFromUrl, dateLabelFromUrl);
     renderHeader();
     syncSubmitAvailability();
+    startRegisterLiveSeatRefresh(EVENT_ID);
 
     if (sumAvailableSeatsFromDates(DATES) <= 0) {
       toast("Evento agotado", "Este evento no tiene cupos disponibles.");

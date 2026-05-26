@@ -1429,3 +1429,19 @@
   }
 
 }
+/* ============================================================
+   PATCH 2026-05-25 — UX navegación a mes del slide
+============================================================ */
+.monthBtn.isTargetMonth,
+.monthBtn[aria-current="true"]{
+  border-color: rgba(80, 35, 255, .45) !important;
+  background: linear-gradient(180deg, rgba(80,35,255,.10), rgba(80,35,255,.04)) !important;
+  color: rgba(38,38,38,.96) !important;
+  box-shadow: 0 12px 34px rgba(80,35,255,.12);
+}
+
+.heroMobileActions button.btn{
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}

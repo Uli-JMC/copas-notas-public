@@ -940,3 +940,19 @@ body.isMoreModalOpen{
     max-height: calc(100vh - 104px);
   }
 }
+
+/* ============================================================
+   PATCH 2026-05-25 — Evita flash de imagen incorrecta al navegar
+============================================================ */
+.heroMedia{
+  background: #101010;
+}
+
+.heroImg{
+  opacity: 0;
+  transition: opacity .22s ease;
+}
+
+.heroImg.isReady{
+  opacity: 1;
+}

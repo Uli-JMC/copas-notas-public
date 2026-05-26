@@ -57,27 +57,33 @@
 ============================================================ */
 
 // ============================================================
-// ✅ FORCE TOP ON HOME (evita que cargue en #proximos)
+// ✅ SCROLL CONTROL HOME
+// - Si venís sin hash: carga arriba como landing.
+// - Si venís a #proximos o ?month=JUNIO#proximos: respeta la navegación.
 // ============================================================
-(function forceTopOnHome() {
+(function controlInitialHomeScroll() {
   try {
     if ("scrollRestoration" in history) history.scrollRestoration = "manual";
 
-    if (location.hash && location.hash.length > 1) {
+    const wantsEvents = location.hash === "#proximos" || new URLSearchParams(location.search).has("month");
+
+    if (!wantsEvents && location.hash && location.hash.length > 1) {
       history.replaceState(null, "", location.pathname + location.search);
     }
 
-    window.scrollTo(0, 0);
-    requestAnimationFrame(() => window.scrollTo(0, 0));
+    if (!wantsEvents) {
+      window.scrollTo(0, 0);
+      requestAnimationFrame(() => window.scrollTo(0, 0));
 
-    window.addEventListener(
-      "load",
-      () => {
-        window.scrollTo(0, 0);
-        setTimeout(() => window.scrollTo(0, 0), 60);
-      },
-      { once: true }
-    );
+      window.addEventListener(
+        "load",
+        () => {
+          window.scrollTo(0, 0);
+          setTimeout(() => window.scrollTo(0, 0), 60);
+        },
+        { once: true }
+      );
+    }
   } catch (_) {}
 })();
 
@@ -1063,7 +1069,7 @@ function renderSlides() {
                 <button class="btn primary ${mobilePrimaryClass}" data-action="register" data-id="${ev.id}" ${mobilePrimaryDisabled}>
                   ${escapeHtml(mobilePrimaryText)}
                 </button>
-                <a class="btn" href="#proximos">Ver más</a>
+                <button class="btn" type="button" data-action="month" data-id="${ev.id}" data-month="${escapeHtml(ev.monthKey || "")}">Ver más</button>
               </div>
             </div>
 
@@ -1136,11 +1142,64 @@ function getThreeMonthWindow() {
   return window.ECN?.getMonths3 ? ECN.getMonths3(new Date()) : ["ENERO", "FEBRERO", "MARZO"];
 }
 
+function normalizeMonthKey(m) {
+  return String(m || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
+function getRequestedMonthFromUrl() {
+  try {
+    const raw = new URLSearchParams(location.search).get("month") || "";
+    return normalizeMonthKey(raw);
+  } catch (_) {
+    return "";
+  }
+}
+
+function scrollToUpcomingEvents() {
+  const section = document.getElementById("proximos");
+  if (!section) return;
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function selectMonthAndScroll(month, opts = {}) {
+  const requested = normalizeMonthKey(month);
+  if (requested) activeMonth = requested;
+
+  renderMonths();
+  renderMonthGrid();
+
+  try {
+    if (requested) {
+      const url = new URL(location.href);
+      url.searchParams.set("month", requested);
+      url.hash = "proximos";
+      history.replaceState(null, "", url.pathname + url.search + url.hash);
+    }
+  } catch (_) {}
+
+  if (opts.scroll !== false) {
+    setTimeout(scrollToUpcomingEvents, opts.delay ?? 60);
+  }
+
+  if (requested) {
+    try { toast("Mes seleccionado", `Mostrando eventos de ${requested}.`); } catch (_) {}
+  }
+}
+
 function renderMonths() {
   if (!monthAnchors || !monthGrid) return;
 
   const months = getThreeMonthWindow();
-  activeMonth ||= months[0];
+  const requestedMonth = getRequestedMonthFromUrl();
+  activeMonth ||= (requestedMonth || months[0]);
+
+  if (requestedMonth && !months.includes(requestedMonth)) {
+    months.push(requestedMonth);
+  }
   monthAnchors.innerHTML = "";
 
   months.forEach((m) => {
@@ -1148,13 +1207,12 @@ function renderMonths() {
     a.href = "#proximos";
     a.className = "monthBtn";
     a.textContent = m;
+    a.dataset.month = m;
     a.setAttribute("aria-current", m === activeMonth);
+    a.classList.toggle("isTargetMonth", m === activeMonth);
     a.onclick = (e) => {
       e.preventDefault();
-      activeMonth = m;
-      renderMonths();
-      renderMonthGrid();
-      toast("Mes seleccionado", `Mostrando eventos de ${m}.`);
+      selectMonthAndScroll(m, { scroll: false });
     };
     monthAnchors.appendChild(a);
   });
@@ -1261,6 +1319,11 @@ document.addEventListener("click", (e) => {
   const finalized = !!ev.finalized;
   const soldOut = !!ev.soldOut;
 
+  if (btn.dataset.action === "month") {
+    selectMonthAndScroll(ev.monthKey, { scroll: true });
+    return;
+  }
+
   if (btn.dataset.action === "info") {
     goEvent(ev.id, finalized);
     return;
@@ -1290,6 +1353,23 @@ window.addEventListener("ecn:events-updated", () => {
   refreshFromSupabase().catch(() => {});
 });
 
+let __ecnHomeRefreshAt = 0;
+function refreshHomeIfStale(force = false) {
+  const now = Date.now();
+  if (!force && now - __ecnHomeRefreshAt < 12000) return;
+  __ecnHomeRefreshAt = now;
+  refreshFromSupabase().catch(() => {});
+}
+
+window.addEventListener("focus", () => refreshHomeIfStale(false));
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshHomeIfStale(false);
+});
+
+setInterval(() => {
+  if (!document.hidden) refreshHomeIfStale(false);
+}, 30000);
+
 // ============================================================
 // Init
 // ============================================================
@@ -1300,6 +1380,11 @@ window.addEventListener("ecn:events-updated", () => {
     initMobileDrawer();
     initScrollReveal();
     await refreshFromSupabase();
+
+    const requestedMonth = getRequestedMonthFromUrl();
+    if (requestedMonth || location.hash === "#proximos") {
+      selectMonthAndScroll(requestedMonth || activeMonth, { scroll: true, delay: 120 });
+    }
   } finally {
     setLoading(false);
   }

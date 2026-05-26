@@ -665,8 +665,19 @@
     }
 
     if (heroImgEl) {
-      heroImgEl.src = picked;
+      if (heroImgEl.src !== picked) {
+        heroImgEl.classList.remove("isReady");
+        heroImgEl.onload = () => heroImgEl.classList.add("isReady");
+        heroImgEl.src = picked;
+      } else {
+        heroImgEl.classList.add("isReady");
+      }
     }
+  }
+
+  function homeEventsUrl(monthKey) {
+    const m = encodeURIComponent(cleanSpaces(monthKey || ""));
+    return m ? `./home.html?month=${m}#proximos` : "./home.html#proximos";
   }
 
   function renderEvent(ev) {
@@ -750,6 +761,12 @@
     else if (soldOutTotal) setNotices({ sold: true, available: false, pending: false });
     else setNotices({ sold: false, available: true, pending: false });
 
+    const btnHome = $("#btnHome");
+    if (btnHome) btnHome.href = homeEventsUrl(ev.monthKey);
+
+    const topBack = document.querySelector('.topbar .brand');
+    if (topBack) topBack.href = homeEventsUrl(ev.monthKey);
+
     const btnRegister = $("#btnRegister");
     if (btnRegister) {
       const firstAvailable = (ev.dates || []).find((x) => (Number(x?.seats) || 0) > 0);
@@ -781,6 +798,53 @@
     if (soldOutTotal && ev.datesOk) toast("Evento agotado", "Este evento no tiene cupos disponibles.");
   }
 
+  async function refreshCurrentEvent({ silent = true } = {}) {
+    if (!CURRENT?.id) return;
+    try {
+      const fresh = await fetchEventFromSupabase(CURRENT.id);
+      if (fresh) renderEvent(fresh);
+    } catch (err) {
+      console.warn("[event] refresh failed:", err);
+      if (!silent) toast("Error", "No se pudieron actualizar los cupos.");
+    }
+  }
+
+  function startLiveSeatRefresh(eventId) {
+    let last = 0;
+    const tick = (force = false) => {
+      const now = Date.now();
+      if (!force && now - last < 10000) return;
+      last = now;
+      refreshCurrentEvent({ silent: true });
+    };
+
+    window.addEventListener("focus", () => tick(false));
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) tick(false);
+    });
+
+    setInterval(() => {
+      if (!document.hidden) tick(false);
+    }, 25000);
+
+    try {
+      const sb = getSB();
+      if (!sb?.channel) return;
+      const channel = sb
+        .channel(`event-dates-public-${eventId}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "event_dates", filter: `event_id=eq.${eventId}` },
+          () => tick(true)
+        )
+        .subscribe();
+
+      window.addEventListener("beforeunload", () => {
+        try { sb.removeChannel(channel); } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
   // ----------------------------
   // Init
   // ----------------------------
@@ -798,6 +862,7 @@
 
     const ev = await fetchEventFromSupabase(eventId);
     renderEvent(ev);
+    startLiveSeatRefresh(eventId);
 
     setLoading(false);
 
