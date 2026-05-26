@@ -100,6 +100,69 @@
     return normalizeImgPath(desk || mob || "./assets/img/hero-1.jpg");
   }
 
+
+  const WARM_PREFIX = "ecn:warm:event:";
+  let __currentEventHeroUrl = "";
+
+  function readWarmPayload(eventId) {
+    const eid = cleanSpaces(eventId);
+    if (!eid) return null;
+    try {
+      const raw = sessionStorage.getItem(WARM_PREFIX + eid) || "";
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (cleanSpaces(data?.eventId) !== eid) return null;
+      const age = Date.now() - Number(data?.savedAt || 0);
+      if (age > 1000 * 60 * 30) return null;
+      return data;
+    } catch (_) { return null; }
+  }
+
+  function warmImage(url) {
+    const u = cleanSpaces(url);
+    if (!u) return;
+    try { const img = new Image(); img.decoding = "async"; img.src = u; } catch (_) {}
+    try { const link = document.createElement("link"); link.rel = "preload"; link.as = "image"; link.href = u; document.head.appendChild(link); } catch (_) {}
+  }
+
+  function paintEventHeroImmediate(url) {
+    const raw = cleanSpaces(url);
+    if (!raw) return;
+    const picked = normalizeImgPath(raw);
+    if (!picked || picked === __currentEventHeroUrl) return;
+
+    __currentEventHeroUrl = picked;
+    warmImage(picked);
+
+    const heroBg = $("#heroBg");
+    const heroImgEl = $("#evPhoto");
+    const cssUrl = `url('${safeCssUrl(picked)}')`;
+
+    if (heroBg) {
+      heroBg.style.setProperty("--bgimg", cssUrl);
+      heroBg.style.backgroundImage = cssUrl;
+    }
+    if (heroImgEl) {
+      heroImgEl.setAttribute("data-current-src", picked);
+      heroImgEl.src = picked;
+      heroImgEl.classList.add("isReady");
+    }
+  }
+
+  function hydrateEventFromWarmPayload(eventId) {
+    const warm = readWarmPayload(eventId);
+    if (!warm) return;
+    const hero = isMobileViewport()
+      ? cleanSpaces(warm.mobileEventImg || warm.eventHero || warm.desktopEventImg || warm.slideImg || "")
+      : cleanSpaces(warm.desktopEventImg || warm.eventHero || warm.mobileEventImg || warm.slideImg || "");
+    if (hero) paintEventHeroImmediate(hero);
+
+    const t = $("#evTitle");
+    const d = $("#evDesc");
+    if (t && cleanSpaces(warm.title)) t.textContent = warm.title;
+    if (d && cleanSpaces(warm.desc)) d.textContent = warm.desc;
+  }
+
   function toast(title, msg, timeoutMs = 3800) {
     try {
       if (window.APP && typeof APP.toast === "function") return APP.toast(title, msg, timeoutMs);
@@ -202,7 +265,7 @@
   // ----------------------------
   // Media fetch (v_media_bindings_latest) ✅ IMPLEMENTACIÓN B
   // ----------------------------
-  const WANT_SLOTS = ["desktop_event", "mobile_event", "event_more"];
+  const WANT_SLOTS = ["slide_img", "desktop_event", "mobile_event", "event_more"];
 
   function resolveBindingUrl(row) {
     const pub = cleanSpaces(row?.public_url);
@@ -338,6 +401,7 @@
       // ✅ guardamos ambos por si querés recalcular en resize/orientation
       _mediaDesktop: cleanSpaces(media.desktop_event || ""),
       _mediaMobile: cleanSpaces(media.mobile_event || ""),
+      _slideImg: cleanSpaces(media.slide_img || ""),
 
       img: heroUrl,
 
@@ -363,11 +427,32 @@
   // ----------------------------
   let CURRENT = null;
 
+  function storeWarmFromCurrent() {
+    if (!CURRENT?.id) return;
+    const registerHero = cleanSpaces(CURRENT._slideImg || CURRENT.img || CURRENT._mediaMobile || CURRENT._mediaDesktop || "");
+    const payload = {
+      eventId: CURRENT.id,
+      title: CURRENT.title || "",
+      desc: CURRENT.desc || "",
+      seats: Number(CURRENT.seats || 0),
+      monthKey: CURRENT.monthKey || "",
+      registerHero,
+      eventHero: cleanSpaces(CURRENT.img || ""),
+      desktopEventImg: cleanSpaces(CURRENT._mediaDesktop || ""),
+      mobileEventImg: cleanSpaces(CURRENT._mediaMobile || ""),
+      slideImg: registerHero,
+      savedAt: Date.now(),
+    };
+    try { sessionStorage.setItem(WARM_PREFIX + CURRENT.id, JSON.stringify(payload)); } catch (_) {}
+    warmImage(registerHero);
+  }
+
   function goRegisterWithDate(eventId, dateId, dateLabel) {
+    storeWarmFromCurrent();
     const e = encodeURIComponent(safeStr(eventId || ""));
     const d = encodeURIComponent(safeStr(dateId || ""));
     const l = encodeURIComponent(safeStr(dateLabel || ""));
-    window.location.href = `./register.html?event=${e}&date_id=${d}&date_label=${l}`;
+    window.location.href = `./register.html?event=${e}&date_id=${d}&date_label=${l}&warm=1`;
   }
 
   function ensurePickListener() {
@@ -681,30 +766,22 @@
     if (heroImgEl) {
       const current = cleanSpaces(heroImgEl.getAttribute("data-current-src") || "");
       if (current === picked && heroImgEl.classList.contains("isReady")) return;
-      heroImgEl.classList.remove("isReady");
     }
 
-    // ✅ Evita flash: precarga primero; luego reemplaza src/background.
+    // ✅ Pintado inmediato de la URL correcta. Si venís desde Home, ya viene pre-warmed.
+    paintEventHeroImmediate(picked);
+
+    // Validación liviana: si falla, quitamos ready para que quede skeleton oscuro.
     preloadImage(picked)
       .then((loadedUrl) => {
         if (token !== __eventHeroToken) return;
-        const cssUrl = `url('${safeCssUrl(loadedUrl)}')`;
-
-        if (heroBg) {
-          heroBg.style.setProperty("--bgimg", cssUrl);
-          heroBg.style.backgroundImage = cssUrl;
-        }
-
-        if (heroImgEl) {
-          heroImgEl.setAttribute("data-current-src", loadedUrl);
-          heroImgEl.onload = null;
-          heroImgEl.src = loadedUrl;
-          heroImgEl.classList.add("isReady");
-        }
+        paintEventHeroImmediate(loadedUrl);
       })
       .catch(() => {
         if (token !== __eventHeroToken) return;
-        if (heroImgEl) heroImgEl.classList.remove("isReady");
+        if (heroImgEl && cleanSpaces(heroImgEl.getAttribute("data-current-src") || "") === picked) {
+          heroImgEl.classList.remove("isReady");
+        }
       });
   }
 
@@ -806,10 +883,14 @@
 
       if (firstAvailable && safeStr(firstAvailable.id || "")) {
         btnRegister.href =
-          `./register.html?event=${encodeURIComponent(ev.id)}&date_id=${encodeURIComponent(firstAvailable.id)}&date_label=${encodeURIComponent(firstAvailable.label || "")}`;
+          `./register.html?event=${encodeURIComponent(ev.id)}&date_id=${encodeURIComponent(firstAvailable.id)}&date_label=${encodeURIComponent(firstAvailable.label || "")}&warm=1`;
       } else {
-        btnRegister.href = `./register.html?event=${encodeURIComponent(ev.id)}`;
+        btnRegister.href = `./register.html?event=${encodeURIComponent(ev.id)}&warm=1`;
       }
+
+      btnRegister.addEventListener("pointerover", () => storeWarmFromCurrent(), { once: true });
+      btnRegister.addEventListener("touchstart", () => storeWarmFromCurrent(), { once: true, passive: true });
+      btnRegister.addEventListener("click", () => storeWarmFromCurrent());
 
       if (soldOutTotal) {
         btnRegister.setAttribute("aria-disabled", "true");
@@ -890,6 +971,9 @@
       setTimeout(() => (window.location.href = "./home.html#proximos"), 700);
       return;
     }
+
+    // ✅ Pintado inmediato si venimos desde Home con payload precargado.
+    hydrateEventFromWarmPayload(eventId);
 
     setLoading(true);
 

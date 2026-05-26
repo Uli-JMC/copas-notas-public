@@ -239,6 +239,75 @@ function toast(title, msg, timeout = 3800) {
   setTimeout(kill, timeout);
 }
 
+
+// ============================================================
+// ✅ Navigation image warmup (Home → Event/Register)
+// - Evita que Register/Event esperen Supabase para pintar la imagen correcta.
+// - Guarda la imagen por event_id y dispara preload antes de navegar.
+// ============================================================
+const WARM_PREFIX = "ecn:warm:event:";
+
+function safeJsonSet(key, value) {
+  try { sessionStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+}
+
+function warmImage(url) {
+  const u = String(url || "").trim();
+  if (!u) return;
+  try {
+    let link = document.querySelector(`link[data-ecn-preload="${CSS.escape(u)}"]`);
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "preload";
+      link.as = "image";
+      link.href = u;
+      link.setAttribute("data-ecn-preload", u);
+      document.head.appendChild(link);
+    }
+  } catch (_) {}
+  try {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = u;
+  } catch (_) {}
+}
+
+function warmEventForNavigation(ev) {
+  if (!ev || !ev.id) return;
+
+  const slideImg = String(ev.slideImg || ev.img || "").trim();
+  const desktopImg = String(ev.desktopEventImg || ev.img || "").trim();
+  const mobileImg = String(ev.mobileEventImg || ev.img || "").trim();
+  const registerHero = slideImg || mobileImg || desktopImg || "";
+  const eventHero = (window.matchMedia && window.matchMedia("(max-width: 768px)").matches)
+    ? (mobileImg || desktopImg || slideImg)
+    : (desktopImg || mobileImg || slideImg);
+
+  const payload = {
+    eventId: ev.id,
+    title: ev.title || "",
+    desc: ev.desc || "",
+    seats: Number(ev.seatsUpcoming || 0),
+    monthKey: ev.monthKey || "",
+    registerHero,
+    eventHero,
+    desktopEventImg: desktopImg,
+    mobileEventImg: mobileImg,
+    slideImg,
+    savedAt: Date.now(),
+  };
+
+  safeJsonSet(WARM_PREFIX + ev.id, payload);
+  try { sessionStorage.setItem("ecn:warm:lastEventId", ev.id); } catch (_) {}
+
+  warmImage(registerHero);
+  warmImage(eventHero);
+}
+
+function getWarmEventById(id) {
+  return EVENTS.find((x) => String(x.id) === String(id)) || null;
+}
+
 // ============================================================
 // Nav helpers
 // ============================================================
@@ -247,7 +316,8 @@ function goEvent(id, finalized) {
     toast("Evento finalizado", "Este evento ya terminó.");
     return;
   }
-  window.location.href = `./event.html?event=${encodeURIComponent(id)}`;
+  warmEventForNavigation(getWarmEventById(id));
+  window.location.href = `./event.html?event=${encodeURIComponent(id)}&warm=1`;
 }
 
 function goRegister(id, soldOut, finalized) {
@@ -259,7 +329,8 @@ function goRegister(id, soldOut, finalized) {
     toast("Evento agotado", "Este evento no tiene cupos disponibles.");
     return;
   }
-  window.location.href = `./register.html?event=${encodeURIComponent(id)}`;
+  warmEventForNavigation(getWarmEventById(id));
+  window.location.href = `./register.html?event=${encodeURIComponent(id)}&warm=1`;
 }
 
 // ============================================================
@@ -662,6 +733,10 @@ async function fetchEventsFromSupabase() {
       title: ev?.title || "Evento",
       desc: ev?.description || "",
       img: heroImg,
+      // URLs crudas para prefetch y navegación sin flash
+      slideImg: slideImg || "",
+      desktopEventImg: desktop || "",
+      mobileEventImg: mobile || "",
       videoUrl,
       location: ev?.location || "",
       timeRange: ev?.time_range || "",
@@ -1303,6 +1378,22 @@ function renderMonthGrid() {
 // ============================================================
 // Delegation
 // ============================================================
+document.addEventListener("pointerover", (e) => {
+  const btn = e.target.closest("[data-action]");
+  if (!btn) return;
+  const action = btn.dataset.action || "";
+  if (action !== "register" && action !== "info") return;
+  warmEventForNavigation(getWarmEventById(btn.dataset.id || ""));
+}, { passive: true });
+
+document.addEventListener("touchstart", (e) => {
+  const btn = e.target.closest("[data-action]");
+  if (!btn) return;
+  const action = btn.dataset.action || "";
+  if (action !== "register" && action !== "info") return;
+  warmEventForNavigation(getWarmEventById(btn.dataset.id || ""));
+}, { passive: true });
+
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-action]");
   if (!btn) return;

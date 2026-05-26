@@ -135,6 +135,83 @@ function normalizeImgPath(input) {
   return "./assets/img/" + p + (rest || "");
 }
 
+
+const WARM_PREFIX = "ecn:warm:event:";
+let __currentRegisterHeroUrl = "";
+
+function readWarmPayload(eventId) {
+  const eid = safeTrim(eventId);
+  if (!eid) return null;
+  try {
+    const raw = sessionStorage.getItem(WARM_PREFIX + eid) || "";
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (safeTrim(data?.eventId) !== eid) return null;
+    // seguridad: no reutilizar payloads muy viejos
+    const age = Date.now() - Number(data?.savedAt || 0);
+    if (age > 1000 * 60 * 30) return null;
+    return data;
+  } catch (_) {
+    return null;
+  }
+}
+
+function warmImage(url) {
+  const u = safeTrim(url);
+  if (!u) return;
+  try {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = u;
+  } catch (_) {}
+  try {
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.href = u;
+    document.head.appendChild(link);
+  } catch (_) {}
+}
+
+function paintRegisterHeroImmediate(url) {
+  const raw = safeTrim(url);
+  if (!raw) return;
+  const bg = normalizeImgPath(raw);
+  if (!bg || bg === __currentRegisterHeroUrl) return;
+
+  __currentRegisterHeroUrl = bg;
+  warmImage(bg);
+
+  const cssUrl = `url('${safeCssUrl(bg)}')`;
+  const cardTop = $(".cardTop");
+  if (cardTop) {
+    cardTop.style.setProperty("--register-bg-image", cssUrl);
+    cardTop.style.backgroundImage = `
+      radial-gradient(900px 420px at 18% 0%, rgba(255,255,255,.10), rgba(255,255,255,0) 58%),
+      linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.66)),
+      ${cssUrl}
+    `;
+    cardTop.dataset.mediaLoading = "false";
+    cardTop.dataset.mediaLoaded = "true";
+  }
+}
+
+function hydrateRegisterFromWarmPayload(eventId) {
+  const warm = readWarmPayload(eventId);
+  if (!warm) return;
+
+  const hero = safeTrim(warm.registerHero || warm.slideImg || warm.mobileEventImg || warm.desktopEventImg || "");
+  if (hero) paintRegisterHeroImmediate(hero);
+
+  // Pintado rápido de contenido para evitar estado “Evento” mientras llega Supabase.
+  const titleEl = $("#eventTitle");
+  const descEl = $("#eventDesc");
+  if (titleEl && safeTrim(warm.title)) titleEl.textContent = warm.title;
+  if (descEl && safeTrim(warm.desc)) descEl.textContent = warm.desc;
+  const seats = Number(warm.seats);
+  if (Number.isFinite(seats) && seats >= 0) setAvailableBadge(`CUPOS DISP.: ${seats}`);
+}
+
 // ============================================================
 // Supabase guard
 // ============================================================
@@ -593,44 +670,20 @@ function setRegisterHeroIfExists(url) {
   const bg = normalizeImgPath(u);
   const token = ++__registerHeroToken;
 
-  const cardTop = $(".cardTop");
-  if (cardTop) {
-    cardTop.dataset.mediaLoaded = "false";
-    cardTop.dataset.mediaLoading = "true";
-  }
+  // ✅ Pintar de inmediato la URL correcta. Si viene precargada desde Home/Event,
+  // aparece prácticamente instantáneo; si no, el navegador empieza a bajarla ya.
+  paintRegisterHeroImmediate(bg);
 
-  // ✅ Evita flash: no aplicamos la imagen al background hasta que esté precargada.
+  // ✅ Validación liviana: si la imagen falla, no dejamos una URL rota.
   preloadImage(bg)
     .then((loadedUrl) => {
       if (token !== __registerHeroToken) return;
-      const cssUrl = `url('${safeCssUrl(loadedUrl)}')`;
-
-      if (cardTop) {
-        cardTop.style.setProperty("--register-bg-image", cssUrl);
-        cardTop.style.backgroundImage = `
-          radial-gradient(900px 420px at 18% 0%, rgba(255,255,255,.10), rgba(255,255,255,0) 58%),
-          linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.66)),
-          ${cssUrl}
-        `;
-        cardTop.dataset.mediaLoading = "false";
-        cardTop.dataset.mediaLoaded = "true";
-      }
-
-      // Compat por si alguna versión futura vuelve a tener heroBg/regHeroBg.
-      const heroBg = $("#heroBg") || $("#regHeroBg");
-      if (heroBg) {
-        heroBg.style.setProperty("--bgimg", cssUrl);
-        heroBg.style.backgroundImage = cssUrl;
-      }
-
-      const imgEl = $("#evPhoto") || $("#regHeroImg");
-      if (imgEl && imgEl.tagName === "IMG") {
-        imgEl.src = loadedUrl;
-      }
+      paintRegisterHeroImmediate(loadedUrl);
     })
     .catch(() => {
       if (token !== __registerHeroToken) return;
-      if (cardTop) {
+      const cardTop = $(".cardTop");
+      if (cardTop && __currentRegisterHeroUrl === bg) {
         cardTop.dataset.mediaLoading = "false";
         cardTop.dataset.mediaLoaded = "false";
       }
@@ -1085,6 +1138,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     setTimeout(() => (window.location.href = "./home.html#proximos"), 900);
     return;
   }
+
+  // ✅ Pintado instantáneo con datos precargados por Home/Event.
+  // Esto elimina el “fondo negro largo” cuando la navegación viene desde el sitio.
+  hydrateRegisterFromWarmPayload(EVENT_ID);
 
   const backBtn = $("#backBtn");
   if (backBtn) backBtn.href = `./event.html?event=${encodeURIComponent(EVENT_ID)}`;
