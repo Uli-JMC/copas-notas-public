@@ -182,18 +182,42 @@ function paintRegisterHeroImmediate(url) {
   __currentRegisterHeroUrl = bg;
   warmImage(bg);
 
-  const cssUrl = `url('${safeCssUrl(bg)}')`;
   const cardTop = $(".cardTop");
+  const img = $("#registerHeroImg");
   if (cardTop) {
-    cardTop.style.setProperty("--register-bg-image", cssUrl);
-    cardTop.style.backgroundImage = `
-      radial-gradient(900px 420px at 18% 0%, rgba(255,255,255,.10), rgba(255,255,255,0) 58%),
-      linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.66)),
-      ${cssUrl}
-    `;
-    cardTop.dataset.mediaLoading = "false";
-    cardTop.dataset.mediaLoaded = "true";
+    cardTop.dataset.mediaLoading = "true";
+    cardTop.dataset.mediaLoaded = "false";
+    // No pintamos un background viejo: el <img> real controla la imagen visible.
+    cardTop.style.removeProperty("background-image");
   }
+
+  if (!img) return;
+  img.alt = EVENT?.title ? `Imagen del evento: ${EVENT.title}` : "Imagen del evento";
+  img.dataset.targetSrc = bg;
+  img.classList.remove("isReady");
+
+  const onReady = () => {
+    if (img.dataset.targetSrc !== bg) return;
+    img.classList.add("isReady");
+    if (cardTop) {
+      cardTop.dataset.mediaLoading = "false";
+      cardTop.dataset.mediaLoaded = "true";
+    }
+  };
+
+  img.onload = onReady;
+  img.onerror = () => {
+    if (img.dataset.targetSrc !== bg) return;
+    img.classList.remove("isReady");
+    if (cardTop) {
+      cardTop.dataset.mediaLoading = "false";
+      cardTop.dataset.mediaLoaded = "false";
+    }
+  };
+
+  // Si ya está en cache, complete puede venir true casi inmediatamente.
+  if (img.src !== bg) img.src = bg;
+  if (img.complete && img.naturalWidth > 0) onReady();
 }
 
 function hydrateRegisterFromWarmPayload(eventId) {
@@ -870,6 +894,64 @@ async function fetchEventAndDates(eventId) {
   return { event, dates };
 }
 
+async function refreshRegisterData(opts = {}) {
+  const keepSelected = opts.keepSelected !== false;
+  if (!EVENT_ID) return;
+
+  const previousId = keepSelected ? String(SELECTED_DATE_ID || $("#eventDate")?.value || "") : "";
+  const previousLabel = keepSelected ? String(SELECTED_DATE_LABEL || "") : "";
+
+  const fresh = await fetchEventAndDates(EVENT_ID);
+  if (!fresh.event) return;
+
+  EVENT = fresh.event;
+  DATES = fresh.dates;
+
+  renderDatesSelect(previousId, previousLabel);
+  if (previousId && getDateById(previousId)) {
+    SELECTED_DATE_ID = previousId;
+    setHiddenDateId(previousId);
+  }
+
+  renderHeader();
+  syncSubmitAvailability();
+}
+
+let __registerRealtimeChannel = null;
+function wireRegisterAvailabilityRefresh() {
+  const refreshSoft = () => {
+    refreshRegisterData({ keepSelected: true }).catch((err) => console.warn("[register] refresh fail", err));
+  };
+
+  window.addEventListener("focus", refreshSoft);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") refreshSoft();
+  });
+
+  setInterval(() => {
+    if (document.visibilityState === "visible") refreshSoft();
+  }, 25000);
+
+  const sb = getSb();
+  if (!sb?.channel || !EVENT_ID) return;
+  try {
+    __registerRealtimeChannel = sb
+      .channel(`event-dates-register-${EVENT_ID}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "event_dates", filter: `event_id=eq.${EVENT_ID}` },
+        refreshSoft
+      )
+      .subscribe();
+
+    window.addEventListener("pagehide", () => {
+      try { if (__registerRealtimeChannel) sb.removeChannel(__registerRealtimeChannel); } catch (_) {}
+    });
+  } catch (err) {
+    console.warn("[register] realtime unavailable", err);
+  }
+}
+
 // ============================================================
 // Validation
 // ============================================================
@@ -956,6 +1038,12 @@ async function submitRegistration() {
   }
 
   const dateId = $("#eventDate")?.value || "";
+
+  // Última validación visual antes de llamar al RPC: actualiza cupos desde Supabase.
+  try {
+    await refreshRegisterData({ keepSelected: true });
+  } catch (_) {}
+
   const d = getDateById(dateId);
   if (!d || (Number(d.seats_available) || 0) <= 0) {
     toast("Agotado", "Esa fecha ya no tiene cupos.");
@@ -1185,6 +1273,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderDatesSelect(dateIdFromUrl, dateLabelFromUrl);
     renderHeader();
     syncSubmitAvailability();
+    wireRegisterAvailabilityRefresh();
 
     if (sumAvailableSeatsFromDates(DATES) <= 0) {
       toast("Evento agotado", "Este evento no tiene cupos disponibles.");

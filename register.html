@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="./css/register.css" />
 </head>
 
+<body>
   <!-- ✅ Success Modal (centrado) -->
   <div class="modalOverlay" id="successModal" hidden aria-hidden="true">
     <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="successTitle" aria-describedby="successDesc">
@@ -36,7 +37,7 @@
     </div>
   </div>
 
-<body>
+
   <!-- Toasts -->
   <div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions"></div>
 
@@ -62,6 +63,8 @@
     <div class="container">
       <section class="card">
         <div class="cardTop">
+          <img id="registerHeroImg" class="registerHeroImg" alt="" fetchpriority="high" decoding="async" />
+          <div class="registerHeroOverlay" aria-hidden="true"></div>
           <div class="cardTopRow">
             <p class="kicker">Inscripción</p>
             <span class="cuposBadge" id="availableSeats">CUPOS DISP.: —</span>
