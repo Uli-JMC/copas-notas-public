@@ -123,17 +123,43 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 .cardTop{
   padding: var(--space-20) var(--space-20) var(--space-18);
 
-  --reg-bg: url("/assets/img/register.png");
+  /* ✅ Se actualiza por JS con el slot slide_img del evento.
+     Fallback local solo mientras carga. */
+  --register-bg-image: url("../assets/img/register.png");
+
+  min-height: 360px;
+  position: relative;
+  isolation: isolate;
 
   background-image:
-    radial-gradient(1100px 520px at 20% 0%, rgba(255,255,255,.12), rgba(255,255,255,0) 60%),
-    linear-gradient(180deg, rgba(0,0,0,.22), rgba(0,0,0,.72)),
-    var(--reg-bg);
-
+    radial-gradient(900px 420px at 18% 0%, rgba(255,255,255,.10), rgba(255,255,255,0) 58%),
+    linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.66)),
+    var(--register-bg-image);
   background-size: cover;
-  background-position: center;
+  background-position: center center;
   background-repeat: no-repeat;
-  isolation: isolate;
+}
+
+.cardTop[data-media-loaded="true"]{
+  background-position: center center;
+}
+
+@media (max-width: 760px){
+  .cardTop{
+    min-height: 560px;
+    padding: 26px 22px 24px;
+    background-position: center top;
+  }
+
+  .cardTop[data-media-loaded="true"]{
+    background-position: center top;
+  }
+}
+
+@media (max-width: 420px){
+  .cardTop{
+    min-height: 530px;
+  }
 }
 
 /* Row superior: kicker + badge */
@@ -669,24 +695,4 @@ select{
 @keyframes modalPop{
   from { transform: translateY(10px) scale(.985); opacity: 0; }
   to { transform: translateY(0) scale(1); opacity: 1; }
-}
-
-
-/* ============================================================
-   PATCH 2026-05-25 — Register usa imagen real del evento
-============================================================ */
-.cardTop.hasDynamicHero{
-  background-color: #111;
-}
-
-.cardTop.hasDynamicHero .title,
-.cardTop.hasDynamicHero .sub,
-.cardTop.hasDynamicHero .mValue,
-.cardTop.hasDynamicHero .mLabel{
-  text-shadow: 0 2px 18px rgba(0,0,0,.45);
-}
-
-.ecnActions{
-  gap: 12px;
-  flex-wrap: wrap;
 }
