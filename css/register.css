@@ -123,21 +123,30 @@ p,h1,h2,h3,span,a{ overflow-wrap:anywhere; }
 .cardTop{
   padding: var(--space-20) var(--space-20) var(--space-18);
 
-  /* ✅ Se actualiza por JS con el slot slide_img del evento.
-     Fallback local solo mientras carga. */
-  --register-bg-image: url("../assets/img/register.png");
+  /* ✅ IMPORTANTE:
+     No usamos imagen fallback visible aquí. Antes se veía register.png/hero viejo
+     mientras Supabase resolvía la imagen real del evento. Ahora arrancamos con
+     un fondo neutro y JS aplica la imagen solo después de precargarla. */
+  --register-bg-image: none;
 
   min-height: 360px;
   position: relative;
   isolation: isolate;
 
+  background-color: #111;
   background-image:
     radial-gradient(900px 420px at 18% 0%, rgba(255,255,255,.10), rgba(255,255,255,0) 58%),
-    linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.66)),
-    var(--register-bg-image);
+    linear-gradient(180deg, rgba(0,0,0,.44), rgba(0,0,0,.74));
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
+  transition: background-image .18s ease, opacity .18s ease;
+}
+
+.cardTop[data-media-loading="true"]{
+  background-image:
+    radial-gradient(900px 420px at 18% 0%, rgba(255,255,255,.08), rgba(255,255,255,0) 58%),
+    linear-gradient(180deg, rgba(0,0,0,.46), rgba(0,0,0,.78));
 }
 
 .cardTop[data-media-loaded="true"]{

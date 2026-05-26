@@ -41,6 +41,20 @@
     return safeStr(url).replaceAll("'", "%27").replaceAll('"', "%22").replaceAll(")", "%29").trim();
   }
 
+  let __eventHeroToken = 0;
+  function preloadImage(url) {
+    const src = cleanSpaces(url);
+    if (!src) return Promise.reject(new Error("Imagen vacía"));
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.decoding = "async";
+      img.onload = () => resolve(src);
+      img.onerror = () => reject(new Error("No se pudo cargar la imagen"));
+      img.src = src;
+    });
+  }
+
   function isAbsUrl(u) {
     return /^https?:\/\//i.test(String(u || "").trim());
   }
@@ -655,24 +669,43 @@
     const heroBg = $("#heroBg");
     const heroImgEl = $("#evPhoto");
 
-    const picked = isMobileViewport()
-      ? normalizeImgPath(CURRENT._mediaMobile || CURRENT._mediaDesktop || "./assets/img/hero-1.jpg")
-      : normalizeImgPath(CURRENT._mediaDesktop || CURRENT._mediaMobile || "./assets/img/hero-1.jpg");
+    const rawHero = isMobileViewport()
+      ? cleanSpaces(CURRENT._mediaMobile || CURRENT._mediaDesktop || "")
+      : cleanSpaces(CURRENT._mediaDesktop || CURRENT._mediaMobile || "");
 
-    if (heroBg) {
-      heroBg.style.setProperty("--bgimg", `url('${safeCssUrl(picked)}')`);
-      heroBg.style.backgroundImage = `url('${safeCssUrl(picked)}')`;
-    }
+    if (!rawHero) return;
+    const picked = normalizeImgPath(rawHero);
+
+    const token = ++__eventHeroToken;
 
     if (heroImgEl) {
-      if (heroImgEl.src !== picked) {
-        heroImgEl.classList.remove("isReady");
-        heroImgEl.onload = () => heroImgEl.classList.add("isReady");
-        heroImgEl.src = picked;
-      } else {
-        heroImgEl.classList.add("isReady");
-      }
+      const current = cleanSpaces(heroImgEl.getAttribute("data-current-src") || "");
+      if (current === picked && heroImgEl.classList.contains("isReady")) return;
+      heroImgEl.classList.remove("isReady");
     }
+
+    // ✅ Evita flash: precarga primero; luego reemplaza src/background.
+    preloadImage(picked)
+      .then((loadedUrl) => {
+        if (token !== __eventHeroToken) return;
+        const cssUrl = `url('${safeCssUrl(loadedUrl)}')`;
+
+        if (heroBg) {
+          heroBg.style.setProperty("--bgimg", cssUrl);
+          heroBg.style.backgroundImage = cssUrl;
+        }
+
+        if (heroImgEl) {
+          heroImgEl.setAttribute("data-current-src", loadedUrl);
+          heroImgEl.onload = null;
+          heroImgEl.src = loadedUrl;
+          heroImgEl.classList.add("isReady");
+        }
+      })
+      .catch(() => {
+        if (token !== __eventHeroToken) return;
+        if (heroImgEl) heroImgEl.classList.remove("isReady");
+      });
   }
 
   function homeEventsUrl(monthKey) {

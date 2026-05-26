@@ -98,6 +98,20 @@ function safeCssUrl(url) {
   return String(url ?? "").replaceAll("'", "%27").replaceAll('"', "%22").replaceAll(")", "%29").trim();
 }
 
+let __registerHeroToken = 0;
+function preloadImage(url) {
+  const src = safeTrim(url);
+  if (!src) return Promise.reject(new Error("Imagen vacía"));
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => resolve(src);
+    img.onerror = () => reject(new Error("No se pudo cargar la imagen"));
+    img.src = src;
+  });
+}
+
 function isAbsUrl(u) {
   return /^https?:\/\//i.test(String(u || "").trim());
 }
@@ -577,33 +591,50 @@ function setRegisterHeroIfExists(url) {
   if (!u) return;
 
   const bg = normalizeImgPath(u);
-  const cssUrl = `url('${safeCssUrl(bg)}')`;
+  const token = ++__registerHeroToken;
 
-  // ✅ Register no tiene imagen <img>; el hero visual es .cardTop.
-  // Usamos la imagen del Home Slider asociada al evento (slot slide_img)
-  // y la aplicamos como background optimizado al espacio.
   const cardTop = $(".cardTop");
   if (cardTop) {
-    cardTop.style.setProperty("--register-bg-image", cssUrl);
-    cardTop.style.backgroundImage = `
-      radial-gradient(900px 420px at 18% 0%, rgba(255,255,255,.10), rgba(255,255,255,0) 58%),
-      linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.66)),
-      ${cssUrl}
-    `;
-    cardTop.dataset.mediaLoaded = "true";
+    cardTop.dataset.mediaLoaded = "false";
+    cardTop.dataset.mediaLoading = "true";
   }
 
-  // Compat por si alguna versión futura vuelve a tener heroBg/regHeroBg.
-  const heroBg = $("#heroBg") || $("#regHeroBg");
-  if (heroBg) {
-    heroBg.style.setProperty("--bgimg", cssUrl);
-    heroBg.style.backgroundImage = cssUrl;
-  }
+  // ✅ Evita flash: no aplicamos la imagen al background hasta que esté precargada.
+  preloadImage(bg)
+    .then((loadedUrl) => {
+      if (token !== __registerHeroToken) return;
+      const cssUrl = `url('${safeCssUrl(loadedUrl)}')`;
 
-  const imgEl = $("#evPhoto") || $("#regHeroImg");
-  if (imgEl && imgEl.tagName === "IMG") {
-    imgEl.src = bg;
-  }
+      if (cardTop) {
+        cardTop.style.setProperty("--register-bg-image", cssUrl);
+        cardTop.style.backgroundImage = `
+          radial-gradient(900px 420px at 18% 0%, rgba(255,255,255,.10), rgba(255,255,255,0) 58%),
+          linear-gradient(180deg, rgba(0,0,0,.34), rgba(0,0,0,.66)),
+          ${cssUrl}
+        `;
+        cardTop.dataset.mediaLoading = "false";
+        cardTop.dataset.mediaLoaded = "true";
+      }
+
+      // Compat por si alguna versión futura vuelve a tener heroBg/regHeroBg.
+      const heroBg = $("#heroBg") || $("#regHeroBg");
+      if (heroBg) {
+        heroBg.style.setProperty("--bgimg", cssUrl);
+        heroBg.style.backgroundImage = cssUrl;
+      }
+
+      const imgEl = $("#evPhoto") || $("#regHeroImg");
+      if (imgEl && imgEl.tagName === "IMG") {
+        imgEl.src = loadedUrl;
+      }
+    })
+    .catch(() => {
+      if (token !== __registerHeroToken) return;
+      if (cardTop) {
+        cardTop.dataset.mediaLoading = "false";
+        cardTop.dataset.mediaLoaded = "false";
+      }
+    });
 }
 
 function renderHeader() {

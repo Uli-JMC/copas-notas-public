@@ -956,3 +956,22 @@ body.isMoreModalOpen{
 .heroImg.isReady{
   opacity: 1;
 }
+
+
+/* ============================================================
+   PATCH 2026-05-26 — Hero sin flash de imagen fallback
+   - El img inicia transparente y solo aparece cuando JS precarga la imagen real.
+============================================================ */
+.heroMedia{
+  background:
+    radial-gradient(520px 320px at 30% 15%, rgba(255,255,255,.08), transparent 60%),
+    linear-gradient(180deg, #181818, #0f0f0f);
+}
+.heroImg{
+  opacity: 0;
+  transition: opacity .22s ease;
+  background: transparent;
+}
+.heroImg.isReady{
+  opacity: 1;
+}
